@@ -27,6 +27,9 @@ export interface IUser extends Document {
   lastUsernameChange?: Date;
   withdrawPin?: string;
   lastKnownIp?: string;
+  isSuspended?: boolean;
+  suspendedReason?: string;
+  suspendedAt?: Date;
 }
 
 const userSchema: Schema = new Schema(
@@ -58,6 +61,9 @@ const userSchema: Schema = new Schema(
     googleId: { type: String },
     facebookId: { type: String },
     lastKnownIp: { type: String },
+    isSuspended: { type: Boolean, default: false },
+    suspendedReason: { type: String, default: "" },
+    suspendedAt: { type: Date },
   },
   { timestamps: true }
 );

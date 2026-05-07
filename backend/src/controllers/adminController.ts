@@ -369,10 +369,33 @@ export const getUserById = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const bank = await Bank.findOne({ user: userDoc._id });
+    // Pull bank + activity rollups in parallel for the admin detail panel.
+    const [
+      bank,
+      orderCount,
+      productCount,
+      postCount,
+      lastOrder,
+      latestKyc,
+      pendingWithdrawals,
+    ] = await Promise.all([
+      Bank.findOne({ user: userDoc._id }),
+      Order.countDocuments({ user: userDoc._id }),
+      Product.countDocuments({ seller: userDoc._id }),
+      Post.countDocuments({ user: userDoc._id }),
+      Order.findOne({ user: userDoc._id })
+        .sort({ createdAt: -1 })
+        .select("totalPrice status isPaid createdAt"),
+      KycSubmission.findOne({ user: userDoc._id })
+        .sort({ createdAt: -1 })
+        .select("status submittedAt reviewedAt rejectionReason shopInfo"),
+      // Pending withdrawals for sellers — useful at-a-glance for finance admins.
+      Withdraw.countDocuments({ user: userDoc._id, status: "pending" }),
+    ]);
 
     const safeUser = userDoc.toObject() as unknown as Record<string, unknown>;
     delete safeUser.password;
+    delete safeUser.sellerPassword;
     delete safeUser.twoFactorSecret;
     delete safeUser.otp;
     delete safeUser.otpExpires;
@@ -383,6 +406,7 @@ export const getUserById = async (req: Request, res: Response) => {
       data: {
         ...safeUser,
         hasPassword: Boolean(userDoc.password),
+        hasSellerPassword: Boolean(userDoc.get("sellerPassword")),
         hasPin: Boolean(userDoc.withdrawPin),
         bank: bank
           ? {
@@ -393,10 +417,62 @@ export const getUserById = async (req: Request, res: Response) => {
               isVerified: bank.isVerified,
             }
           : null,
+        stats: {
+          orderCount,
+          productCount,
+          postCount,
+          pendingWithdrawals,
+          lastOrderAt: lastOrder ? (lastOrder as unknown as { createdAt: Date }).createdAt : null,
+          lastOrderTotal: lastOrder?.totalPrice ?? 0,
+          lastOrderStatus: lastOrder?.status ?? null,
+        },
+        kyc: latestKyc
+          ? {
+              status: latestKyc.get("status"),
+              submittedAt: latestKyc.get("submittedAt"),
+              reviewedAt: latestKyc.get("reviewedAt"),
+              rejectionReason: latestKyc.get("rejectionReason"),
+              shopInfo: latestKyc.get("shopInfo"),
+            }
+          : null,
       },
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /admin/users/:id/suspend
+// Body: { suspended: boolean, reason?: string }
+export const suspendUser = async (req: Request, res: Response) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    if (user.isAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot suspend an admin account — demote first.",
+      });
+    }
+    const suspended = !!req.body?.suspended;
+    const reason = String(req.body?.reason || "");
+    user.isSuspended = suspended;
+    user.suspendedReason = suspended ? reason : "";
+    user.suspendedAt = suspended ? new Date() : undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: user._id,
+        isSuspended: user.isSuspended,
+        suspendedReason: user.suspendedReason,
+        suspendedAt: user.suspendedAt,
+      },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Server Error";
+    res.status(500).json({ success: false, message });
   }
 };
 

@@ -110,11 +110,53 @@ export interface AdminBank {
   isVerified: boolean;
 }
 
+export interface AdminUserStats {
+  orderCount: number;
+  productCount: number;
+  postCount: number;
+  pendingWithdrawals: number;
+  lastOrderAt: string | null;
+  lastOrderTotal: number;
+  lastOrderStatus: string | null;
+}
+
+export interface AdminUserKyc {
+  status: "pending" | "approved" | "rejected";
+  submittedAt?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  shopInfo?: { shopName?: string; shopCategory?: string };
+}
+
 export interface AdminUserDetail extends AdminUser {
   hasPassword?: boolean;
+  hasSellerPassword?: boolean;
   hasPin?: boolean;
   bank?: AdminBank | null;
+  stats?: AdminUserStats;
+  kyc?: AdminUserKyc | null;
+  posRevenue?: number;
+  isSuspended?: boolean;
+  suspendedReason?: string;
+  suspendedAt?: string;
+  adminRole?: "super" | "finance" | "support" | "content";
+  googleId?: string;
+  facebookId?: string;
 }
+
+export const suspendUser = (
+  id: string,
+  payload: { suspended: boolean; reason?: string }
+) =>
+  apiClient<{
+    _id: string;
+    isSuspended: boolean;
+    suspendedReason?: string;
+    suspendedAt?: string;
+  }>(`/admin/users/${id}/suspend`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 
 export interface UpdateUserPayload {
   name?: string;
