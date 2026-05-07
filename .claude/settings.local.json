@@ -33,7 +33,9 @@
       "Bash(git add *)",
       "Bash(git push *)",
       "Bash(grep -E \"\\\\\\\\.items\\\\b|\\\\\"items\\\\\\\\.shop\\\\\"|orderItems\" f:/Lalashop2026/backend/src/controllers/orderController.ts)",
-      "Bash(grep -n \"subItems\\\\|item\\\\\\\\.subItems\" f:/Lalashop2026/seller/src/components/Sidebar/Sidebar.tsx)"
+      "Bash(grep -n \"subItems\\\\|item\\\\\\\\.subItems\" f:/Lalashop2026/seller/src/components/Sidebar/Sidebar.tsx)",
+      "Bash(cd f:/Lalashop2026/backend && npx tsc --noEmit 2>&1 | head -30; echo \"---ADMIN---\"; cd ../Admin && npx tsc --noEmit 2>&1 | head -30)",
+      "Read(//f//**)"
     ]
   }
 }

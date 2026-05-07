@@ -1,5 +1,5 @@
 import { Router } from "express";
-// import { protect, admin } from "../middlewares/authMiddleware";
+import { protect, admin } from "../middlewares/authMiddleware";
 import {
   getDashboardStats,
   getRecentActivity,
@@ -93,8 +93,8 @@ import {
 
 const router: Router = Router();
 
-// TODO(auth): re-enable before going live.
-// router.use(protect, admin);
+// All /api/admin/* routes require an authenticated admin user.
+router.use(protect, admin);
 
 // Dashboard
 router.get("/dashboard/stats", getDashboardStats);

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, Store, Layers,
   ShoppingBag, Settings, LogOut, Wallet, ChevronDown, ArrowLeftRight, Bell,
-  ShieldCheck, Package, FileWarning, UserCog,BadgeCheck,
+  ShieldCheck, Package, FileWarning, UserCog, BadgeCheck, LifeBuoy,
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -80,6 +80,7 @@ const Sidebar = () => {
       ],
     },
     { name: 'Reports', href: '/reports', icon: FileWarning },
+    { name: 'Support', href: '/support', icon: LifeBuoy },
     { name: 'Profile', href: '/profile', icon: UserCog },
     { name: 'System Settings', href: '/settings', icon: Settings },
   ];

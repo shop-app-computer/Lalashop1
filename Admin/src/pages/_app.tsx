@@ -2,8 +2,16 @@ import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import AdminLayout from "@/components/Layout/AdminLayout";
+import AdminAuthGuard from "@/components/AdminAuthGuard";
 
-const AUTH_ROUTES = ["/login", "/forgot-password", "/2fa"];
+// Routes that anonymous visitors are allowed on. Everything else is wrapped
+// in AdminAuthGuard which forces redirect to /login if no admin token.
+const AUTH_ROUTES = [
+  "/login",
+  "/forgot-password",
+  "/2fa",
+  "/accept-invite/[token]",
+];
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -14,8 +22,10 @@ export default function App({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <AdminLayout>
-      <Component {...pageProps} />
-    </AdminLayout>
+    <AdminAuthGuard>
+      <AdminLayout>
+        <Component {...pageProps} />
+      </AdminLayout>
+    </AdminAuthGuard>
   );
 }

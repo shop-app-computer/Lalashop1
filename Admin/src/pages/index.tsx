@@ -15,7 +15,7 @@ import {
 
 const quickLinks = [
   { title: 'All Users', icon: Users, href: '/users/alluser' },
-  { title: 'Sellers', icon: Store, href: '/users/sellers' },
+  { title: 'Sellers', icon: Store, href: '/users/alluser?role=seller' },
   { title: 'Shop Center', icon: ShoppingBag, href: '/shops/shopcenter' },
   { title: 'Withdrawals', icon: CreditCard, href: '/withdrawpage/Seller/SellerWithdrawals' },
   { title: 'History', icon: History, href: '/history/history' },

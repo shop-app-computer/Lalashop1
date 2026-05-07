@@ -156,6 +156,39 @@ export const adminResendInvite = async (req: IAuthRequest, res: Response) => {
   }
 };
 
+// Public — invitee fetches invite details before accepting (to show email + role
+// before they set a password). Returns 404 if token is invalid/expired so the
+// frontend can show a friendly error.
+export const previewInvite = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    if (!token) return res.status(400).json({ success: false, message: "Token required" });
+
+    const invite = await AdminInvite.findOne({ token });
+    if (!invite) return res.status(404).json({ success: false, message: "Invite not found" });
+
+    // Auto-mark expired so the response reflects current reality.
+    if (invite.status === "pending" && invite.expiresAt < new Date()) {
+      invite.status = "expired";
+      await invite.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        email: invite.email,
+        name: invite.name,
+        role: invite.role,
+        status: invite.status,
+        expiresAt: invite.expiresAt,
+      },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Server Error";
+    res.status(500).json({ success: false, message });
+  }
+};
+
 // Public endpoint — invitee accepts via token
 export const acceptInvite = async (req: Request, res: Response) => {
   try {
