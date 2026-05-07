@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --prefix d:/LalaShop/backend tsc --noEmit --pretty false -p d:/LalaShop/backend)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npx next *)",
+      "Bash(echo \"ADMIN_EXIT=$?\")",
+      "Bash(echo \"BACKEND_EXIT=$?\")",
+      "Bash(echo \"FRONTEND_EXIT=$?\")",
+      "Bash(git -C d:/LalaShop status -s Admin/)",
+      "Bash(git -C d:/LalaShop diff --stat HEAD -- Admin/next.config.mjs)",
+      "Bash(git -C d:/LalaShop show HEAD:Admin/next.config.mjs)",
+      "Bash(git stash *)",
+      "Bash(git -C d:/LalaShop stash list)",
+      "Bash(npx --prefix backend tsc --noEmit -p backend/tsconfig.json)",
+      "PowerShell(Get-ChildItem 'd:/LalaShop/frontend/src/pages' -Force | Where-Object { $_.Name -match '^\\(?i\\)social$' } | Select-Object Name, FullName)",
+      "Bash(git mv *)",
+      "Bash(mv Social social_tmp)",
+      "Bash(mv social_tmp social)"
+    ]
+  }
+}

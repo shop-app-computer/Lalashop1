@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git check-ignore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(wait b0fb4sen8 *)",
+      "Bash(cat /tmp/claude/d--LalaShop/cd619136-c491-4f2c-bd02-3dbaa8568cc2/tasks/b0fb4sen8.output)",
+      "Bash(cat /tmp/claude/d--LalaShop/cd619136-c491-4f2c-bd02-3dbaa8568cc2/tasks/bnpgko2zs.output)",
+      "Bash(npx tsc *)",
+      "Bash(xargs -I {} sed -i 's/ uppercase / /g' {})",
+      "Bash(git -C d:/LalaShop status)",
+      "Bash(git -C d:/LalaShop log --oneline -10)",
+      "Bash(git -C d:/LalaShop diff --stat)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(node -e \"console.log\\('Testing connection...'\\); require\\('dotenv'\\).config\\(\\); const mongoose = require\\('mongoose'\\); mongoose.connect\\(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 }\\).then\\(\\(\\) => { console.log\\('CONNECTED'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAILED:', e.message\\); process.exit\\(1\\); }\\);\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(git -C d:/LalaShop diff --name-only HEAD)",
+      "Bash(git -C d:/LalaShop status --short -- frontend/src/pages/profile/followers/ frontend/src/pages/profile/profile.tsx)"
+    ]
+  }
+}

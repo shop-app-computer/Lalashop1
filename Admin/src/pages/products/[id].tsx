@@ -1,0 +1,332 @@
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import {
+  ArrowLeft, Package, AlertCircle, Image as ImageIcon, Ban, CheckCircle, Star, Tag, Award, Flag,
+} from 'lucide-react';
+import {
+  fetchAdminProduct,
+  updateAdminProduct,
+  type AdminProductRow,
+} from '@/services/adminApi';
+
+type Tab = 'overview' | 'images' | 'reviews' | 'reports' | 'history';
+
+const formatMoney = (n: number): string =>
+  Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+const formatDate = (s?: string): string => {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const productImages = (p: AdminProductRow): string[] => {
+  const list: string[] = [];
+  if (Array.isArray(p.images)) list.push(...p.images);
+  if (typeof p.image === 'string' && p.image) list.push(p.image);
+  else if (Array.isArray(p.image)) list.push(...p.image);
+  return Array.from(new Set(list)).filter(Boolean);
+};
+
+const ProductDetailPage = () => {
+  const router = useRouter();
+  const { id } = router.query;
+  const [tab, setTab] = useState<Tab>('overview');
+  const [product, setProduct] = useState<AdminProductRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadProduct = async (productId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchAdminProduct(productId);
+      setProduct(res.data ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof id !== 'string') return;
+    loadProduct(id);
+  }, [id]);
+
+  const onAction = async (
+    action: 'approve' | 'ban' | 'unban' | 'feature' | 'unfeature' | 'flag-violation' | 'clear-violation',
+  ) => {
+    if (typeof id !== 'string' || !product) return;
+    setBusy(true);
+    try {
+      await updateAdminProduct(String(id), { action });
+      await loadProduct(String(id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-[13px] text-gray-400 py-12 text-center">Loading product...</div>;
+  }
+
+  if (error || !product) {
+    return (
+      <div className="space-y-4 text-sm">
+        <button
+          onClick={() => router.push('/products')}
+          className="inline-flex items-center gap-2 text-[12px] text-gray-500 hover:text-black font-medium transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to products
+        </button>
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-700">
+          {error || 'Product not found'}
+        </div>
+      </div>
+    );
+  }
+
+  const images = productImages(product);
+  const tags = product.tags || [];
+  const isBanned = tags.includes('banned');
+  const isFeatured = tags.includes('featured');
+  const hasViolation = tags.includes('violation') || tags.includes('reported');
+
+  return (
+    <div className="space-y-4 text-sm">
+      <button
+        onClick={() => router.push('/products')}
+        className="inline-flex items-center gap-2 text-[12px] text-gray-500 hover:text-black font-medium transition-colors"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" /> Back to products
+      </button>
+
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4 min-w-0">
+          <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {images[0] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={images[0]} alt={product.name} className="w-full h-full object-cover" />
+            ) : (
+              <Package className="w-6 h-6 text-gray-400" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-[18px] font-bold text-gray-900 truncate">{product.name}</h1>
+            <p className="text-[12px] text-gray-500 mt-1">
+              {product.category} · <span className="font-mono">{product._id.slice(-8).toUpperCase()}</span>
+              {product.seller?.name ? ` · ${product.seller.name}` : ''}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {!isFeatured ? (
+            <button
+              disabled={busy}
+              onClick={() => onAction('feature')}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold text-purple-700 bg-purple-50 inline-flex items-center hover:bg-purple-100 disabled:opacity-50"
+            >
+              <Award className="w-3.5 h-3.5 mr-1.5" /> Feature
+            </button>
+          ) : (
+            <button
+              disabled={busy}
+              onClick={() => onAction('unfeature')}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center hover:bg-gray-100 disabled:opacity-50"
+            >
+              Unfeature
+            </button>
+          )}
+          {!hasViolation ? (
+            <button
+              disabled={busy}
+              onClick={() => onAction('flag-violation')}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-amber-700 bg-amber-50 inline-flex items-center hover:bg-amber-100 disabled:opacity-50"
+            >
+              <Flag className="w-3.5 h-3.5 mr-1.5" /> Flag
+            </button>
+          ) : (
+            <button
+              disabled={busy}
+              onClick={() => onAction('clear-violation')}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center hover:bg-gray-100 disabled:opacity-50"
+            >
+              Clear violation
+            </button>
+          )}
+          {!isBanned ? (
+            <button
+              disabled={busy}
+              onClick={() => onAction('ban')}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold text-red-600 bg-red-50 inline-flex items-center hover:bg-red-100 disabled:opacity-50"
+            >
+              <Ban className="w-3.5 h-3.5 mr-1.5" /> Ban
+            </button>
+          ) : (
+            <button
+              disabled={busy}
+              onClick={() => onAction('unban')}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold text-green-700 bg-green-50 inline-flex items-center hover:bg-green-100 disabled:opacity-50"
+            >
+              <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Reinstate
+            </button>
+          )}
+          {product.status === 'Draft' && (
+            <button
+              disabled={busy}
+              onClick={() => onAction('approve')}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold text-green-700 bg-green-50 inline-flex items-center hover:bg-green-100 disabled:opacity-50"
+            >
+              <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Approve
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex border-b border-gray-100 text-[12px]">
+        {([
+          { id: 'overview', label: 'Overview', icon: Tag },
+          { id: 'images', label: 'Images', icon: ImageIcon },
+          { id: 'reviews', label: 'Reviews', icon: Star },
+          { id: 'reports', label: 'Reports', icon: AlertCircle },
+          { id: 'history', label: 'History', icon: Package },
+        ] as { id: Tab; label: string; icon: typeof Tag }[]).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 inline-flex items-center gap-2 -mb-px font-medium transition-colors ${
+              tab === t.id
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-gray-500 hover:text-black border-b-2 border-transparent'
+            }`}
+          >
+            <t.icon className="w-3.5 h-3.5" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="rounded-lg p-5 lg:col-span-1 space-y-4">
+            <div>
+              <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-3">Product Info</h3>
+              <div className="space-y-2 text-[12px]">
+                <Row label="Product ID" value={product._id} mono />
+                <Row label="Shop" value={product.seller?.name || '—'} link={product.seller?._id ? `/shops/${product.seller._id}` : undefined} />
+                <Row label="Category" value={product.category} />
+                <Row label="Price" value={`${formatMoney(product.price)} ₭`} />
+                <Row label="Stock" value={product.countInStock.toString()} />
+                <Row label="Status" value={product.status} />
+                <Row label="Created" value={formatDate(product.createdAt)} />
+                {product.tags && product.tags.length > 0 && (
+                  <Row label="Tags" value={product.tags.join(', ')} />
+                )}
+              </div>
+            </div>
+
+            {product.description && (
+              <div>
+                <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-2">Description</h3>
+                <p className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line">{product.description}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="lg:col-span-2 space-y-4">
+            <div>
+              <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-2">Performance</h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Metric label="Units Sold" value={(product.soldCount ?? 0).toString()} tone="text-black" />
+                <Metric label="Avg Rating" value={`${(product.rating ?? 0).toFixed(1)} ★`} tone="text-orange-700" />
+                <Metric label="Reviews" value={(product.numReviews ?? 0).toString()} tone="text-black" />
+                <Metric label="Stock" value={product.countInStock.toString()} tone={product.countInStock > 0 ? 'text-green-700' : 'text-red-700'} />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-2">
+                Images ({images.length})
+              </h3>
+              <div className="grid grid-cols-4 gap-3">
+                {images.length === 0 && (
+                  <div className="aspect-square rounded-lg bg-gray-100 flex items-center justify-center col-span-4">
+                    <ImageIcon className="w-6 h-6 text-gray-400" />
+                  </div>
+                )}
+                {images.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={`${src}-${i}`}
+                    src={src}
+                    alt={`${product.name} ${i + 1}`}
+                    className="aspect-square rounded-lg object-cover bg-gray-100"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'images' && (
+        <div className="grid grid-cols-3 gap-3">
+          {images.length === 0 && (
+            <div className="col-span-3 text-center py-12 text-gray-400 text-[12px]">No images</div>
+          )}
+          {images.map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={`${src}-${i}`} src={src} alt={`${product.name} ${i + 1}`} className="aspect-square rounded-lg object-cover bg-gray-100" />
+          ))}
+        </div>
+      )}
+
+      {tab === 'reviews' && (
+        <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">
+          {(product.numReviews ?? 0) > 0
+            ? `${product.numReviews} review${product.numReviews === 1 ? '' : 's'} — listing detail not yet wired`
+            : 'No reviews yet'}
+        </div>
+      )}
+
+      {tab === 'reports' && (
+        <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">
+          {hasViolation ? 'Product is flagged for violation review' : 'No reports'}
+        </div>
+      )}
+
+      {tab === 'history' && (
+        <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">
+          History logging not yet implemented
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Row = ({ label, value, mono, link }: { label: string; value: string; mono?: boolean; link?: string }) => (
+  <div className="flex items-start justify-between gap-3">
+    <span className="text-gray-500 flex-shrink-0">{label}</span>
+    {link ? (
+      <a href={link} className="text-right text-gray-900 hover:text-primary transition-colors truncate">{value}</a>
+    ) : (
+      <span className={`text-right text-gray-900 truncate ${mono ? 'font-mono text-[11px]' : ''}`}>{value}</span>
+    )}
+  </div>
+);
+
+const Metric = ({ label, value, tone }: { label: string; value: string; tone: string }) => (
+  <div className="rounded-lg px-4 py-3">
+    <p className="text-[11px] font-semibold text-gray-500 tracking-wide">{label}</p>
+    <p className={`text-xl font-bold tabular-nums mt-1 ${tone}`}>{value}</p>
+  </div>
+);
+
+export default ProductDetailPage;

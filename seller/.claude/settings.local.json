@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(python strip_classes.py)",
+      "Bash(git -C d:/LalaShop/seller diff src/pages/messages/inbox.tsx)"
+    ]
+  }
+}

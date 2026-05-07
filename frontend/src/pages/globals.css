@@ -1,0 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #00aeff;
+  --secondary: #00aeff;
+  --primary-hover: #0077b6;
+  --primary-soft: #e0f7ff;
+  --gray-light: #F8FAFC;
+  --gray-border: #E2E8F0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', 'DM Sans', sans-serif;
+  background: #f9fafb;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: 'Barlow Condensed', sans-serif;
+}
+
+.font-body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #f8fafc; }
+::-webkit-scrollbar-thumb { 
+  background: #cbd5e1; 
+  border-radius: 20px;
+  border: 2px solid #f8fafc;
+}
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Animations & Transitions */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in { animation: fadeIn 0.4s ease-out both; }
+.animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Component Enhancements */
+.card-premium {
+  @apply bg-white border border-gray-100 rounded-xl transition-all duration-300;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.card-premium:hover {
+  @apply border-primary/20 shadow-xl shadow-gray-200/50 -translate-y-1;
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-md border border-white/20;
+}
+
+.btn-primary {
+  @apply bg-primary text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 active:scale-95;
+  box-shadow: 0 4px 14px 0 rgba(0,174,255,0.2);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  @apply shadow-lg shadow-primary/30 -translate-y-0.5;
+}
+
+/* Marketplace specific styles */
+.search-container {
+  @apply flex items-center bg-white border-2 border-primary rounded-xl overflow-hidden shadow-sm focus-within:shadow-md transition-all;
+  --tw-ring-color: rgba(0, 174, 255, 0.3);
+}
+
+.nav-link {
+  @apply relative text-sm font-medium text-white/80 hover:text-white transition-colors py-2;
+}
+
+.nav-link::after {
+  content: '';
+  @apply absolute bottom-0 left-0 w-0 h-0.5 bg-white transition-all duration-300;
+}
+
+.nav-link:hover::after {
+  @apply w-full;
+}
+
+
+/* --- Global Mobile Layout Fixes (Native Feel) --- */
+@media (max-width: 767px) {
+  /* 1. Eliminate Horizontal Scrollbar */
+  html, body {
+    overflow-x: hidden !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    position: relative;
+    touch-action: manipulation;
+  }
+
+  /* 2. Fix Layout Containers */
+  main, section, .container, .max-w-full-mobile {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+  }
+
+  /* Only wrap flex when it makes sense, don't force it globally */
+  .flex-wrap-mobile {
+    flex-wrap: wrap !important;
+  }
+
+  /* Ensure Hero Banners and large images fit */
+  img, video, iframe, .hero-slider {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* 3. Manage Product Grids (Force 2 columns on mobile for better visibility) */
+  [class*="grid-cols-"]:not(.grid-cols-1):not(.grid-cols-2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Base Font size for mobile readability */
+  body {
+    font-size: 16px;
+  }
+
+  /* Global Padding for mobile - more flush-to-edge as requested */
+  main, .section-padding {
+    padding-left: 0px !important;
+    padding-right: 0px !important;
+    padding-bottom: 100px !important;
+  }
+
+  /* Components which really need some side breathing room */
+  .px-mobile {
+     padding-left: 10px !important;
+     padding-right: 10px !important;
+  }
+
+  /* Touch-friendly targets */
+  button, a, input, select {
+    min-height: 44px;
+  }
+}
+
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border-top: 1px solid #EEEEEE;
+  height: 70px;
+  z-index: 100;
+  display: none; /* Hidden by default */
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.bottom-nav-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  justify-content: space-around;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #8E8E93;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  flex: 1;
+}
+
+.nav-item.active {
+  color: var(--primary); /* Uses system primary color (#00aeff) */
+  transform: translateY(-2px);
+}
+
+.nav-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Media Query for screens smaller than 768px */
+@media (max-width: 767px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+}

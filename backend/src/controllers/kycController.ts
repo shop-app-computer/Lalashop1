@@ -1,0 +1,296 @@
+import { Request, Response } from "express";
+import path from "path";
+import KycSubmission from "../models/kycSubmissionModel";
+import Notification from "../models/notificationModel";
+import User from "../models/userModel";
+import { IAuthRequest } from "../middlewares/authMiddleware";
+
+interface SubmitKycBody {
+  businessType?: string;
+  shopInfo?: {
+    shopName?: string;
+    shopAccount?: string;
+    shopCategory?: string;
+    shopEmail?: string;
+    phoneNumber?: string;
+    isEmailVerified?: boolean;
+    isPhoneVerified?: boolean;
+    entityName?: string;
+  };
+  identity?: {
+    idType?: string;
+    idNumber?: string;
+    firstName?: string;
+    middleName?: string;
+    lastName?: string;
+    birthDate?: string;
+    expiryDate?: string;
+    tinNumber?: string;
+    businessLicenseUrl?: string;
+    idDocumentUrl?: string;
+    address?: {
+      street?: string;
+      apartment?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+    };
+  };
+  warehouse?: { fullAddress?: string };
+}
+
+const fileToUrl = (file?: Express.Multer.File): string => {
+  if (!file) return "";
+  return `/uploads/${path.basename(file.path)}`;
+};
+
+const safeJsonParse = <T,>(value: unknown, fallback: T): T => {
+  if (typeof value !== "string" || value.trim() === "") return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+export const submitKyc = async (req: IAuthRequest, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    let body: SubmitKycBody = {};
+
+    if (req.is("multipart/form-data") || req.files) {
+      body = {
+        businessType: typeof req.body.businessType === "string" ? req.body.businessType : undefined,
+        shopInfo: safeJsonParse<SubmitKycBody["shopInfo"]>(req.body.shopInfo, {}),
+        identity: safeJsonParse<SubmitKycBody["identity"]>(req.body.identity, {}),
+        warehouse: safeJsonParse<SubmitKycBody["warehouse"]>(req.body.warehouse, { fullAddress: "" }),
+      };
+    } else {
+      body = req.body as SubmitKycBody;
+    }
+
+    if (!body.businessType) {
+      return res.status(400).json({ success: false, message: "businessType is required" });
+    }
+    if (!body.shopInfo?.shopName) {
+      return res.status(400).json({ success: false, message: "shopInfo.shopName is required" });
+    }
+
+    const existingPending = await KycSubmission.findOne({
+      user: req.user._id,
+      status: "pending",
+    });
+    if (existingPending) {
+      return res.status(409).json({
+        success: false,
+        message: "You already have a pending KYC submission.",
+        data: existingPending,
+      });
+    }
+
+    const filesByField: Record<string, Express.Multer.File[]> = {};
+    const rawFiles = req.files as Express.Multer.File[] | Record<string, Express.Multer.File[]> | undefined;
+    if (Array.isArray(rawFiles)) {
+      rawFiles.forEach((f) => {
+        const key = f.fieldname;
+        filesByField[key] = filesByField[key] || [];
+        filesByField[key].push(f);
+      });
+    } else if (rawFiles && typeof rawFiles === "object") {
+      Object.assign(filesByField, rawFiles);
+    }
+
+    const licenseFile = filesByField.licenseFile?.[0];
+    const idFile = filesByField.idFile?.[0];
+    const additionalFiles = filesByField.additionalDocs || [];
+
+    const documents = [
+      ...(licenseFile
+        ? [{ url: fileToUrl(licenseFile), label: "Business License", mimeType: licenseFile.mimetype }]
+        : []),
+      ...(idFile
+        ? [{ url: fileToUrl(idFile), label: body.identity?.idType === "passport" ? "Passport" : "ID Card", mimeType: idFile.mimetype }]
+        : []),
+      ...additionalFiles.map((f) => ({
+        url: fileToUrl(f),
+        label: "Additional Document",
+        mimeType: f.mimetype,
+      })),
+    ];
+
+    const submission = await KycSubmission.create({
+      user: req.user._id,
+      status: "pending",
+      businessType: body.businessType,
+      shopInfo: {
+        shopName: body.shopInfo.shopName,
+        shopAccount: body.shopInfo.shopAccount || "",
+        shopCategory: body.shopInfo.shopCategory || "",
+        shopEmail: body.shopInfo.shopEmail || "",
+        phoneNumber: body.shopInfo.phoneNumber || "",
+        isEmailVerified: Boolean(body.shopInfo.isEmailVerified),
+        isPhoneVerified: Boolean(body.shopInfo.isPhoneVerified),
+        entityName: body.shopInfo.entityName || "",
+      },
+      identity: {
+        idType: body.identity?.idType || "passport",
+        idNumber: body.identity?.idNumber || "",
+        firstName: body.identity?.firstName || "",
+        middleName: body.identity?.middleName || "",
+        lastName: body.identity?.lastName || "",
+        birthDate: body.identity?.birthDate || "",
+        expiryDate: body.identity?.expiryDate || "",
+        tinNumber: body.identity?.tinNumber || "",
+        businessLicenseUrl: licenseFile ? fileToUrl(licenseFile) : body.identity?.businessLicenseUrl || "",
+        idDocumentUrl: idFile ? fileToUrl(idFile) : body.identity?.idDocumentUrl || "",
+        documents,
+        address: {
+          street: body.identity?.address?.street || "",
+          apartment: body.identity?.address?.apartment || "",
+          city: body.identity?.address?.city || "",
+          state: body.identity?.address?.state || "",
+          zip: body.identity?.address?.zip || "",
+          country: body.identity?.address?.country || "",
+        },
+      },
+      warehouse: { fullAddress: body.warehouse?.fullAddress || "" },
+      submittedAt: new Date(),
+    });
+
+    res.status(201).json({ success: true, data: submission });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getMyKyc = async (req: IAuthRequest, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+    const latest = await KycSubmission.findOne({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
+    res.status(200).json({ success: true, data: latest || null });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const adminListKyc = async (req: Request, res: Response) => {
+  try {
+    const { status, search, user } = req.query as {
+      status?: string;
+      search?: string;
+      user?: string;
+    };
+    const filter: Record<string, unknown> = {};
+    if (status && ["pending", "approved", "rejected"].includes(status)) {
+      filter.status = status;
+    }
+    if (user) {
+      filter.user = user;
+    }
+    if (search) {
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { "shopInfo.shopName": regex },
+        { "shopInfo.shopEmail": regex },
+        { "identity.firstName": regex },
+        { "identity.lastName": regex },
+        { "identity.idNumber": regex },
+      ];
+    }
+
+    const submissions = await KycSubmission.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("user", "name username email customId phone")
+      .lean();
+
+    res.status(200).json({ success: true, data: submissions });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const adminGetKyc = async (req: Request, res: Response) => {
+  try {
+    const submission = await KycSubmission.findById(req.params.id)
+      .populate("user", "name username email customId phone profileImage")
+      .populate("reviewedBy", "name email")
+      .lean();
+    if (!submission) {
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+    res.status(200).json({ success: true, data: submission });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const adminReviewKyc = async (req: IAuthRequest, res: Response) => {
+  try {
+    const { decision, note } = req.body as {
+      decision?: "approved" | "rejected";
+      note?: string;
+    };
+    if (decision !== "approved" && decision !== "rejected") {
+      return res
+        .status(400)
+        .json({ success: false, message: "decision must be 'approved' or 'rejected'" });
+    }
+
+    const submission = await KycSubmission.findById(req.params.id);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+    if (submission.status !== "pending") {
+      return res
+        .status(409)
+        .json({ success: false, message: `Already ${submission.status}` });
+    }
+
+    submission.status = decision;
+    submission.reviewedAt = new Date();
+    submission.reviewNote = (note || "").trim();
+    if (req.user?._id) {
+      submission.reviewedBy = req.user._id;
+    }
+    await submission.save();
+
+    if (decision === "approved") {
+      await User.findByIdAndUpdate(submission.user, {
+        $set: {
+          isSeller: true,
+          seller_type: submission.businessType,
+        },
+      });
+    }
+
+    const isApproved = decision === "approved";
+    await Notification.create({
+      user: submission.user,
+      type: isApproved ? "kyc_approved" : "kyc_rejected",
+      title: isApproved
+        ? "Shop application approved"
+        : "Shop application rejected",
+      body:
+        submission.reviewNote ||
+        (isApproved
+          ? "Congratulations — your shop is now active. You can list products from your profile."
+          : "Your shop application was rejected. Please review and resubmit."),
+      link: isApproved ? "/me/products/add" : "/me/opensho/openshop",
+      metadata: {
+        kycId: submission._id.toString(),
+      },
+    });
+
+    res.status(200).json({ success: true, data: submission });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
