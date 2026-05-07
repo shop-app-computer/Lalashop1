@@ -7,6 +7,10 @@ import Order from "../models/orderModel";
 import Post from "../models/postModel";
 import Bank from "../models/bankModel";
 import Notification from "../models/notificationModel";
+import KycSubmission from "../models/kycSubmissionModel";
+import Withdraw from "../models/withdrawModel";
+import Report from "../models/reportModel";
+import SupportTicket from "../models/supportTicketModel";
 import { IAuthRequest } from "../middlewares/authMiddleware";
 
 interface ListQuery {
@@ -24,6 +28,12 @@ const parsePagination = (query: ListQuery) => {
 
 export const getDashboardStats = async (_req: Request, res: Response) => {
   try {
+    const now = new Date();
+    const day = 86400000;
+    const since30 = new Date(now.getTime() - 30 * day);
+    const since60 = new Date(now.getTime() - 60 * day);
+    const since24h = new Date(now.getTime() - day);
+
     const [
       totalUsers,
       activeShops,
@@ -31,9 +41,16 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
       totalPosts,
       pendingOrders,
       completedOrders,
-      revenueAgg,
+      revenueAggAll,
+      revenueAgg30,
+      revenueAggPrev30,
       activeUsersToday,
-      pendingShopApprovals,
+      newUsers30,
+      newUsers60,
+      pendingKyc,
+      pendingWithdrawals,
+      openReports,
+      openTickets,
     ] = await Promise.all([
       User.countDocuments({}),
       User.countDocuments({ isSeller: true }),
@@ -45,11 +62,98 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
         { $match: { isPaid: true } },
         { $group: { _id: null, total: { $sum: "$totalPrice" } } },
       ]),
-      User.countDocuments({ updatedAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } }),
-      User.countDocuments({ isSeller: true, seller_type: { $in: [null, undefined, ""] } }),
+      Order.aggregate([
+        { $match: { isPaid: true, createdAt: { $gte: since30 } } },
+        { $group: { _id: null, total: { $sum: "$totalPrice" } } },
+      ]),
+      Order.aggregate([
+        { $match: { isPaid: true, createdAt: { $gte: since60, $lt: since30 } } },
+        { $group: { _id: null, total: { $sum: "$totalPrice" } } },
+      ]),
+      User.countDocuments({ updatedAt: { $gte: since24h } }),
+      User.countDocuments({ createdAt: { $gte: since30 } }),
+      User.countDocuments({ createdAt: { $gte: since60, $lt: since30 } }),
+      KycSubmission.countDocuments({ status: "pending" }),
+      Withdraw.countDocuments({ status: "pending" }),
+      Report.countDocuments({ status: "open" }),
+      SupportTicket.countDocuments({ status: { $in: ["open", "in_progress"] } }),
     ]);
 
-    const totalRevenue = revenueAgg[0]?.total ?? 0;
+    const totalRevenue = revenueAggAll[0]?.total ?? 0;
+    const revenue30 = revenueAgg30[0]?.total ?? 0;
+    const revenuePrev30 = revenueAggPrev30[0]?.total ?? 0;
+
+    // Daily revenue trend (last 30 days) for the dashboard chart.
+    const trendAgg = await Order.aggregate([
+      { $match: { isPaid: true, createdAt: { $gte: since30 } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          revenue: { $sum: "$totalPrice" },
+          orders: { $sum: 1 },
+        },
+      },
+    ]);
+    const trendMap = new Map<string, { revenue: number; orders: number }>(
+      trendAgg.map((t) => [t._id, { revenue: t.revenue, orders: t.orders }])
+    );
+    const revenueTrend: Array<{ date: string; revenue: number; orders: number }> = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * day);
+      const key = d.toISOString().slice(0, 10);
+      const row = trendMap.get(key);
+      revenueTrend.push({ date: key, revenue: row?.revenue || 0, orders: row?.orders || 0 });
+    }
+
+    // Top 5 shops by paid revenue (lifetime)
+    const topShopsAgg = await Order.aggregate([
+      { $match: { isPaid: true } },
+      { $unwind: "$orderItems" },
+      {
+        $group: {
+          _id: "$orderItems.seller",
+          revenue: { $sum: { $multiply: ["$orderItems.price", "$orderItems.qty"] } },
+          orders: { $addToSet: "$_id" },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "seller",
+        },
+      },
+      { $unwind: "$seller" },
+      {
+        $project: {
+          _id: 1,
+          revenue: 1,
+          orderCount: { $size: "$orders" },
+          name: "$seller.name",
+          email: "$seller.email",
+          customId: "$seller.customId",
+          profileImage: "$seller.profileImage",
+        },
+      },
+    ]);
+
+    // Recent 8 orders for the dashboard side panel
+    const recentOrders = await Order.find({})
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .select("status totalPrice isPaid createdAt user")
+      .populate("user", "name email customId profileImage")
+      .lean();
+
+    const pctChange = (curr: number, prev: number): number => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return Number((((curr - prev) / prev) * 100).toFixed(1));
+    };
 
     res.status(200).json({
       success: true,
@@ -65,8 +169,30 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
           pendingOrders,
           completedOrders,
           activeUsersToday,
-          pendingShopApprovals,
+          // Kept for backward-compat with old card label; semantic is now
+          // "shops awaiting approval" (= pending KYC submissions).
+          pendingShopApprovals: pendingKyc,
         },
+        // Operational queues — items needing admin action right now.
+        queues: {
+          pendingKyc,
+          pendingWithdrawals,
+          openReports,
+          openTickets,
+          pendingOrders,
+        },
+        // Period comparison — last 30 days vs the 30 before that.
+        period: {
+          revenue30,
+          revenuePrev30,
+          revenueChangePct: pctChange(revenue30, revenuePrev30),
+          newUsers30,
+          newUsers60: newUsers60,
+          newUsersChangePct: pctChange(newUsers30, newUsers60),
+        },
+        revenueTrend,
+        topShops: topShopsAgg,
+        recentOrders,
       },
     });
   } catch (error: any) {

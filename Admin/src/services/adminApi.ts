@@ -1,5 +1,30 @@
 import { apiClient } from "./apiClient";
 
+export interface DashboardTopShop {
+  _id: string;
+  name?: string;
+  email?: string;
+  customId?: string;
+  profileImage?: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface DashboardRecentOrder {
+  _id: string;
+  status: string;
+  totalPrice: number;
+  isPaid: boolean;
+  createdAt: string;
+  user?: {
+    _id: string;
+    name?: string;
+    email?: string;
+    customId?: string;
+    profileImage?: string;
+  };
+}
+
 export interface DashboardStats {
   totals: {
     users: number;
@@ -14,6 +39,24 @@ export interface DashboardStats {
     activeUsersToday: number;
     pendingShopApprovals: number;
   };
+  queues?: {
+    pendingKyc: number;
+    pendingWithdrawals: number;
+    openReports: number;
+    openTickets: number;
+    pendingOrders: number;
+  };
+  period?: {
+    revenue30: number;
+    revenuePrev30: number;
+    revenueChangePct: number;
+    newUsers30: number;
+    newUsers60: number;
+    newUsersChangePct: number;
+  };
+  revenueTrend?: Array<{ date: string; revenue: number; orders: number }>;
+  topShops?: DashboardTopShop[];
+  recentOrders?: DashboardRecentOrder[];
 }
 
 export interface RecentActivity {
