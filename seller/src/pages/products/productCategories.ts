@@ -1,0 +1,18 @@
+export const productCategories = [
+  { value: "fashion", label: "Fashion & Accessories" },
+  { value: "electronics", label: "Electronics & Gadgets" },
+  { value: "beauty", label: "Beauty & Personal Care" },
+  { value: "food", label: "Food & Beverages" },
+  { value: "home", label: "Home & Living" },
+  { value: "mother_baby", label: "Mother & Baby" },
+  { value: "toys", label: "Toys & Hobbies" },
+  { value: "sports", label: "Sports & Outdoors" },
+  { value: "automotive", label: "Automotive" },
+  { value: "health", label: "Health & Wellness" },
+  { value: "pet", label: "Pet Supplies" },
+  { value: "office", label: "Office & Stationery" },
+  { value: "tools", label: "Tools & Home Improvement" },
+  { value: "jewelry", label: "Jewelry & Watches" },
+  { value: "digital", label: "Digital Products" },
+  { value: "others", label: "Others" },
+];

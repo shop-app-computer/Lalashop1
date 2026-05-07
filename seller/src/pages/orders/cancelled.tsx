@@ -1,8 +1,12 @@
 import React from 'react';
-import OrdersPage from './OrderTemplate';
+import OrderTemplate from './OrderTemplate';
 
-const Cancelled = () => {
-  return <OrdersPage status="Cancelled" />;
-};
+const Cancelled = () => (
+  <OrderTemplate
+    title="Cancelled"
+    description="Orders that were cancelled before delivery."
+    filter={(o) => o.status === 'canceled' && !o.isPaid}
+  />
+);
 
 export default Cancelled;

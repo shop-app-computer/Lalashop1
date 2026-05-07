@@ -83,3 +83,22 @@ export const createProductReview = async (req: IAuthRequest, res: Response) => {
     res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
+
+// @desc    Get all reviews for the current seller's products
+// @route   GET /api/products/my/reviews
+// @access  Private/Seller
+export const getMySellerReviews = async (req: IAuthRequest, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+    const reviews = await Review.find({ seller: req.user._id })
+      .populate("user", "name username profileImage")
+      .populate("product", "name image images")
+      .sort({ createdAt: -1 })
+      .limit(200);
+    res.status(200).json({ success: true, data: reviews });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || "Server Error" });
+  }
+};

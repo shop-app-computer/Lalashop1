@@ -1,8 +1,12 @@
 import React from 'react';
-import OrdersPage from './OrderTemplate';
+import OrderTemplate from './OrderTemplate';
 
-const Processing = () => {
-  return <OrdersPage status="Processing" />;
-};
+const Processing = () => (
+  <OrderTemplate
+    title="Processing"
+    description="Orders that are paid and ready to be packed and shipped."
+    filter={(o) => o.isPaid && o.status === 'processing'}
+  />
+);
 
 export default Processing;

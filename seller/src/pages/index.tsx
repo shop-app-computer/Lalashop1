@@ -1,210 +1,292 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
+import { Download, Package, ShoppingBag, DollarSign, Wallet } from 'lucide-react';
+import { useCurrentSeller } from '@/services/useCurrentSeller';
 import {
-  Calendar, Download, Filter, ArrowUp, ArrowDown, MoreHorizontal,
-  ChevronDown, Search,
-} from 'lucide-react';
+  fetchMyOrders,
+  fetchMyProducts,
+  type SellerOrderRow,
+  type SellerProductRow,
+} from '@/services/sellerApi';
 
 type RangeKey = 'today' | '7d' | '30d' | '90d';
 
-const RANGES: { key: RangeKey; label: string }[] = [
-  { key: 'today', label: 'Today' },
-  { key: '7d', label: '7D' },
-  { key: '30d', label: '30D' },
-  { key: '90d', label: '90D' },
-];
-
-const recentOrders = [
-  { id: 'ORD-228101', customer: 'Sarah Jenkins', product: 'Linen Oversized Shirt', amount: 145.0, status: 'shipping' },
-  { id: 'ORD-228102', customer: 'Anousone K.', product: 'Cotton Tote — Ivory', amount: 45.0, status: 'success' },
-  { id: 'ORD-228103', customer: 'Keo P.', product: 'Ceramic Pour-Over Set', amount: 89.0, status: 'pending' },
-  { id: 'ORD-228104', customer: 'Viphone S.', product: 'Wide-Leg Linen Trouser', amount: 120.0, status: 'shipping' },
-  { id: 'ORD-228105', customer: 'Somsak J.', product: 'Cropped Knit Cardigan', amount: 78.0, status: 'success' },
-  { id: 'ORD-228106', customer: 'Mali T.', product: 'Smart Watch Pro', amount: 299.0, status: 'cancelled' },
+const RANGES: { key: RangeKey; label: string; days: number }[] = [
+  { key: 'today', label: 'Today', days: 1 },
+  { key: '7d', label: '7D', days: 7 },
+  { key: '30d', label: '30D', days: 30 },
+  { key: '90d', label: '90D', days: 90 },
 ];
 
 const statusStyles: Record<string, string> = {
-  success: 'bg-green-50 text-green-700',
+  delivered: 'bg-green-50 text-green-700',
   pending: 'bg-orange-50 text-orange-700',
-  shipping: 'bg-purple-50 text-purple-700',
-  cancelled: 'bg-red-50 text-red-700',
+  processing: 'bg-blue-50 text-blue-700',
+  shipped: 'bg-purple-50 text-purple-700',
+  canceled: 'bg-red-50 text-red-700',
 };
 
-const fmtMoney = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const KPI = ({
-  label, value, delta, deltaLabel,
-}: { label: string; value: string; delta?: number; deltaLabel?: string }) => (
-  <div className="rounded-lg px-4 py-3">
-    <p className="text-[11px] font-semibold text-gray-500 tracking-wide">{label}</p>
-    <p className="text-xl font-bold text-black tabular-nums mt-1">{value}</p>
-    {delta !== undefined && (
-      <div className="flex items-center gap-1 mt-1">
-        <span className={`inline-flex items-center text-[11px] font-semibold ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {delta >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-          {Math.abs(delta).toFixed(1)}%
-        </span>
-        {deltaLabel && <span className="text-[11px] text-gray-400">{deltaLabel}</span>}
-      </div>
-    )}
-  </div>
-);
+const formatMoney = (n: number): string =>
+  Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const Dashboard = () => {
+  const router = useRouter();
+  const { seller } = useCurrentSeller();
   const [range, setRange] = useState<RangeKey>('today');
+  const [orders, setOrders] = useState<SellerOrderRow[]>([]);
+  const [products, setProducts] = useState<SellerProductRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([fetchMyOrders().catch(() => []), fetchMyProducts().catch(() => [])])
+      .then(([ord, prod]) => {
+        if (cancelled) return;
+        setOrders(ord);
+        setProducts(prod);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const cutoff = useMemo(() => {
+    const r = RANGES.find((x) => x.key === range)!;
+    const d = new Date();
+    d.setDate(d.getDate() - r.days);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [range]);
+
+  const ordersInRange = useMemo(
+    () =>
+      orders.filter((o) => {
+        const d = new Date(o.paidAt || o.createdAt);
+        return !Number.isNaN(d.getTime()) && d >= cutoff;
+      }),
+    [orders, cutoff]
+  );
+
+  const totalRevenue = ordersInRange
+    .filter((o) => o.isPaid)
+    .reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+
+  const itemsSold = ordersInRange
+    .filter((o) => o.isPaid)
+    .reduce((sum, o) => sum + (o.orderItems?.reduce((s, i) => s + (i.qty || 0), 0) || 0), 0);
+
+  const recentOrders = orders.slice(0, 6);
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Title bar */}
       <div className="flex items-center gap-2">
-        <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center">
-          <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
-        </button>
-        <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900">
-          <Download className="w-3.5 h-3.5 mr-1.5" /> Export PDF
-        </button>
+        <h1 className="text-[18px] font-bold text-gray-900">
+          Welcome back, {seller?.name || 'Seller'}
+        </h1>
+        <span className="text-[11px] text-gray-400">·</span>
+        <span className="text-[11px] text-gray-500">
+          {seller?.customId ? <span className="font-mono">{seller.customId}</span> : 'manage your shop'}
+        </span>
       </div>
 
-      {/* Filter bar */}
-      <div className="rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
-        <div className="inline-flex items-center bg-gray-100 rounded-md p-0.5">
+      <div className="flex items-center gap-2">
+        <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center hover:bg-gray-100">
+          <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+        </button>
+        <div className="ml-auto flex items-center gap-1.5 bg-gray-100 rounded p-0.5">
           {RANGES.map((r) => (
             <button
               key={r.key}
               onClick={() => setRange(r.key)}
-              className={`px-2.5 py-1 rounded text-[11px] font-semibold ${
-                range === r.key ? 'text-black' : 'text-gray-600 hover:text-black'
+              className={`px-3 py-1 rounded text-[11px] font-bold transition-all ${
+                range === r.key ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'
               }`}
             >
               {r.label}
             </button>
           ))}
         </div>
-
-        <div className="h-5 w-px bg-gray-200 mx-1" />
-
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          <Calendar className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
-          Apr 30, 2026
-          <ChevronDown className="w-3 h-3 ml-1.5 text-gray-400" />
-        </button>
-
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          Compare to: <span className="font-semibold text-gray-900 ml-1">Previous period</span>
-          <ChevronDown className="w-3 h-3 ml-1.5 text-gray-400" />
-        </button>
-
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          <Filter className="w-3.5 h-3.5 mr-1.5 text-gray-400" /> Add filter
-        </button>
-
-        <div className="ml-auto relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search orders, customers…"
-            className="pl-7 pr-3 py-1 rounded text-[11px] w-56"
-          />
-        </div>
       </div>
 
-      {/* KPI strip — 4 quick-glance metrics */}
+      {error && (
+        <div className="rounded-lg bg-red-50 px-4 py-2 text-[12px] text-red-700">{error}</div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPI label="Revenue" value="$45,231.89" delta={20.1} deltaLabel="vs prev" />
-        <KPI label="Orders" value="1,234" delta={12.5} deltaLabel="vs prev" />
-        <KPI label="Customers" value="856" delta={8.2} deltaLabel="vs prev" />
-        <KPI label="Conversion" value="3.45%" delta={-1.4} deltaLabel="vs prev" />
+        <KPI
+          icon={DollarSign}
+          label="Revenue (in range)"
+          value={loading ? '—' : `฿${formatMoney(totalRevenue)}`}
+          tone="text-green-700"
+        />
+        <KPI
+          icon={ShoppingBag}
+          label="Orders (in range)"
+          value={loading ? '—' : ordersInRange.length.toLocaleString()}
+          tone="text-blue-700"
+        />
+        <KPI
+          icon={Package}
+          label="Items sold"
+          value={loading ? '—' : itemsSold.toLocaleString()}
+          tone="text-purple-700"
+        />
+        <KPI
+          icon={Wallet}
+          label="Current balance"
+          value={loading ? '—' : `฿${formatMoney(seller?.balance ?? 0)}`}
+          tone="text-black"
+        />
       </div>
 
-      {/* Plan callout */}
-      <div className="rounded-lg px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-3 text-[12px]">
-          <span className="text-[10px] font-semibold tracking-wide text-gray-500">Plan</span>
-          <span className="font-semibold text-gray-900">Soshops Pro</span>
-          <span className="text-gray-400">·</span>
-          <span className="text-gray-600">Renews May 30, 2026</span>
-        </div>
-        <button className="text-[11px] font-semibold text-primary hover:underline">Manage →</button>
-      </div>
-
-      {/* Main grid: recent orders + store health */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-lg">
-          <div className="flex items-center justify-between px-4 py-3">
-            <h3 className="text-sm font-bold text-black">Recent orders</h3>
-            <button className="text-[11px] font-semibold text-primary hover:underline">View all →</button>
+        <div className="lg:col-span-2 rounded-lg border border-gray-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-[13px] font-bold text-gray-900">Recent orders</h3>
+            <button
+              onClick={() => router.push('/dashboard/orders')}
+              className="text-[11px] text-[#00aeff] font-bold hover:underline"
+            >
+              View all →
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px] tabular-nums">
-              <thead className="text-[11px] text-gray-500 tracking-wide">
+              <thead className="text-[11px] text-gray-500 tracking-wide bg-gray-50/50">
                 <tr>
-                  <th className="px-4 py-2 text-left font-semibold">Order ID</th>
+                  <th className="px-4 py-2 text-left font-semibold">Order</th>
                   <th className="px-4 py-2 text-left font-semibold">Customer</th>
-                  <th className="px-4 py-2 text-left font-semibold">Product</th>
+                  <th className="px-4 py-2 text-right font-semibold">Items</th>
                   <th className="px-4 py-2 text-right font-semibold">Amount</th>
                   <th className="px-4 py-2 text-left font-semibold">Status</th>
                 </tr>
               </thead>
-              <tbody className="">
-                {recentOrders.map((o) => (
-                  <tr key={o.id} className="">
-                    <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{o.id}</td>
-                    <td className="px-4 py-2 font-medium text-gray-900">{o.customer}</td>
-                    <td className="px-4 py-2 text-gray-700">{o.product}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-gray-900">{fmtMoney(o.amount)}</td>
-                    <td className="px-4 py-2">
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusStyles[o.status]}`}>
-                        {o.status.charAt(0).toUpperCase() + o.status.slice(1)}
-                      </span>
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">
+                      Loading...
                     </td>
                   </tr>
-                ))}
+                )}
+                {!loading && recentOrders.map((o) => {
+                  const customer =
+                    typeof o.user === 'object' && o.user
+                      ? o.user.name || o.user.email || 'Guest'
+                      : o.shippingAddress?.fullName || 'Guest';
+                  const itemCount = o.orderItems?.length || 0;
+                  return (
+                    <tr key={o._id} className="border-t border-gray-50">
+                      <td className="px-4 py-2 font-mono text-[11px] text-gray-600">
+                        {o._id.slice(-8).toUpperCase()}
+                      </td>
+                      <td className="px-4 py-2 font-medium text-gray-900">{customer}</td>
+                      <td className="px-4 py-2 text-right text-gray-900">{itemCount}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-gray-900">
+                        ฿{formatMoney(o.totalPrice)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded capitalize ${statusStyles[o.status] || 'bg-gray-100 text-gray-600'}`}>
+                          {o.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!loading && recentOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">
+                      No orders yet — once customers buy your products, they'll show here.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Store health micro-tiles */}
-        <div className="space-y-3">
-          <div className="rounded-lg">
-            <div className="flex items-center justify-between px-4 py-3">
-              <h3 className="text-sm font-bold text-black">Store health</h3>
-              <button className="text-[11px] text-gray-500 hover:text-black"><MoreHorizontal className="w-4 h-4" /></button>
-            </div>
-            <table className="w-full text-[12px]">
-              <tbody className="">
-                <tr>
-                  <td className="px-4 py-2 text-gray-600">Verification</td>
-                  <td className="px-4 py-2 text-right">
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-green-50 text-green-700">Trusted</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2 text-gray-600">Rating</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900 tabular-nums">4.8 / 5.0</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2 text-gray-600">Response rate</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900 tabular-nums">98%</td>
-                </tr>
-              </tbody>
-            </table>
+        <div className="rounded-lg border border-gray-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-[13px] font-bold text-gray-900">Top products</h3>
+            <button
+              onClick={() => router.push('/products/list')}
+              className="text-[11px] text-[#00aeff] font-bold hover:underline"
+            >
+              View all →
+            </button>
           </div>
-
-          <div className="rounded-lg px-4 py-3">
-            <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Low stock</p>
-            <p className="text-xl font-bold text-black tabular-nums mt-1">5 items</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">Below reorder threshold</p>
-          </div>
-
-          <div className="rounded-lg px-4 py-3">
-            <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Pending shipments</p>
-            <p className="text-xl font-bold text-black tabular-nums mt-1">12 orders</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">Awaiting fulfillment</p>
+          <div className="divide-y divide-gray-50">
+            {loading && (
+              <div className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</div>
+            )}
+            {!loading && products.length === 0 && (
+              <div className="px-4 py-12 text-center text-gray-400 text-[12px]">
+                No products yet
+              </div>
+            )}
+            {!loading &&
+              [...products]
+                .sort((a, b) => (b.soldCount ?? 0) - (a.soldCount ?? 0))
+                .slice(0, 5)
+                .map((p) => {
+                  const cover = Array.isArray(p.images) && p.images.length
+                    ? p.images[0]
+                    : Array.isArray(p.image)
+                    ? p.image[0]
+                    : p.image;
+                  return (
+                    <div
+                      key={p._id}
+                      className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
+                        {cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={cover as string} alt={p.name} className="w-full h-full object-cover" />
+                        ) : null}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium text-gray-900 truncate">{p.name}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                          {(p.soldCount ?? 0).toLocaleString()} sold · stock {p.countInStock}
+                        </p>
+                      </div>
+                      <div className="text-[12px] font-bold text-gray-900">
+                        ฿{formatMoney(p.price)}
+                      </div>
+                    </div>
+                  );
+                })}
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+interface KPIProps {
+  icon: typeof DollarSign;
+  label: string;
+  value: string;
+  tone: string;
+}
+
+const KPI: React.FC<KPIProps> = ({ icon: Icon, label, value, tone }) => (
+  <div className="rounded-lg border border-gray-100 px-4 py-3">
+    <div className="flex items-center gap-1.5">
+      <Icon className="w-3 h-3 text-gray-400" />
+      <p className="text-[11px] font-semibold text-gray-500 tracking-wide">{label}</p>
+    </div>
+    <p className={`text-[20px] font-bold tabular-nums mt-1 ${tone}`}>{value}</p>
+  </div>
+);
 
 export default Dashboard;

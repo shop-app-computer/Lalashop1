@@ -12,6 +12,11 @@ import {
   XCircle,
   X,
   ExternalLink,
+  Copy,
+  Check,
+  Mail,
+  Lock,
+  Store,
 } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 
@@ -23,6 +28,19 @@ type NotificationType =
   | "payout"
   | "info";
 
+interface Credentials {
+  email: string;
+  password: string;
+  loginUrl: string;
+}
+
+interface NotificationMetadata {
+  kycId?: string;
+  sellerDashboardUrl?: string;
+  credentials?: Credentials;
+  [key: string]: unknown;
+}
+
 interface NotificationItem {
   _id: string;
   type: NotificationType;
@@ -31,6 +49,7 @@ interface NotificationItem {
   link?: string;
   read: boolean;
   createdAt: string;
+  metadata?: NotificationMetadata;
 }
 
 const formatTimeAgo = (iso?: string): string => {
@@ -54,7 +73,7 @@ const formatFullDate = (iso?: string): string => {
   return d.toLocaleString();
 };
 
-const getIcon = (type: NotificationType, size = 20) => {
+const getIcon = (type: NotificationType, size = 20): JSX.Element => {
   switch (type) {
     case "kyc_approved":
       return <CheckCircle2 size={size} className="text-emerald-600" />;
@@ -71,21 +90,151 @@ const getIcon = (type: NotificationType, size = 20) => {
   }
 };
 
-export default function SystemNotifications() {
+interface CopyButtonProps {
+  value: string;
+  label?: string;
+}
+
+const CopyButton: React.FC<CopyButtonProps> = ({ value, label }) => {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore — older browsers */
+    }
+  };
+
+  return (
+    <button
+      onClick={onCopy}
+      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#00aeff] hover:text-[#0096db] transition-colors"
+      aria-label={`Copy ${label || "value"}`}
+    >
+      {copied ? (
+        <>
+          <Check size={12} /> Copied
+        </>
+      ) : (
+        <>
+          <Copy size={12} /> Copy
+        </>
+      )}
+    </button>
+  );
+};
+
+interface CredentialsCardProps {
+  credentials: Credentials;
+}
+
+const CredentialsCard: React.FC<CredentialsCardProps> = ({ credentials }) => {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <div className="rounded-2xl  from-emerald-50 to-white p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Store className="w-4 h-4 text-emerald-600" />
+        <h3 className="text-[13px] font-black text-emerald-900 tracking-wide ">
+          Seller Dashboard Credentials
+        </h3>
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-lg bg-white border border-emerald-100 px-4 py-3">
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              <Mail size={11} /> Email
+            </span>
+            <CopyButton value={credentials.email} label="email" />
+          </div>
+          <p className="text-[15px] font-mono text-slate-900 break-all">{credentials.email}</p>
+        </div>
+
+        <div className="rounded-lg bg-white border border-emerald-100 px-4 py-3">
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              <Lock size={11} /> Password
+            </span>
+            <div className="inline-flex items-center gap-3">
+              <button
+                onClick={() => setRevealed((v) => !v)}
+                className="text-[11px] font-bold text-slate-500 hover:text-slate-800"
+              >
+                {revealed ? "Hide" : "Reveal"}
+              </button>
+              <CopyButton value={credentials.password} label="password" />
+            </div>
+          </div>
+          <p className="text-[15px] font-mono text-slate-900 tracking-wider">
+            {revealed ? credentials.password : "•".repeat(credentials.password.length)}
+          </p>
+        </div>
+      </div>
+
+      <a
+        href={credentials.loginUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black py-3 rounded-xl transition-colors shadow-md shadow-emerald-200"
+      >
+        <ExternalLink size={16} />
+        Open Seller Dashboard
+      </a>
+
+      <div className="text-[11px] text-emerald-800 bg-emerald-100/60 rounded-lg px-3 py-2 leading-relaxed">
+        <strong className="font-black">Save this password now.</strong> The system shows it
+        once. The credentials above are <em>separate from your customer login</em>.
+      </div>
+    </div>
+  );
+};
+
+const renderBodyText = (body: string): JSX.Element[] => {
+  // Highlight URLs as clickable links and preserve line breaks.
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return body.split("\n").map((line, idx) => {
+    const parts = line.split(urlRegex);
+    return (
+      <p key={idx} className="text-[14px] text-slate-700 leading-[1.7] min-h-[1.2em]">
+        {parts.map((part, i) =>
+          urlRegex.test(part) ? (
+            <a
+              key={i}
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#00aeff] hover:underline font-medium break-all"
+            >
+              {part}
+            </a>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </p>
+    );
+  });
+};
+
+export default function SystemNotifications(): JSX.Element {
   const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<NotificationItem | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
     try {
       const res = await apiClient("/notifications");
       setNotifications(res?.data || []);
-    } catch (err: any) {
-      setError(err?.message || "Failed to load notifications");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load notifications");
     } finally {
       setLoading(false);
     }
@@ -95,13 +244,13 @@ export default function SystemNotifications() {
     load();
   }, [load]);
 
-  const emitUpdated = () => {
+  const emitUpdated = (): void => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("notificationsUpdated"));
     }
   };
 
-  const markAsRead = async (n: NotificationItem) => {
+  const markAsRead = async (n: NotificationItem): Promise<void> => {
     if (n.read) return;
     try {
       await apiClient(`/notifications/${n._id}/read`, { method: "PATCH" });
@@ -114,12 +263,12 @@ export default function SystemNotifications() {
     }
   };
 
-  const handleClick = async (n: NotificationItem) => {
+  const handleClick = async (n: NotificationItem): Promise<void> => {
     setActive({ ...n, read: true });
     await markAsRead(n);
   };
 
-  const handleMarkAllRead = async () => {
+  const handleMarkAllRead = async (): Promise<void> => {
     try {
       await apiClient("/notifications/read-all", { method: "PATCH" });
       setNotifications((prev) => prev.map((p) => ({ ...p, read: true })));
@@ -129,8 +278,16 @@ export default function SystemNotifications() {
     }
   };
 
-  const navigateLink = () => {
-    if (active?.link) router.push(active.link);
+  const isExternalLink = (link?: string): boolean =>
+    Boolean(link && /^https?:\/\//i.test(link));
+
+  const openActiveLink = (): void => {
+    if (!active?.link) return;
+    if (isExternalLink(active.link)) {
+      window.open(active.link, "_blank", "noopener,noreferrer");
+    } else {
+      router.push(active.link);
+    }
   };
 
   return (
@@ -145,6 +302,12 @@ export default function SystemNotifications() {
           </Link>
           <div className="space-y-0.5">
             <h1 className="text-2xl font-black tracking-tight text-slate-900">Notifications</h1>
+            {!loading && notifications.length > 0 && (
+              <p className="text-[11px] text-slate-400 font-medium">
+                {notifications.filter((n) => !n.read).length} unread of{" "}
+                {notifications.length}
+              </p>
+            )}
           </div>
         </div>
 
@@ -157,7 +320,9 @@ export default function SystemNotifications() {
       </div>
 
       {error && (
-        <div className="mx-6 my-4 px-4 py-3 rounded-md bg-red-50 text-red-700 text-sm">{error}</div>
+        <div className="mx-6 my-4 px-4 py-3 rounded-md bg-red-50 text-red-700 text-sm">
+          {error}
+        </div>
       )}
 
       <div className="flex flex-col">
@@ -171,11 +336,11 @@ export default function SystemNotifications() {
               key={n._id}
               onClick={() => handleClick(n)}
               className={`text-left flex items-start gap-5 p-6 md:px-10 border-b border-slate-50 hover:bg-slate-50/50 transition-all group relative ${
-                !n.read ? "bg-slate-50/30" : ""
+                !n.read ? "bg-emerald-50/20" : ""
               }`}
             >
               <div className="flex-shrink-0 mt-1">{getIcon(n.type)}</div>
-              <div className="flex-1 space-y-1 relative">
+              <div className="flex-1 space-y-1 relative min-w-0">
                 <div className="flex items-center gap-2">
                   <h3
                     className={`text-[15px] font-black ${
@@ -191,6 +356,11 @@ export default function SystemNotifications() {
                 <p className="text-sm text-slate-500 leading-relaxed max-w-3xl pb-4 line-clamp-2 whitespace-pre-wrap">
                   {n.body}
                 </p>
+                {n.metadata?.credentials && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                    <Store size={10} /> Tap to view shop credentials
+                  </span>
+                )}
                 <div className="absolute bottom-0 right-0 bg-white/50 pl-2">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">
                     {formatTimeAgo(n.createdAt)}
@@ -217,11 +387,11 @@ export default function SystemNotifications() {
           onClick={() => setActive(null)}
         >
           <div
-            className="w-full max-w-xl bg-white rounded-t-3xl md:rounded-3xl shadow-2xl animate-in slide-in-from-bottom md:zoom-in-95 duration-200 max-h-[85vh] flex flex-col"
+            className="w-full max-w-2xl bg-white rounded-t-3xl md:rounded-3xl shadow-2xl animate-in slide-in-from-bottom md:zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-slate-100">
-              <div className="flex gap-4">
+              <div className="flex gap-4 min-w-0">
                 <div className="w-11 h-11 rounded-2xl bg-slate-50 flex items-center justify-center flex-shrink-0">
                   {getIcon(active.type, 22)}
                 </div>
@@ -237,15 +407,28 @@ export default function SystemNotifications() {
               <button
                 onClick={() => setActive(null)}
                 className="p-2 -mr-2 -mt-2 hover:bg-slate-50 rounded-full active:scale-90 transition-all"
+                aria-label="Close"
               >
                 <X size={20} className="text-slate-400" />
               </button>
             </div>
 
-            <div className="overflow-y-auto px-6 py-6 flex-1">
-              <p className="text-[15px] text-slate-700 whitespace-pre-wrap leading-[1.7]">
-                {active.body || "(no content)"}
-              </p>
+            <div className="overflow-y-auto px-6 py-6 flex-1 space-y-4">
+              {active.metadata?.credentials && (
+                <CredentialsCard credentials={active.metadata.credentials} />
+              )}
+
+              <div className="space-y-1">{renderBodyText(active.body || "(no content)")}</div>
+
+              {active.link && !active.metadata?.credentials && (
+                <button
+                  onClick={openActiveLink}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-[#00aeff] hover:bg-[#0096db] text-white text-sm font-black py-3 rounded-xl transition-colors mt-4"
+                >
+                  <ExternalLink size={16} />
+                  Open link
+                </button>
+              )}
             </div>
           </div>
         </div>

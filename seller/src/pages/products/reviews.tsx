@@ -1,225 +1,199 @@
-import React, { useState } from 'react';
-import {
-  Star, Search, Filter, ChevronDown, Download, MessageSquare, Flag, Eye,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Star, Search, MessageSquare, Loader2 } from "lucide-react";
+import { fetchMyReviews, type SellerReviewRow } from "@/services/sellerApi";
 
-type StatusTab = 'all' | 'published' | 'pending' | 'flagged';
-
-interface Review {
-  id: number;
-  user: string;
-  initials: string;
-  rating: number;
-  date: string;
-  product: string;
-  sku: string;
-  comment: string;
-  status: 'Published' | 'Pending' | 'Flagged';
-  replied: boolean;
-}
-
-const reviews: Review[] = [
-  { id: 1, user: 'Lala Fan 01', initials: 'LF', rating: 5, date: 'Apr 30 · 2h', product: 'Premium Leather Bag', sku: 'LSO-BAG-001', comment: 'Quality is amazing! Better than the pictures.', status: 'Published', replied: true },
-  { id: 2, user: 'John Business', initials: 'JB', rating: 4, date: 'Apr 29', product: 'Wireless Earbuds', sku: 'LSO-EAR-202', comment: 'Good value for wholesale, will order more.', status: 'Published', replied: false },
-  { id: 3, user: 'Mina S.', initials: 'MS', rating: 3, date: 'Apr 27', product: 'Wall Clock', sku: 'LSO-CLK-99', comment: 'Delivery took a bit long but product is fine.', status: 'Pending', replied: false },
-  { id: 4, user: 'Anonymous', initials: 'AN', rating: 1, date: 'Apr 26', product: 'Cotton T-Shirt', sku: 'LSO-TSH-01', comment: 'Item never arrived. Filing dispute. Avoid this seller.', status: 'Flagged', replied: false },
-  { id: 5, user: 'Rita W.', initials: 'RW', rating: 5, date: 'Apr 24', product: 'Pour-Over Set', sku: 'LSO-MUG-22', comment: 'Beautiful packaging — repurchased twice now.', status: 'Published', replied: true },
-];
-
-const STATUS_BADGE: Record<Review['status'], string> = {
-  'Published': 'bg-green-50 text-green-700',
-  'Pending': 'bg-gray-100 text-gray-700',
-  'Flagged': 'bg-red-50 text-red-700',
+const formatDate = (s?: string): string => {
+  if (!s) return "—";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString();
 };
 
-const TABS: { key: StatusTab; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'published', label: 'Published' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'flagged', label: 'Flagged' },
-];
+const productImage = (p?: SellerReviewRow["product"]): string => {
+  if (!p) return "";
+  if (Array.isArray(p.images) && p.images.length > 0) return p.images[0];
+  if (typeof p.image === "string") return p.image;
+  if (Array.isArray(p.image) && p.image.length > 0) return p.image[0];
+  return "";
+};
 
-const StarRow = ({ rating }: { rating: number }) => (
-  <div className="inline-flex items-center gap-0.5">
-    {[0, 1, 2, 3, 4].map((i) => (
-      <Star
-        key={i}
-        className={`w-3 h-3 ${i < rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-200 fill-gray-200'}`}
-      />
-    ))}
-    <span className="ml-1 text-[11px] text-gray-600 tabular-nums">{rating}.0</span>
-  </div>
-);
+const ReviewsPage: React.FC = () => {
+  const [reviews, setReviews] = useState<SellerReviewRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "5" | "4" | "3" | "2" | "1">("all");
+  const [q, setQ] = useState("");
 
-const ProductReview = () => {
-  const [tab, setTab] = useState<StatusTab>('all');
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchMyReviews()
+      .then((data) => {
+        if (!cancelled) setReviews(data);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const counts: Record<StatusTab, number> = {
-    all: reviews.length,
-    published: reviews.filter((r) => r.status === 'Published').length,
-    pending: reviews.filter((r) => r.status === 'Pending').length,
-    flagged: reviews.filter((r) => r.status === 'Flagged').length,
-  };
+  const filtered = useMemo(() => {
+    return reviews.filter((r) => {
+      if (filter !== "all" && Math.round(r.rating) !== Number(filter)) return false;
+      if (!q) return true;
+      const haystack = [r.comment, r.product?.name, r.user?.name, r.user?.username].join(" ").toLowerCase();
+      return haystack.includes(q.toLowerCase());
+    });
+  }, [reviews, filter, q]);
 
-  const filtered = tab === 'all'
-    ? reviews
-    : reviews.filter((r) =>
-        tab === 'published' ? r.status === 'Published' : tab === 'pending' ? r.status === 'Pending' : r.status === 'Flagged',
-      );
-
-  const avgRating = (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1);
-  const positiveRate = Math.round((reviews.filter((r) => r.rating >= 4).length / reviews.length) * 100);
-  const unreplied = reviews.filter((r) => !r.replied && r.status !== 'Flagged').length;
+  const stats = useMemo(() => {
+    const total = reviews.length;
+    const avg = total > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / total : 0;
+    const dist = [5, 4, 3, 2, 1].map((n) => ({
+      n,
+      count: reviews.filter((r) => Math.round(r.rating) === n).length,
+    }));
+    return { total, avg, dist };
+  }, [reviews]);
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Title bar */}
-      <div className="flex items-center gap-2">
-        <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center">
-          <Download className="w-3.5 h-3.5 mr-1.5" /> Export
-        </button>
-        <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900">
-          <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Bulk Reply
-        </button>
+      <h1 className="text-[16px] font-bold text-gray-900">Product reviews</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-lg border border-gray-100 px-5 py-4 text-center">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Average rating</p>
+          <p className="text-[36px] font-black text-amber-500 tabular-nums leading-none mt-1">
+            {stats.total > 0 ? stats.avg.toFixed(1) : "—"}
+          </p>
+          <div className="flex items-center justify-center gap-0.5 mt-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star
+                key={n}
+                size={14}
+                className={n <= Math.round(stats.avg) ? "text-amber-400 fill-amber-400" : "text-gray-200"}
+              />
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1">{stats.total} review{stats.total === 1 ? "" : "s"}</p>
+        </div>
+
+        <div className="md:col-span-2 rounded-lg border border-gray-100 px-5 py-4 space-y-1">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Distribution
+          </p>
+          {stats.dist.map((d) => {
+            const pct = stats.total > 0 ? (d.count / stats.total) * 100 : 0;
+            return (
+              <div key={d.n} className="flex items-center gap-2 text-[11px]">
+                <span className="w-3 text-gray-600 font-bold">{d.n}</span>
+                <Star size={11} className="text-amber-400 fill-amber-400" />
+                <div className="flex-1 h-2 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    className="h-full bg-amber-400"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="w-8 text-right text-gray-500 tabular-nums">{d.count}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Average Rating</p>
-          <p className="text-xl font-bold text-black tabular-nums mt-1">{avgRating}</p>
-        </div>
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Total Reviews</p>
-          <p className="text-xl font-bold text-black tabular-nums mt-1">1,240</p>
-        </div>
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Positive Rate</p>
-          <p className="text-xl font-bold text-green-700 tabular-nums mt-1">{positiveRate}%</p>
-        </div>
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Unreplied</p>
-          <p className="text-xl font-bold text-orange-700 tabular-nums mt-1">{unreplied}</p>
-        </div>
-      </div>
-
-      {/* Filter bar */}
-      <div className="rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
-        <div className="inline-flex items-center bg-gray-100 rounded-md p-0.5">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-2.5 py-1 rounded text-[11px] font-semibold ${
-                tab === t.key ? 'text-black' : 'text-gray-600 hover:text-black'
-              }`}
-            >
-              {t.label}
-              <span className="ml-1 text-[10px] text-gray-400 tabular-nums">{counts[t.key]}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="h-5 w-px bg-gray-200 mx-1" />
-
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          Rating <ChevronDown className="w-3 h-3 ml-1.5 text-gray-400" />
-        </button>
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          Product <ChevronDown className="w-3 h-3 ml-1.5 text-gray-400" />
-        </button>
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          Replied <ChevronDown className="w-3 h-3 ml-1.5 text-gray-400" />
-        </button>
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          <Filter className="w-3.5 h-3.5 mr-1.5 text-gray-400" /> Add filter
-        </button>
-
+      <div className="flex items-center gap-2 flex-wrap">
+        {(["all", "5", "4", "3", "2", "1"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3 py-1 rounded text-[11px] font-bold ${
+              filter === f
+                ? "bg-amber-500 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {f === "all" ? `All (${stats.total})` : `${f}★ (${stats.dist.find((d) => d.n === Number(f))?.count ?? 0})`}
+          </button>
+        ))}
         <div className="ml-auto relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
-            type="text"
-            placeholder="Search reviews, SKU, user…"
-            className="pl-7 pr-3 py-1 rounded text-[11px] w-56"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search comment, product..."
+            className="pl-7 pr-3 py-1 rounded text-[11px] w-64 bg-gray-50 border border-gray-100 focus:border-amber-500 outline-none"
           />
         </div>
       </div>
 
-      {/* Reviews table */}
-      <div className="rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px] tabular-nums">
-            <thead className="text-[11px] text-gray-500 tracking-wide">
-              <tr>
-                <th className="px-4 py-2 text-left font-semibold">Reviewer</th>
-                <th className="px-4 py-2 text-left font-semibold">Rating</th>
-                <th className="px-4 py-2 text-left font-semibold">Product</th>
-                <th className="px-4 py-2 text-left font-semibold">Review</th>
-                <th className="px-4 py-2 text-left font-semibold">Date</th>
-                <th className="px-4 py-2 text-left font-semibold">Status</th>
-                <th className="px-4 py-2 text-left font-semibold">Replied</th>
-                <th className="px-4 py-2 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="">
-              {filtered.map((r) => (
-                <tr key={r.id} className="align-top">
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-700">
-                        {r.initials}
-                      </div>
-                      <span className="font-medium text-gray-900">{r.user}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2"><StarRow rating={r.rating} /></td>
-                  <td className="px-4 py-2">
-                    <p className="font-medium text-gray-900">{r.product}</p>
-                    <p className="font-mono text-[11px] text-gray-600">{r.sku}</p>
-                  </td>
-                  <td className="px-4 py-2 text-gray-700 max-w-md truncate">{r.comment}</td>
-                  <td className="px-4 py-2 text-gray-700 whitespace-nowrap">{r.date}</td>
-                  <td className="px-4 py-2">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${STATUS_BADGE[r.status]}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    {r.replied ? (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700">Yes</span>
-                    ) : (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700">No</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <button className="text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1" title="View">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button className="text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1" title="Reply">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                      </button>
-                      <button className="text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded p-1" title="Flag">
-                        <Flag className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {error && (
+        <div className="rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700">{error}</div>
+      )}
 
-        <div className="flex items-center justify-between px-4 py-2.5 text-[11px] text-gray-500">
-          <span>Showing 1–{filtered.length} of 1,240 reviews</span>
-          <div className="flex items-center gap-1">
-            <button className="px-2.5 py-1 rounded text-[11px] font-medium text-gray-400 cursor-not-allowed">Prev</button>
-            <button className="px-2.5 py-1 rounded text-[11px] font-medium text-gray-700">Next</button>
+      <div className="space-y-2">
+        {loading && (
+          <div className="py-12 text-center text-gray-400 text-[12px]">
+            <Loader2 className="w-5 h-5 mx-auto animate-spin" />
           </div>
-        </div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="py-12 text-center text-gray-400 text-[12px]">
+            <MessageSquare className="w-6 h-6 mx-auto mb-2 text-gray-300" />
+            No reviews match this view
+          </div>
+        )}
+        {!loading &&
+          filtered.map((r) => {
+            const cover = productImage(r.product);
+            return (
+              <div key={r._id} className="rounded-lg border border-gray-100 p-4 flex gap-4">
+                <div className="w-12 h-12 rounded bg-gray-50 overflow-hidden flex-shrink-0">
+                  {cover && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={cover} alt={r.product?.name} className="w-full h-full object-cover" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {r.product?._id && (
+                      <Link
+                        href={`/products/list`}
+                        className="text-[12px] font-bold text-gray-900 hover:text-[#00aeff]"
+                      >
+                        {r.product.name}
+                      </Link>
+                    )}
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Star
+                          key={n}
+                          size={11}
+                          className={n <= r.rating ? "text-amber-400 fill-amber-400" : "text-gray-200"}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-gray-400">·</span>
+                    <span className="text-[10px] text-gray-400">{formatDate(r.createdAt)}</span>
+                  </div>
+                  <p className="text-[12px] text-gray-700 mt-1.5 leading-relaxed whitespace-pre-wrap">
+                    {r.comment || <span className="text-gray-400 italic">(no comment)</span>}
+                  </p>
+                  <p className="text-[10px] text-gray-500 mt-1.5">
+                    by <strong>{r.user?.username || r.user?.name || "user"}</strong>
+                  </p>
+                </div>
+              </div>
+            );
+          })}
       </div>
     </div>
   );
 };
 
-export default ProductReview;
+export default ReviewsPage;

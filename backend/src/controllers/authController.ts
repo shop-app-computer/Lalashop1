@@ -93,6 +93,62 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+// Seller-only login. Validates against the per-seller password generated
+// when admin approves KYC, not the customer-side password.
+export const sellerLogin = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const user = await User.findOne({ email }).select("+sellerPassword");
+    if (!user) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+    if (!user.isSeller) {
+      return res
+        .status(403)
+        .json({ message: "This account is not a seller. Submit KYC and wait for approval." });
+    }
+    if (!user.sellerPassword) {
+      return res.status(403).json({
+        message:
+          "Seller password is not set. Ask an admin to re-issue your shop credentials.",
+      });
+    }
+
+    const ok = await bcrypt.compare(password, user.sellerPassword);
+    if (!ok) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const ip = extractIp(req);
+    if (ip) {
+      user.lastKnownIp = ip;
+      await user.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      isAdmin: user.isAdmin,
+      isSeller: user.isSeller,
+      seller_type: user.seller_type,
+      profileImage: user.profileImage,
+      bio: user.bio,
+      customId: user.customId,
+      token: generateToken((user._id as any).toString()),
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getMe = async (req: any, res: Response) => {
   try {
     const user = await User.findById(req.user._id);

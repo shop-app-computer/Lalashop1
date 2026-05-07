@@ -16,6 +16,8 @@ import {
 import { apiClient } from "@/services/apiClient";
 import Avatar from "@/components/ui/Avatar";
 import ReportModal, { type ReportTargetType } from "@/components/ReportModal";
+import { useChat } from "@/components/chat/ChatContext";
+import UserListModal from "@/pages/Social/components/UserListModal";
 import { BackendPost } from "../Social/components/SocialPost";
 
 interface ProfileUser {
@@ -59,6 +61,35 @@ export default function UserProfilePage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<ReportTargetType>("user");
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const { openWithPeer } = useChat();
+
+  const [userListModal, setUserListModal] = useState<{
+    isOpen: boolean;
+    type: "followers" | "following";
+    title: string;
+  }>({ isOpen: false, type: "followers", title: "Followers" });
+
+  const openUserList = (type: "followers" | "following") => {
+    setUserListModal({
+      isOpen: true,
+      type,
+      title: type === "followers" ? "Followers" : "Following",
+    });
+  };
+
+  const handleMessage = () => {
+    if (!profile) return;
+    if (!currentUserId) {
+      router.push("/login");
+      return;
+    }
+    void openWithPeer({
+      _id: profile._id,
+      name: profile.name,
+      username: profile.username,
+      profileImage: profile.profileImage,
+    });
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -287,7 +318,10 @@ export default function UserProfilePage() {
                 </button>
               )}
               {!isOwnProfile && (
-                <button className="px-4 py-1.5 rounded-lg text-xs font-black tracking-wide bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center gap-1.5">
+                <button
+                  onClick={handleMessage}
+                  className="px-4 py-1.5 rounded-lg text-xs font-black tracking-wide bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center gap-1.5"
+                >
                   <MessageCircle size={14} /> Message
                 </button>
               )}
@@ -306,14 +340,20 @@ export default function UserProfilePage() {
                 <p className="font-bold text-slate-900">{posts.length}</p>
                 <p className="text-xs text-slate-500">posts</p>
               </div>
-              <div className="text-center">
+              <button
+                onClick={() => openUserList("followers")}
+                className="text-center active:scale-95 transition-transform hover:opacity-70"
+              >
                 <p className="font-bold text-slate-900">{profile.followers?.length || 0}</p>
                 <p className="text-xs text-slate-500">followers</p>
-              </div>
-              <div className="text-center">
+              </button>
+              <button
+                onClick={() => openUserList("following")}
+                className="text-center active:scale-95 transition-transform hover:opacity-70"
+              >
                 <p className="font-bold text-slate-900">{profile.following?.length || 0}</p>
                 <p className="text-xs text-slate-500">following</p>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -397,7 +437,10 @@ export default function UserProfilePage() {
             <p className="text-sm text-slate-400 font-medium">No products listed yet</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 px-2">
+          // Match the Posts grid (3 cols, square tiles, hairline gap) so the
+          // visual rhythm of the profile is consistent across tabs. Hover
+          // overlay surfaces price + rating without taking up grid space.
+          <div className="grid grid-cols-3 gap-1 px-1">
             {shopProducts.map((p) => {
               const cover =
                 Array.isArray(p.images) && p.images.length
@@ -410,46 +453,50 @@ export default function UserProfilePage() {
                 <Link
                   key={p._id}
                   href={`/product/${p._id}`}
-                  className="block group bg-white rounded-xl overflow-hidden border border-slate-100 hover:shadow-md transition-all"
+                  className="aspect-square bg-slate-100 overflow-hidden relative group"
                 >
-                  <div className="aspect-square bg-slate-50 relative overflow-hidden">
-                    {cover ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={cover}
-                        alt={p.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <ShoppingBag size={32} strokeWidth={1.5} />
-                      </div>
-                    )}
-                    {p.freeShipping && (
-                      <span className="absolute bottom-1 left-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-600 text-white">
-                        Free shipping
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <h3 className="text-xs font-bold text-slate-800 line-clamp-2 min-h-[32px]">
+                  {cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={cover}
+                      alt={p.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <ShoppingBag size={32} strokeWidth={1.5} />
+                    </div>
+                  )}
+
+                  {/* Permanent price chip — small, lower-left */}
+                  <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-black tabular-nums">
+                    ฿{Number(p.price || 0).toLocaleString()}
+                  </span>
+                  {p.freeShipping && (
+                    <span className="absolute top-1 left-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-600 text-white">
+                      Free
+                    </span>
+                  )}
+
+                  {/* Hover overlay with title + description + rating */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent  flex flex-col justify-end p-2">
+                    <p className="text-[10px] font-bold text-white line-clamp-2 leading-tight">
                       {p.name}
-                    </h3>
-                    <div className="mt-1.5 flex items-center gap-1 text-[#ffab00]">
-                      <Star size={11} fill="currentColor" />
-                      <span className="text-[10px] font-bold text-slate-700">
+                    </p>
+                    {p.description && (
+                      <p className="text-[9px] text-white/80 line-clamp-2 leading-snug mt-0.5">
+                        {p.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1 text-[#ffd54f] mt-1">
+                      <Star size={9} fill="currentColor" />
+                      <span className="text-[9px] font-bold text-white">
                         {rating > 0 ? rating.toFixed(1) : "—"}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium ml-1">
+                      <span className="text-[9px] text-white/70">
                         ({Number(p.numReviews) || 0})
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium ml-auto">
-                        Stock {Number(p.countInStock) || 0}
-                      </span>
                     </div>
-                    <p className="mt-1.5 text-sm font-black text-primary">
-                      ฿{Number(p.price || 0).toLocaleString()}
-                    </p>
                   </div>
                 </Link>
               );
@@ -457,6 +504,14 @@ export default function UserProfilePage() {
           </div>
         )}
       </main>
+
+      <UserListModal
+        isOpen={userListModal.isOpen}
+        type={userListModal.type}
+        title={userListModal.title}
+        userId={profile._id}
+        onClose={() => setUserListModal((prev) => ({ ...prev, isOpen: false }))}
+      />
 
       <ReportModal
         isOpen={reportOpen}

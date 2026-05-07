@@ -7,6 +7,7 @@ export interface IUser extends Document {
   email: string;
   phone: string;
   password?: string;
+  sellerPassword?: string;
   isAdmin: boolean;
   profileImage?: string;
   bio?: string;
@@ -18,6 +19,7 @@ export interface IUser extends Document {
   isSeller: boolean;
   seller_type?: string;
   adminRole?: "super" | "finance" | "support" | "content";
+  posRevenue: number;
   balance: number;
   otp?: string;
   otpExpires?: Date;
@@ -34,11 +36,13 @@ const userSchema: Schema = new Schema(
     email: { type: String, required: true, unique: true },
     phone: { type: String, required: false },
     password: { type: String, required: false },
+    sellerPassword: { type: String, required: false, select: false },
     isAdmin: { type: Boolean, default: false },
     isSeller: { type: Boolean, default: false },
     seller_type: { type: String },
     adminRole: { type: String, enum: ["super", "finance", "support", "content"] },
     balance: { type: Number, default: 0 },
+    posRevenue: { type: Number, default: 0 },
     profileImage: { type: String, default: "" },
     bio: { type: String, default: "" },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

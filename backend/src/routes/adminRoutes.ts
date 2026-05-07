@@ -7,6 +7,7 @@ import {
   getUserById,
   updateUser,
   updateUserBank,
+  issueSellerCredentials,
 } from "../controllers/adminController";
 import {
   adminListKyc,
@@ -104,6 +105,7 @@ router.get("/users", listUsers);
 router.get("/users/:id", getUserById);
 router.patch("/users/:id", updateUser);
 router.put("/users/:id/bank", updateUserBank);
+router.post("/users/:id/issue-seller-credentials", issueSellerCredentials);
 
 // KYC
 router.get("/kyc", adminListKyc);

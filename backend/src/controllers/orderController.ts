@@ -73,6 +73,8 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
       paymentMethod,
       totalPrice,
       sessionId = "guest-session",
+      channel,
+      posTerminal,
     } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
@@ -81,12 +83,38 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
 
     const userId = req.user ? req.user._id : undefined;
     const cookies = (req as any).cookies as Record<string, string> | undefined;
+    const isPos = channel === "pos";
+
+    // POS sales must be made by an authenticated seller and items must belong
+    // to that same seller (a seller selling at their own terminal).
+    if (isPos) {
+      if (!req.user?._id) {
+        return res
+          .status(401)
+          .json({ success: false, message: "POS orders require seller authentication" });
+      }
+      if (!req.user.isSeller) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Only sellers can create POS orders" });
+      }
+      const allOwn = (orderItems as Array<{ seller?: string }>).every(
+        (item) => String(item.seller) === String(req.user._id),
+      );
+      if (!allOwn) {
+        return res.status(400).json({
+          success: false,
+          message: "POS orders may only contain items from your own catalog",
+        });
+      }
+    }
 
     const enrichedItems = await Promise.all(
       orderItems.map(async (item: any) => {
         const attribution = await resolveAttribution(item, cookies);
         const base = { ...item };
-        if (attribution) {
+        if (attribution && !isPos) {
+          // Affiliate commission only applies to web sales
           base.creator = attribution.creator;
           base.commission = attribution.commission;
           base.commissionType = attribution.commissionType;
@@ -103,9 +131,24 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
       paymentMethod,
       totalPrice,
       sessionId: userId ? undefined : sessionId,
+      channel: isPos ? "pos" : "web",
+      posTerminal: isPos ? (typeof posTerminal === "string" ? posTerminal : "default") : undefined,
+      // POS sales are paid in person at the terminal — mark settled immediately.
+      isPaid: isPos ? true : false,
+      paidAt: isPos ? new Date() : undefined,
+      status: isPos ? "delivered" : "pending",
+      isDelivered: isPos ? true : false,
+      deliveredAt: isPos ? new Date() : undefined,
     });
 
     const createdOrder = await order.save();
+
+    // POS revenue routes to the seller's posRevenue (non-withdrawable).
+    if (isPos && req.user?._id) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $inc: { posRevenue: Number(totalPrice) || 0 },
+      });
+    }
 
     res.status(201).json({
       success: true,

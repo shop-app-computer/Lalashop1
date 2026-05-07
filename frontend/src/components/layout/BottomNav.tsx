@@ -1,22 +1,22 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Home, ClipboardList, Store, User, UserSquare2, Globe } from "lucide-react";
-
-const menuItems = [
-  { icon: Home, href: "/" },
-  { icon: Globe, href: "/social" },
-  //{ icon: User, href: "/profile/profile" },
-  { icon: UserSquare2, href: "/creator/creator" },
-  { icon: ClipboardList, href: "/orders/orders" },
-  { icon: Store, href: "/me/me" },
-];
+import { Home, ClipboardList, Store, UserSquare2, Globe } from "lucide-react";
+import { useChat } from "@/components/chat/ChatContext";
 
 export default function BottomNav() {
   const router = useRouter();
   const pathname = router.pathname;
+  const { unreadTotal } = useChat();
 
-  // Hide BottomNav on these pages
+  const menuItems = [
+    { icon: Home, href: "/", badge: 0 },
+    { icon: Globe, href: "/Social/SocialPage", badge: unreadTotal },
+    { icon: UserSquare2, href: "/creator/creator", badge: 0 },
+    { icon: ClipboardList, href: "/orders/orders", badge: 0 },
+    { icon: Store, href: "/me/me", badge: 0 },
+  ];
+
   if (["/login", "/register", "/posts/create-post"].includes(pathname)) return null;
 
   return (
@@ -31,13 +31,20 @@ export default function BottomNav() {
             <Link
               key={index}
               href={item.href}
-              className={`nav-item ${isActive ? "active" : ""}`}
+              className={`nav-item ${isActive ? "active" : ""} relative`}
             >
-              <item.icon
-                className="nav-icon"
-                size={24}
-                strokeWidth={isActive ? 2.5 : 2}
-              />
+              <span className="relative inline-flex">
+                <item.icon
+                  className="nav-icon"
+                  size={24}
+                  strokeWidth={isActive ? 2.5 : 2}
+                />
+                {item.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center ring-2 ring-white">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
+              </span>
             </Link>
           );
         })}

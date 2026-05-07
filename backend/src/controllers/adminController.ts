@@ -1,10 +1,13 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import User from "../models/userModel";
 import Product from "../models/productModel";
 import Order from "../models/orderModel";
 import Post from "../models/postModel";
 import Bank from "../models/bankModel";
+import Notification from "../models/notificationModel";
+import { IAuthRequest } from "../middlewares/authMiddleware";
 
 interface ListQuery {
   page?: string;
@@ -407,6 +410,79 @@ export const updateUserBank = async (req: Request, res: Response) => {
         accountNumber: bank.accountNumber,
         accountName: bank.accountName,
         isVerified: bank.isVerified,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Generate (or re-issue) the seller-side password for an approved seller
+// and notify the user with a credential card. Useful for sellers whose KYC
+// was approved before the seller-credentials flow was introduced, or whose
+// seller password needs to be reset.
+export const issueSellerCredentials = async (req: IAuthRequest, res: Response) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    if (!user.isSeller) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User is not a seller. Approve their KYC first." });
+    }
+
+    const generated = crypto.randomBytes(6).toString("base64").slice(0, 10);
+    const salt = await bcrypt.genSalt(10);
+    user.sellerPassword = await bcrypt.hash(generated, salt);
+    await user.save();
+
+    const sellerDashboardUrl =
+      process.env.SELLER_DASHBOARD_URL || "http://localhost:3002";
+
+    const body = [
+      "Your seller dashboard credentials have been issued/reset by an admin.",
+      "",
+      "Use the following credentials to sign in to your seller dashboard:",
+      "",
+      `Email:    ${user.email}`,
+      `Password: ${generated}`,
+      "",
+      `Seller dashboard:  ${sellerDashboardUrl}/login`,
+      "",
+      "Notes:",
+      "• This password is separate from your customer-site password.",
+      "• Save this password now. The system shows it only on this notification.",
+      "• You can change it from Seller Center → Settings after first login.",
+    ].join("\n");
+
+    await Notification.create({
+      user: user._id,
+      type: "kyc_approved",
+      title: "Seller credentials issued",
+      body,
+      link: `${sellerDashboardUrl}/login`,
+      metadata: {
+        reissuedAt: new Date().toISOString(),
+        sellerDashboardUrl,
+        credentials: {
+          email: user.email,
+          password: generated,
+          loginUrl: `${sellerDashboardUrl}/login`,
+        },
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userId: user._id,
+        email: user.email,
+        // Returned to admin once so they can pass it to the seller out-of-band
+        // if needed; otherwise the seller reads it from their notification.
+        password: generated,
+        loginUrl: `${sellerDashboardUrl}/login`,
       },
     });
   } catch (error: any) {

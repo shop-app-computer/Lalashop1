@@ -20,6 +20,7 @@ import { ProductTabs } from "./ProductTabs";
 import { PriceTier, ProductData } from "./types";
 import { Product } from "@/types";
 import { apiClient } from "@/services/apiClient";
+import { useChat } from "@/components/chat/ChatContext";
 
 // ─── Toast Component ──────────────────────────────────────────────────────────
 function Toast({ message, visible }: { message: string; visible: boolean }) {
@@ -77,6 +78,7 @@ function ProductPageSkeleton() {
 export default function ProductPage() {
   const router = useRouter();
   const { id } = router.query;
+  const { openWithProduct } = useChat();
 
   const [product, setProduct] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -188,7 +190,44 @@ export default function ProductPage() {
   }, [product]);
 
   const isOwnProduct = !!(currentUserId && sellerId && currentUserId === sellerId);
-  const viewShopHref = isOwnProduct ? "/me/me" : `/profile/${sellerId || ""}`;
+  const viewShopHref = isOwnProduct ? "/me/me" : `/u/${sellerId || ""}`;
+
+  // Open the chat panel with the seller and auto-attach this product as context
+  // so the seller's inbox shows which product the buyer is asking about.
+  const handleChatSeller = useCallback(() => {
+    if (!product) return;
+    if (!currentUserId) {
+      router.push("/login");
+      return;
+    }
+    if (isOwnProduct) {
+      showToast("This is your own product");
+      return;
+    }
+    const seller: any = (product as any)?.seller;
+    if (!seller || !sellerId) {
+      showToast("Seller info unavailable");
+      return;
+    }
+    const cover = Array.isArray((product as any).images)
+      ? (product as any).images[0]
+      : (product as any).image;
+    void openWithProduct(
+      {
+        _id: sellerId,
+        name: seller.name,
+        username: seller.username,
+        profileImage: seller.profileImage,
+      },
+      {
+        productId: String(product._id || product.id),
+        name: product.name || "",
+        image: typeof cover === "string" ? cover : "",
+        price: typeof product.price === "number" ? product.price : selectedPrice || 0,
+        slug: (product as any).slug,
+      }
+    );
+  }, [product, currentUserId, isOwnProduct, sellerId, openWithProduct, router, showToast, selectedPrice]);
 
   const shipsFromText = useMemo(() => {
     const sf: any = (product as any)?.shipsFrom;
@@ -440,14 +479,11 @@ export default function ProductPage() {
 
               {/* Ghost: Message */}
               <button
-                onClick={() => router.push({
-                  pathname: '/product/chat',
-                  query: { productId: product?.id }
-                })}
+                onClick={handleChatSeller}
                 className="btn-hover w-full bg-transparent text-slate-600 hover:bg-slate-100 border border-gray-200 font-bold text-sm rounded-2xl py-3.5 mb-6 flex items-center justify-center gap-2 transition-all duration-200"
               >
                 <MessageCircle size={15} />
-                Chat
+                Chat with seller
               </button>
 
               {/* Trust Pills */}
@@ -503,11 +539,8 @@ export default function ProductPage() {
                 View Shop
               </Link>
               <button
-                onClick={() => router.push({
-                  pathname: '/product/chat',
-                  query: { productId: product?.id }
-                })}
-                className="flex-1 md:flex-none px-6 py-3  text-black font-bold text-sm   duration-200 flex   "
+                onClick={handleChatSeller}
+                className="flex-1 md:flex-none px-6 py-3 text-black font-bold text-sm duration-200 inline-flex items-center justify-center gap-2"
               >
                 <MessageCircle size={16} />
                 Chat

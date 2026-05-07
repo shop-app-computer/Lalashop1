@@ -39,7 +39,7 @@ export default function SellerSettings() {
       <aside className="w-full md:w-64 bg-white border-r border-gray-200">
         <div className="p-6 border-b border-gray-100">
           <Link
-            href="/profile/profile"
+            href="/me/me"
             className="flex items-center gap-2 text-gray-500 hover:text-[#00aeff] mb-4 transition-colors group"
           >
             <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />

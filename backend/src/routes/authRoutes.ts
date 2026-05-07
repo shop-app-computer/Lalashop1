@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import {
   register,
   login,
+  sellerLogin,
   getMe,
   setWithdrawPin,
   forgotPassword,
@@ -55,6 +56,7 @@ router.get(
 // Auth Routes
 router.post("/register", register);
 router.post("/login", login);
+router.post("/seller-login", sellerLogin);
 router.get("/me", protect as any, getMe);
 router.post("/forgot-password", forgotPassword);
 router.post("/verify-reset-code", verifyResetCode);

@@ -58,6 +58,8 @@ export interface IProduct extends Document {
   allowOversell?: boolean;
   reorderAt?: number;
   status?: "Active" | "Draft" | "Archived";
+  salesChannel?: "web" | "pos" | "both";
+  showInStorefront?: boolean;
   tags?: string[];
   vendor?: string;
   variantOptions?: IVariantOption[];
@@ -171,6 +173,13 @@ const productSchema: Schema = new Schema(
       enum: ["Active", "Draft", "Archived"],
       default: "Draft",
     },
+    salesChannel: {
+      type: String,
+      enum: ["web", "pos", "both"],
+      default: "web",
+      index: true,
+    },
+    showInStorefront: { type: Boolean, default: true, index: true },
     tags: { type: [String], default: [] },
     vendor: { type: String, default: "" },
     variantOptions: { type: [variantOptionSchema], default: [] },

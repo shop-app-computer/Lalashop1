@@ -119,7 +119,7 @@ export default function UserListModal({ title, isOpen, onClose, type, userId }: 
               {filteredUsers.map((user) => (
                 <div key={user._id} className="flex items-center justify-between gap-3 group">
                   <Link
-                    href={`/profile/${user._id}`}
+                    href={`/u/${user._id}`}
                     onClick={onClose}
                     className="flex items-center gap-3 flex-1 min-w-0"
                   >

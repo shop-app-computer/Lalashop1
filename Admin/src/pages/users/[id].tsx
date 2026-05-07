@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, X, KeyRound, Copy, Check, Store, Loader2 } from 'lucide-react';
 import {
   fetchUserById,
   updateUser as apiUpdateUser,
   updateUserBank as apiUpdateUserBank,
+  issueSellerCredentials,
   type AdminUserDetail,
+  type IssueSellerCredentialsResponse,
 } from '@/services/adminApi';
 
 const formatNumber = (value: number): string =>
@@ -61,6 +63,40 @@ const UserDetailsPage = () => {
   const [form, setForm] = useState<EditFormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [issuing, setIssuing] = useState(false);
+  const [issuedCreds, setIssuedCreds] = useState<IssueSellerCredentialsResponse | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<'email' | 'password' | null>(null);
+
+  const handleIssueCredentials = async () => {
+    if (typeof id !== 'string' || !user) return;
+    const ok = window.confirm(
+      `Generate a new seller password for ${user.email}?\n\nThe user will be notified through their in-app inbox with the new credentials. The previous seller password (if any) will stop working.`
+    );
+    if (!ok) return;
+    setIssuing(true);
+    setIssueError(null);
+    setIssuedCreds(null);
+    try {
+      const res = await issueSellerCredentials(id);
+      if (res.data) setIssuedCreds(res.data);
+    } catch (err) {
+      setIssueError(err instanceof Error ? err.message : 'Failed to issue credentials');
+    } finally {
+      setIssuing(false);
+    }
+  };
+
+  const onCopy = async (field: 'email' | 'password', value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     if (typeof id !== 'string' || !id) return;
@@ -175,14 +211,80 @@ const UserDetailsPage = () => {
   return (
     <div className="w-full h-full bg-white text-black font-sans lowercase">
       <div className="w-full min-h-screen px-2 sm:px-4 md:px-6 lg:px-10 py-4">
-        <div className="flex items-center justify-end mb-2">
+        <div className="flex items-center justify-end mb-2 gap-2">
+          {user.isSeller && (
+            <button
+              onClick={handleIssueCredentials}
+              disabled={issuing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+              title="Generate a new seller password and notify the user"
+            >
+              {issuing ? <Loader2 className="w-3 h-3 animate-spin" /> : <KeyRound className="w-3 h-3" />}
+              {issuing ? 'Issuing...' : 'Issue seller credentials'}
+            </button>
+          )}
           <button
             onClick={openEdit}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5  font-semibold bg-white text-black  "
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 font-semibold bg-white text-black"
           >
-            <Pencil className="w-3 h-3" /> 
+            <Pencil className="w-3 h-3" />
           </button>
         </div>
+
+        {issueError && (
+          <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700">
+            {issueError}
+          </div>
+        )}
+
+        {issuedCreds && (
+          <div className="mb-4 rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Store className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-[12px] font-black text-emerald-900 tracking-wide uppercase">
+                Seller credentials issued
+              </h3>
+            </div>
+            <p className="text-[11px] text-emerald-800">
+              The user will see these credentials in their in-app notifications. You can also copy
+              them here to send out-of-band — the system stores only a hashed copy.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="rounded-lg bg-white border border-emerald-100 px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email</span>
+                  <button
+                    onClick={() => onCopy('email', issuedCreds.email)}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900"
+                  >
+                    {copiedField === 'email' ? <><Check size={10} /> Copied</> : <><Copy size={10} /> Copy</>}
+                  </button>
+                </div>
+                <p className="text-[12px] font-mono text-slate-900 mt-1 break-all">{issuedCreds.email}</p>
+              </div>
+              <div className="rounded-lg bg-white border border-emerald-100 px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Password</span>
+                  <button
+                    onClick={() => onCopy('password', issuedCreds.password)}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900"
+                  >
+                    {copiedField === 'password' ? <><Check size={10} /> Copied</> : <><Copy size={10} /> Copy</>}
+                  </button>
+                </div>
+                <p className="text-[12px] font-mono text-slate-900 mt-1 tracking-wider">{issuedCreds.password}</p>
+              </div>
+            </div>
+            <a
+              href={issuedCreds.loginUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-emerald-700 hover:underline font-medium"
+            >
+              Login URL: {issuedCreds.loginUrl} →
+            </a>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           <div className="space-y-10">

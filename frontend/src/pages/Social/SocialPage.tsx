@@ -4,7 +4,6 @@ import {
   Send,
   Search,
   PlusSquare,
-  ArrowLeft,
   Image as ImageIcon,
   Video,
   Loader2,
@@ -12,11 +11,9 @@ import {
 import Link from "next/link";
 import SocialPost, { BackendPost } from "./components/SocialPost";
 import MediaUpload from "./components/MediaUpload";
-import ChatInterface from "./Chat/ChatInterface";
 import Avatar from "@/components/ui/Avatar";
 import { apiClient } from "@/services/apiClient";
-
-type ViewType = "feed" | "chat";
+import { useChat } from "@/components/chat/ChatContext";
 
 interface MiniUser {
   _id: string;
@@ -27,10 +24,10 @@ interface MiniUser {
 }
 
 export default function SocialPage() {
+  const { open: openChat, unreadMessages } = useChat();
   const [posts, setPosts] = useState<BackendPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
-  const [view, setView] = useState<ViewType>("feed");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MiniUser[]>([]);
   const [searching, setSearching] = useState(false);
@@ -137,20 +134,6 @@ export default function SocialPage() {
     }
   };
 
-  if (view === "chat") {
-    return (
-      <div className="min-h-screen bg-white">
-        <ChatInterface />
-        <button
-          onClick={() => setView("feed")}
-          className="fixed bottom-24 left-4 bg-white shadow-lg p-3 rounded-full border border-gray-border md:hidden"
-        >
-          <ArrowLeft size={24} className="text-dark" />
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#FAFAFA] pb-24 md:pb-8 font-sans">
       <nav className="sticky top-0 z-[60] bg-white/90 backdrop-blur-lg border-b border-slate-100 px-4 py-3 flex items-center justify-between max-w-5xl mx-auto w-full md:px-8 shadow-sm">
@@ -229,11 +212,18 @@ export default function SocialPage() {
             size={24}
             className="cursor-pointer hover:text-red-500 transition-colors text-dark hidden sm:block"
           />
-          <Send
-            size={24}
-            className="cursor-pointer -rotate-12 transition-colors hover:text-primary text-dark"
-            onClick={() => setView("chat")}
-          />
+          <button
+            onClick={openChat}
+            className="relative cursor-pointer text-dark hover:text-primary transition-colors"
+            aria-label="Open messages"
+          >
+            <Send size={24} className="-rotate-12" />
+            {unreadMessages > 0 && (
+              <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center ring-2 ring-white">
+                {unreadMessages > 99 ? "99+" : unreadMessages}
+              </span>
+            )}
+          </button>
         </div>
       </nav>
 

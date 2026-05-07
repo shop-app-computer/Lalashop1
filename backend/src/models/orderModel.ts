@@ -31,6 +31,8 @@ export interface IOrder extends Document {
   isDelivered: boolean;
   deliveredAt?: Date;
   status: "pending" | "processing" | "shipped" | "delivered" | "canceled";
+  channel?: "web" | "pos";
+  posTerminal?: string;
 }
 
 const orderItemSchema = new Schema(
@@ -72,6 +74,13 @@ const orderSchema: Schema = new Schema(
       enum: ["pending", "processing", "shipped", "delivered", "canceled"],
       default: "pending",
     },
+    channel: {
+      type: String,
+      enum: ["web", "pos"],
+      default: "web",
+      index: true,
+    },
+    posTerminal: { type: String },
   },
   { timestamps: true }
 );

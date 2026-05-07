@@ -19,7 +19,18 @@
       "Bash(grep -nB2 -A8 \"reports\\\\|Reports\" src/components/Sidebar/Sidebar.tsx)",
       "Bash(grep -nB2 -A5 \"reports\\\\|Reports\\\\|RPT\" src/pages/products/\\\\[id\\\\].tsx)",
       "Bash(grep -nB1 -A3 \"reports\\\\|Reports\" src/components/Sidebar/Sidebar.tsx)",
-      "Bash(xargs -I {} grep -l \"rate-limit\\\\|helmet\\\\|zod\\\\|joi\\\\|express-validator\" {})"
+      "Bash(xargs -I {} grep -l \"rate-limit\\\\|helmet\\\\|zod\\\\|joi\\\\|express-validator\" {})",
+      "Bash(cd f:/Lalashop2026/Admin && grep -rlE \"coming soon|not implemented|not yet|placeholder|TODO\" src/pages/ 2>&1 | sort; echo \"---\"; grep -nE \"TODO\\\\\\(auth\\\\\\)\" ../backend/src/routes/adminRoutes.ts; echo \"---SUPPORT-CHECK---\"; ls src/pages/support 2>&1; echo \"---CHANNEL-CHECK---\"; grep -nE \"channel|posRevenue\" src/pages/orders/index.tsx src/pages/users/\\\\[id\\\\].tsx src/pages/shops/\\\\[id\\\\].tsx src/pages/index.tsx 2>&1 | head -10)",
+      "Read(//f/backend/src/routes/**)",
+      "Bash(grep -E \"env|\\\\\\\\.env\")",
+      "Bash(npm install *)",
+      "Bash(grep -n \"MOCK\\\\|mock\\\\|dummy\\\\|TODO\\\\|coming soon\\\\|not yet implemented\\\\|setTimeout.*setMo\\\\|setSta.*\\\\\\\\[\\\\\\\\{\" f:/Lalashop2026/frontend/src/pages/category/category.tsx f:/Lalashop2026/frontend/src/pages/creator/creator.tsx f:/Lalashop2026/frontend/src/pages/me/menu/promo.tsx)",
+      "Bash(git status *)",
+      "Bash(rm -f frontend/src/pages/Social/Chat/ChatInterface.tsx)",
+      "Bash(rmdir frontend/src/pages/Social/Chat)",
+      "Bash(rm -rf frontend/src/pages/product/chat)",
+      "Bash(rm -f frontend/src/pages/top-factories/toppage.tsx)",
+      "Bash(git add *)"
     ]
   }
 }

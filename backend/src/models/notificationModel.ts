@@ -6,7 +6,11 @@ export type NotificationType =
   | "system"
   | "security"
   | "payout"
-  | "info";
+  | "info"
+  | "broadcast"
+  | "promo"
+  | "order_update"
+  | "message";
 
 export interface INotification extends Document {
   user: mongoose.Types.ObjectId;
@@ -25,7 +29,18 @@ const notificationSchema = new Schema<INotification>(
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: {
       type: String,
-      enum: ["kyc_approved", "kyc_rejected", "system", "security", "payout", "info"],
+      enum: [
+        "kyc_approved",
+        "kyc_rejected",
+        "system",
+        "security",
+        "payout",
+        "info",
+        "broadcast",
+        "promo",
+        "order_update",
+        "message",
+      ],
       default: "info",
     },
     title: { type: String, required: true },

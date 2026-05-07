@@ -25,6 +25,9 @@ import reportRoutes from "./routes/reportRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
 import supportRoutes from "./routes/supportRoutes";
 import inviteRoutes from "./routes/inviteRoutes";
+import marketingRoutes from "./routes/marketingRoutes";
+import messageRoutes from "./routes/messageRoutes";
+import uploadRoutes from "./routes/uploadRoutes";
 import { cookieParser } from "./middlewares/cookieParser";
 import { trackAndRedirect } from "./controllers/affiliateController";
 import { optionalProtect } from "./middlewares/authMiddleware";
@@ -72,6 +75,9 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/marketing", marketingRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/upload", uploadRoutes);
 app.use("/api", inviteRoutes);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

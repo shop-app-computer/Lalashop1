@@ -19,12 +19,19 @@ const safeJsonParse = <T,>(value: unknown, fallback: T): T => {
   }
 };
 
-// @desc    Get all products
+// @desc    Get all products (public storefront)
 // @route   GET /api/products
 // @access  Public
 export const getProducts = async (req: Request, res: Response) => {
   try {
-    const products = await Product.find({}).sort({ createdAt: -1 });
+    // Public storefront only sees products that are not POS-only and have
+    // `showInStorefront` enabled.
+    const products = await Product.find({
+      $and: [
+        { $or: [{ showInStorefront: { $ne: false } }, { showInStorefront: { $exists: false } }] },
+        { $or: [{ salesChannel: { $ne: "pos" } }, { salesChannel: { $exists: false } }] },
+      ],
+    }).sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: products });
   } catch (error: any) {
     res.status(500).json({
@@ -100,7 +107,17 @@ export const getProductById = async (req: Request, res: Response) => {
 // @access  Private/Seller
 export const getMyProducts = async (req: IAuthRequest, res: Response) => {
   try {
-    const products = await Product.find({ seller: req.user._id }).sort({ createdAt: -1 });
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+    const channel = typeof req.query.channel === "string" ? req.query.channel : null;
+    const filter: Record<string, unknown> = { seller: req.user._id };
+    if (channel === "web") {
+      filter.$or = [{ salesChannel: "web" }, { salesChannel: "both" }, { salesChannel: { $exists: false } }];
+    } else if (channel === "pos") {
+      filter.$or = [{ salesChannel: "pos" }, { salesChannel: "both" }];
+    }
+    const products = await Product.find(filter).sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: products });
   } catch (error: any) {
     res.status(500).json({
@@ -189,6 +206,8 @@ const buildProductPayload = (
     moq: raw.moq !== undefined && raw.moq !== "" ? Number(raw.moq) : 1,
     sku: raw.sku || "",
     barcode: raw.barcode || "",
+    salesChannel: raw.salesChannel || "web",
+    showInStorefront: raw.showInStorefront !== undefined ? toBool(raw.showInStorefront, true) : true,
     trackInventory: toBool(raw.trackInventory, true),
     allowOversell: toBool(raw.allowOversell, false),
     reorderAt: raw.reorderAt !== undefined && raw.reorderAt !== ""
@@ -289,6 +308,29 @@ export const createProduct = async (req: IAuthRequest, res: Response) => {
         success: false,
         message: "At least one product image is required",
       });
+    }
+
+    // Auto-generate barcode for POS products that don't have one
+    if (
+      (body.salesChannel === "pos" || body.salesChannel === "both") &&
+      (!body.barcode || !body.barcode.trim())
+    ) {
+      // Generate 12-digit numeric code (compatible with Code 128 / EAN-13 input)
+      let candidate = "";
+      let attempts = 0;
+      do {
+        candidate = "";
+        for (let i = 0; i < 12; i++) candidate += Math.floor(Math.random() * 10);
+        const exists = await Product.findOne({ barcode: candidate });
+        if (!exists) break;
+        attempts++;
+      } while (attempts < 5);
+      body.barcode = candidate;
+    }
+
+    // POS products default to not visible in storefront unless seller opts in
+    if (body.salesChannel === "pos" && body.showInStorefront === undefined) {
+      body.showInStorefront = false;
     }
 
     const product = await Product.create({

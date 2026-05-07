@@ -1,200 +1,128 @@
-import React, { useState } from 'react';
-import {
-  Search, Filter, ChevronDown, Download, MoreVertical, Plus,
-  Monitor, Tablet, Smartphone,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Loader2, Monitor, ArrowRight } from "lucide-react";
+import { fetchMyOrders, type SellerOrderRow } from "@/services/sellerApi";
 
-type StatusKey = 'all' | 'online' | 'offline' | 'paired';
-type RegisterStatus = 'Online' | 'Offline' | 'Pairing';
-type DeviceType = 'Desktop' | 'Tablet' | 'Mobile';
+const formatMoney = (n: number): string =>
+  Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
-interface Register {
+const formatDate = (s?: string | Date): string => {
+  if (!s) return "—";
+  const d = s instanceof Date ? s : new Date(s);
+  if (Number.isNaN(d.getTime())) return "—";
+  const pad = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+interface RegisterRow {
   id: string;
-  name: string;
-  location: string;
-  device: DeviceType;
-  serial: string;
-  cashier: string | null;
-  lastSync: string;
-  status: RegisterStatus;
+  count: number;
+  revenue: number;
+  lastSale: Date | null;
 }
 
-const registers: Register[] = [
-  { id: 'REG-01', name: 'Front Counter', location: 'Vientiane Flagship', device: 'Desktop', serial: 'A2X-22918', cashier: 'Somsak K.', lastSync: 'just now', status: 'Online' },
-  { id: 'REG-02', name: 'Back Counter', location: 'Vientiane Flagship', device: 'Tablet', serial: 'iPad-441-LO', cashier: 'Mali T.', lastSync: '2m ago', status: 'Online' },
-  { id: 'REG-03', name: 'Pop-up Booth', location: 'That Luang Festival', device: 'Tablet', serial: 'iPad-998-PB', cashier: 'Viphone S.', lastSync: '14m ago', status: 'Online' },
-  { id: 'REG-04', name: 'Mobile Cashier', location: 'Floor sales', device: 'Mobile', serial: 'And-7712-MC', cashier: null, lastSync: '1h ago', status: 'Offline' },
-  { id: 'REG-05', name: 'Luang Prabang #1', location: 'Luang Prabang Branch', device: 'Desktop', serial: 'A2X-23044', cashier: 'Boualay T.', lastSync: '4m ago', status: 'Online' },
-  { id: 'REG-06', name: 'Pakse Branch', location: 'Pakse Branch', device: 'Tablet', serial: 'iPad-302-PK', cashier: null, lastSync: 'never', status: 'Pairing' },
-];
+const RegistersPage: React.FC = () => {
+  const [orders, setOrders] = useState<SellerOrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const STATUS_TABS: { key: StatusKey; label: string; count: number }[] = [
-  { key: 'all', label: 'All', count: registers.length },
-  { key: 'online', label: 'Online', count: registers.filter((r) => r.status === 'Online').length },
-  { key: 'offline', label: 'Offline', count: registers.filter((r) => r.status === 'Offline').length },
-  { key: 'paired', label: 'Pairing', count: registers.filter((r) => r.status === 'Pairing').length },
-];
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchMyOrders()
+      .then((data) => {
+        if (!cancelled) setOrders(data);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-const STATUS_BADGE: Record<RegisterStatus, string> = {
-  Online: 'bg-green-50 text-green-700',
-  Offline: 'bg-gray-100 text-gray-600',
-  Pairing: 'bg-orange-50 text-orange-700',
-};
-
-const STATUS_DOT: Record<RegisterStatus, string> = {
-  Online: 'bg-green-500',
-  Offline: 'bg-gray-400',
-  Pairing: 'bg-orange-500',
-};
-
-const DEVICE_ICON: Record<DeviceType, React.ReactNode> = {
-  Desktop: <Monitor className="w-3.5 h-3.5 text-gray-500" />,
-  Tablet: <Tablet className="w-3.5 h-3.5 text-gray-500" />,
-  Mobile: <Smartphone className="w-3.5 h-3.5 text-gray-500" />,
-};
-
-const RegistersPage = () => {
-  const [statusTab, setStatusTab] = useState<StatusKey>('all');
-
-  const visible = registers.filter((r) => {
-    if (statusTab === 'all') return true;
-    if (statusTab === 'online') return r.status === 'Online';
-    if (statusTab === 'offline') return r.status === 'Offline';
-    if (statusTab === 'paired') return r.status === 'Pairing';
-    return true;
-  });
-
-  const onlineCount = registers.filter((r) => r.status === 'Online').length;
-  const offlineCount = registers.filter((r) => r.status === 'Offline').length;
-  const pairingCount = registers.filter((r) => r.status === 'Pairing').length;
-  const locationCount = new Set(registers.map((r) => r.location)).size;
+  const registers: RegisterRow[] = useMemo(() => {
+    const map = new Map<string, RegisterRow>();
+    for (const o of orders) {
+      const ext = o as SellerOrderRow & { channel?: string; posTerminal?: string };
+      if (ext.channel !== "pos") continue;
+      const id = ext.posTerminal || "default";
+      if (!map.has(id)) map.set(id, { id, count: 0, revenue: 0, lastSale: null });
+      const r = map.get(id)!;
+      r.count += 1;
+      r.revenue += o.totalPrice;
+      const d = new Date(o.paidAt || o.createdAt);
+      if (!Number.isNaN(d.getTime()) && (!r.lastSale || d > r.lastSale)) r.lastSale = d;
+    }
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
+  }, [orders]);
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Title bar */}
-      <div className="flex items-center gap-2">
-        <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center">
-          <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
-        </button>
-        <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900">
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Register
-        </button>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[16px] font-bold text-gray-900">POS registers</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            One card per POS terminal that has rung up sales. Use the terminal page to ring up new
+            ones — the register ID is recorded automatically per order.
+          </p>
+        </div>
+        <Link
+          href="/pos/terminal"
+          className="bg-emerald-600 text-white px-3 py-1.5 rounded-md text-xs font-bold inline-flex items-center hover:bg-emerald-700"
+        >
+          Open terminal <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+        </Link>
       </div>
 
-      {/* Filter bar */}
-      <div className="rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          Location: <span className="font-semibold text-gray-900 ml-1">All</span>
-          <ChevronDown className="w-3 h-3 ml-1.5 text-gray-400" />
-        </button>
+      {error && (
+        <div className="rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700">{error}</div>
+      )}
 
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          Device: <span className="font-semibold text-gray-900 ml-1">Any</span>
-          <ChevronDown className="w-3 h-3 ml-1.5 text-gray-400" />
-        </button>
-
-        <button className="inline-flex items-center text-[11px] font-medium text-gray-700 px-2 py-1 rounded">
-          <Filter className="w-3.5 h-3.5 mr-1.5 text-gray-400" /> Add filter
-        </button>
-
-        <div className="ml-auto relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search register, serial…"
-            className="pl-7 pr-3 py-1 rounded text-[11px] w-56"
-          />
+      {loading ? (
+        <div className="py-12 text-center text-gray-400 text-[12px]">
+          <Loader2 className="w-5 h-5 mx-auto animate-spin" />
         </div>
-      </div>
-
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Online</p>
-          <p className="text-xl font-bold text-green-600 tabular-nums mt-1">{onlineCount}</p>
+      ) : registers.length === 0 ? (
+        <div className="py-16 text-center">
+          <Monitor className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+          <p className="text-[13px] font-bold text-gray-700">No registers yet</p>
+          <p className="text-[11px] text-gray-500 mt-1">
+            Ring up your first sale at the{" "}
+            <Link href="/pos/terminal" className="text-emerald-600 font-bold hover:underline">
+              POS terminal
+            </Link>{" "}
+            to register one.
+          </p>
         </div>
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Offline</p>
-          <p className="text-xl font-bold text-gray-700 tabular-nums mt-1">{offlineCount}</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {registers.map((r) => (
+            <div key={r.id} className="rounded-lg border border-gray-100 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Monitor className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-[13px] font-black text-gray-900 font-mono">{r.id}</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-[11px]">
+                <div>
+                  <p className="text-gray-500">Sales</p>
+                  <p className="text-[16px] font-bold text-gray-900 tabular-nums">{r.count}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Revenue</p>
+                  <p className="text-[16px] font-bold text-emerald-700 tabular-nums">
+                    ฿{formatMoney(r.revenue)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400">Last sale: {formatDate(r.lastSale ?? undefined)}</p>
+            </div>
+          ))}
         </div>
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Pairing</p>
-          <p className="text-xl font-bold text-orange-600 tabular-nums mt-1">{pairingCount}</p>
-        </div>
-        <div className="rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Locations</p>
-          <p className="text-xl font-bold text-black tabular-nums mt-1">{locationCount}</p>
-        </div>
-      </div>
-
-      {/* Status tabs */}
-      <div className="flex items-center gap-1 border-b border-gray-100">
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setStatusTab(t.key)}
-            className={`px-3 py-2 text-[11px] font-semibold border-b-2 -mb-px ${
-              statusTab === t.key
-                ? 'border-black text-black'
-                : 'border-transparent text-gray-500 hover:text-black'
-            }`}
-          >
-            {t.label}
-            <span className="ml-1 text-gray-400 tabular-nums">{t.count}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Table */}
-      <div className="rounded-lg overflow-x-auto">
-        <table className="w-full text-[12px] tabular-nums">
-          <thead className="text-[11px] text-gray-500 tracking-wide">
-            <tr>
-              <th className="px-4 py-2 text-left font-semibold">Register</th>
-              <th className="px-4 py-2 text-left font-semibold">Location</th>
-              <th className="px-4 py-2 text-left font-semibold">Device</th>
-              <th className="px-4 py-2 text-left font-semibold">Serial</th>
-              <th className="px-4 py-2 text-left font-semibold">Active cashier</th>
-              <th className="px-4 py-2 text-left font-semibold">Last sync</th>
-              <th className="px-4 py-2 text-left font-semibold">Status</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((r) => (
-              <tr key={r.id}>
-                <td className="px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[r.status]}`} />
-                    <span className="font-medium text-gray-900">{r.name}</span>
-                    <span className="font-mono text-[11px] text-gray-400">{r.id}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-2 text-gray-700">{r.location}</td>
-                <td className="px-4 py-2">
-                  <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-700">
-                    {DEVICE_ICON[r.device]}
-                    {r.device}
-                  </span>
-                </td>
-                <td className="px-4 py-2 font-mono text-[11px] text-gray-500">{r.serial}</td>
-                <td className="px-4 py-2 text-gray-700">{r.cashier ?? <span className="text-gray-400">—</span>}</td>
-                <td className="px-4 py-2 text-gray-500">{r.lastSync}</td>
-                <td className="px-4 py-2">
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${STATUS_BADGE[r.status]}`}>
-                    {r.status}
-                  </span>
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <button className="text-gray-400 hover:text-black">
-                    <MoreVertical className="w-3.5 h-3.5" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      )}
     </div>
   );
 };

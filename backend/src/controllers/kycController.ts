@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import path from "path";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import KycSubmission from "../models/kycSubmissionModel";
 import Notification from "../models/notificationModel";
 import User from "../models/userModel";
@@ -262,30 +264,71 @@ export const adminReviewKyc = async (req: IAuthRequest, res: Response) => {
     }
     await submission.save();
 
-    if (decision === "approved") {
-      await User.findByIdAndUpdate(submission.user, {
-        $set: {
-          isSeller: true,
-          seller_type: submission.businessType,
-        },
-      });
+    const isApproved = decision === "approved";
+    const sellerDashboardUrl =
+      process.env.SELLER_DASHBOARD_URL || "http://localhost:3002";
+
+    // For approved KYC: generate a fresh seller password (separate from the
+    // user's customer password). Store hashed copy on the User; surface
+    // plaintext one-time inside the notification body + metadata so the user
+    // can copy it from the in-app inbox.
+    let generatedSellerPassword: string | null = null;
+    let sellerEmail: string | null = null;
+    if (isApproved) {
+      const owner = await User.findById(submission.user);
+      if (owner) {
+        generatedSellerPassword = crypto.randomBytes(6).toString("base64").slice(0, 10);
+        const salt = await bcrypt.genSalt(10);
+        owner.sellerPassword = await bcrypt.hash(generatedSellerPassword, salt);
+        owner.isSeller = true;
+        owner.seller_type = submission.businessType;
+        await owner.save();
+        sellerEmail = owner.email;
+      }
     }
 
-    const isApproved = decision === "approved";
+    const approvedBody = generatedSellerPassword && sellerEmail
+      ? [
+          "Congratulations! Your shop has been approved and the Seller Center is now open.",
+          "",
+          "Use the following credentials to sign in to your seller dashboard:",
+          "",
+          `Email:    ${sellerEmail}`,
+          `Password: ${generatedSellerPassword}`,
+          "",
+          `Seller dashboard:  ${sellerDashboardUrl}/login`,
+          "",
+          "Notes:",
+          "• This password is separate from the password you use on the customer site — your customer login is unchanged.",
+          "• Save this password now. Once you read this notification, the system will not show the password again.",
+          "• You can change your seller password from the Seller Center → Settings after first login.",
+        ].join("\n")
+      : "Congratulations! Your shop is now active.";
+
+    const rejectedBody =
+      submission.reviewNote ||
+      "Your shop application was rejected. Please review the notes and resubmit your KYC documents.";
+
     await Notification.create({
       user: submission.user,
       type: isApproved ? "kyc_approved" : "kyc_rejected",
       title: isApproved
-        ? "Shop application approved"
+        ? "Shop application approved — Seller Center is now open"
         : "Shop application rejected",
-      body:
-        submission.reviewNote ||
-        (isApproved
-          ? "Congratulations — your shop is now active. You can list products from your profile."
-          : "Your shop application was rejected. Please review and resubmit."),
-      link: isApproved ? "/me/products/add" : "/me/opensho/openshop",
+      body: isApproved ? approvedBody : rejectedBody,
+      link: isApproved ? `${sellerDashboardUrl}/login` : "/me/opensho/openshop",
       metadata: {
         kycId: submission._id.toString(),
+        sellerDashboardUrl,
+        ...(isApproved && sellerEmail && generatedSellerPassword
+          ? {
+              credentials: {
+                email: sellerEmail,
+                password: generatedSellerPassword,
+                loginUrl: `${sellerDashboardUrl}/login`,
+              },
+            }
+          : {}),
       },
     });
 

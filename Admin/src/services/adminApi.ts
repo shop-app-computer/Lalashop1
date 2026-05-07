@@ -121,6 +121,19 @@ export const updateUserBank = (id: string, payload: UpdateUserBankPayload) =>
     body: JSON.stringify(payload),
   });
 
+export interface IssueSellerCredentialsResponse {
+  userId: string;
+  email: string;
+  password: string;
+  loginUrl: string;
+}
+
+export const issueSellerCredentials = (id: string) =>
+  apiClient<IssueSellerCredentialsResponse>(
+    `/admin/users/${id}/issue-seller-credentials`,
+    { method: "POST" },
+  );
+
 export type KycStatus = "pending" | "approved" | "rejected";
 
 export interface AdminKycSubmission {

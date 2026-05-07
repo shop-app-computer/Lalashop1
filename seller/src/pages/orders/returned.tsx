@@ -1,8 +1,12 @@
 import React from 'react';
-import OrdersPage from './OrderTemplate';
+import OrderTemplate from './OrderTemplate';
 
-const Returned = () => {
-  return <OrdersPage status="Returned" />;
-};
+const Returned = () => (
+  <OrderTemplate
+    title="Returned / Refunded"
+    description="Paid orders that were cancelled (proxy for refund until a dedicated Dispute model is added)."
+    filter={(o) => o.status === 'canceled' && o.isPaid}
+  />
+);
 
 export default Returned;

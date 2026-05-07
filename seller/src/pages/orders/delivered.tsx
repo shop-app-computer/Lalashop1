@@ -1,8 +1,12 @@
 import React from 'react';
-import OrdersPage from './OrderTemplate';
+import OrderTemplate from './OrderTemplate';
 
-const Delivered = () => {
-  return <OrdersPage status="Delivered" />;
-};
+const Delivered = () => (
+  <OrderTemplate
+    title="Delivered"
+    description="Successfully delivered orders."
+    filter={(o) => o.status === 'delivered'}
+  />
+);
 
 export default Delivered;

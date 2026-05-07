@@ -9,6 +9,7 @@ import {
    MoreVertical, Plus, Heart, Trash2,
    Camera,
    Eye,
+   Banknote,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -20,11 +21,12 @@ import Balance from "./menu/balance";
 import Points from "./menu/Orderme/orderme";
 import Coupons from "./menu/coupons";
 import CreditLimit from "./menu/promo";
+import Withdraw from "./menu/withdraw";
 import MyShopPage from "./myshop/myshop";
 import UserListModal from "@/pages/Social/components/UserListModal";
 import { apiClient } from "@/services/apiClient";
 
-type SubView = "none" | "balance" | "points" | "coupons" | "creditLimit";
+type SubView = "none" | "balance" | "points" | "coupons" | "creditLimit" | "withdraw";
 
 const MePage: React.FC = () => {
    const router = useRouter();
@@ -205,12 +207,14 @@ const MePage: React.FC = () => {
    if (subView === "points") return <Points onBack={() => setSubView("none")} />;
    if (subView === "coupons") return <Coupons onBack={() => setSubView("none")} />;
    if (subView === "creditLimit") return <CreditLimit onBack={() => setSubView("none")} />;
+   if (subView === "withdraw") return <Withdraw onBack={() => setSubView("none")} />;
 
    const stats = [
-      { id: "balance", icon: Wallet, label: "balance", val: `฿${user?.balance?.toLocaleString() || 0}` },
+      { id: "balance", icon: Wallet, label: "Web balance", val: `฿${user?.balance?.toLocaleString() || 0}` },
       { id: "points", icon: Package, label: "Orders", val: `${user?.orderCount || 0} ` },
       { id: "coupons", icon: Gift, label: "Coupons", val: "0" },
       { id: "creditLimit", icon: TrendingUp, label: "Promotions", val: "0" },
+      { id: "withdraw", icon: Banknote, label: "Withdraw", val: "→" },
    ];
 
    return (
@@ -395,7 +399,7 @@ const MePage: React.FC = () => {
             </section>
 
             {/* FINANCIAL STATS */}
-            <section className="bg-white border-y border-gray-border grid grid-cols-2 lg:grid-cols-4 divide-x divide-gray-light w-full shadow-sm shadow-black/[0.02]">
+            <section className="bg-white border-y border-gray-border grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-gray-light w-full shadow-sm shadow-black/[0.02]">
                {stats.map((s) => (
                   <button key={s.id} onClick={() => setSubView(s.id as SubView)} className="p-6 flex flex-col items-start active:bg-gray-light transition-colors group relative overflow-hidden">
                      <s.icon size={15} className="mb-4 text-primary-hover group-hover:scale-110 transition-transform duration-300" />

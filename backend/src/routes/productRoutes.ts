@@ -12,6 +12,7 @@ import {
 import {
   getProductReviews,
   createProductReview,
+  getMySellerReviews,
 } from "../controllers/reviewController";
 import { protect } from "../middlewares/authMiddleware";
 import { upload } from "../utils/fileUpload";
@@ -26,6 +27,9 @@ router.get("/adverts", getProductAdverts);
 
 // Current seller's products
 router.get("/my", protect, getMyProducts);
+
+// Reviews across all of seller's products
+router.get("/my/reviews", protect, getMySellerReviews);
 
 // Products of a specific seller (View Shop)
 router.get("/seller/:sellerId", getProductsBySeller);
