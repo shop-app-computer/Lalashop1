@@ -15,7 +15,11 @@
       "Bash(node -e \"console.log\\('Testing connection...'\\); require\\('dotenv'\\).config\\(\\); const mongoose = require\\('mongoose'\\); mongoose.connect\\(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 }\\).then\\(\\(\\) => { console.log\\('CONNECTED'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAILED:', e.message\\); process.exit\\(1\\); }\\);\")",
       "Bash(echo \"Exit: $?\")",
       "Bash(git -C d:/LalaShop diff --name-only HEAD)",
-      "Bash(git -C d:/LalaShop status --short -- frontend/src/pages/profile/followers/ frontend/src/pages/profile/profile.tsx)"
+      "Bash(git -C d:/LalaShop status --short -- frontend/src/pages/profile/followers/ frontend/src/pages/profile/profile.tsx)",
+      "Bash(grep -nB2 -A8 \"reports\\\\|Reports\" src/components/Sidebar/Sidebar.tsx)",
+      "Bash(grep -nB2 -A5 \"reports\\\\|Reports\\\\|RPT\" src/pages/products/\\\\[id\\\\].tsx)",
+      "Bash(grep -nB1 -A3 \"reports\\\\|Reports\" src/components/Sidebar/Sidebar.tsx)",
+      "Bash(xargs -I {} grep -l \"rate-limit\\\\|helmet\\\\|zod\\\\|joi\\\\|express-validator\" {})"
     ]
   }
 }

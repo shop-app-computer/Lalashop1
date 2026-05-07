@@ -6,8 +6,11 @@ import {
 import {
   fetchAdminProduct,
   updateAdminProduct,
+  fetchAdminReports,
   type AdminProductRow,
+  type AdminReportRow,
 } from '@/services/adminApi';
+import Link from 'next/link';
 
 type Tab = 'overview' | 'images' | 'reviews' | 'reports' | 'history';
 
@@ -38,6 +41,8 @@ const ProductDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reports, setReports] = useState<AdminReportRow[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
 
   const loadProduct = async (productId: string) => {
     setLoading(true);
@@ -56,6 +61,26 @@ const ProductDetailPage = () => {
     if (typeof id !== 'string') return;
     loadProduct(id);
   }, [id]);
+
+  useEffect(() => {
+    if (typeof id !== 'string' || tab !== 'reports') return;
+    let cancelled = false;
+    setReportsLoading(true);
+    fetchAdminReports({ targetType: 'product', targetId: id, limit: 50 })
+      .then((res) => {
+        if (cancelled) return;
+        setReports(res.data ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setReports([]);
+      })
+      .finally(() => {
+        if (!cancelled) setReportsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, tab]);
 
   const onAction = async (
     action: 'approve' | 'ban' | 'unban' | 'feature' | 'unfeature' | 'flag-violation' | 'clear-violation',
@@ -297,9 +322,54 @@ const ProductDetailPage = () => {
       )}
 
       {tab === 'reports' && (
-        <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">
-          {hasViolation ? 'Product is flagged for violation review' : 'No reports'}
-        </div>
+        reportsLoading ? (
+          <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">Loading reports...</div>
+        ) : reports.length === 0 ? (
+          <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">
+            {hasViolation ? 'Product is flagged for violation review (no individual reports filed yet)' : 'No reports'}
+          </div>
+        ) : (
+          <div className="rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px] tabular-nums">
+                <thead className="text-[11px] text-gray-500 tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-semibold">Report ID</th>
+                    <th className="px-4 py-2 text-left font-semibold">Reason</th>
+                    <th className="px-4 py-2 text-left font-semibold">Reported By</th>
+                    <th className="px-4 py-2 text-left font-semibold">Description</th>
+                    <th className="px-4 py-2 text-left font-semibold">Status</th>
+                    <th className="px-4 py-2 text-right font-semibold">Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((r) => (
+                    <tr key={r._id}>
+                      <td className="px-4 py-2 font-mono text-[11px] text-gray-600">
+                        <Link href={`/reports/${r._id}`} className="hover:text-primary">
+                          RPT-{r._id.slice(-6).toUpperCase()}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 text-gray-700 capitalize">{r.reason}</td>
+                      <td className="px-4 py-2 text-gray-900 font-medium">
+                        {r.reportedBy?.name || r.reportedBy?.email || '—'}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        <p className="line-clamp-1 max-w-xs">{r.description || <span className="text-gray-300">—</span>}</p>
+                      </td>
+                      <td className="px-4 py-2 text-gray-700 capitalize">{r.status}</td>
+                      <td className="px-4 py-2 text-right">
+                        <Link href={`/reports/${r._id}`} className="text-[12px] text-primary hover:underline font-medium">
+                          View →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
       )}
 
       {tab === 'history' && (

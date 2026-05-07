@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Heart,
   Send,
@@ -13,6 +13,7 @@ import Link from "next/link";
 import SocialPost, { BackendPost } from "./components/SocialPost";
 import MediaUpload from "./components/MediaUpload";
 import ChatInterface from "./Chat/ChatInterface";
+import Avatar from "@/components/ui/Avatar";
 import { apiClient } from "@/services/apiClient";
 
 type ViewType = "feed" | "chat";
@@ -22,6 +23,7 @@ interface MiniUser {
   name?: string;
   username?: string;
   profileImage?: string;
+  bio?: string;
 }
 
 export default function SocialPage() {
@@ -31,20 +33,34 @@ export default function SocialPage() {
   const [view, setView] = useState<ViewType>("feed");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MiniUser[]>([]);
+  const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [me, setMe] = useState<MiniUser | null>(null);
 
+  // Resolve current user identity from /auth/me using the JWT in localStorage.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem("userInfo");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setCurrentUserId(parsed?._id || null);
-      }
-    } catch {
-      /* ignore */
-    }
+    const token = window.localStorage.getItem("token");
+    if (!token || token === "null" || token === "undefined") return;
+    let cancelled = false;
+    apiClient("/auth/me")
+      .then((res) => {
+        if (cancelled) return;
+        if (res?._id) {
+          setMe({
+            _id: res._id,
+            name: res.name,
+            username: res.username,
+            profileImage: res.profileImage,
+          });
+        }
+      })
+      .catch(() => {
+        /* unauthenticated viewer — feed still loads */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fetchFeed = async () => {
@@ -64,7 +80,7 @@ export default function SocialPage() {
   }, []);
 
   // Build a story rail of distinct authors from the loaded feed.
-  const storyAuthors: MiniUser[] = React.useMemo(() => {
+  const storyAuthors: MiniUser[] = useMemo(() => {
     const map = new Map<string, MiniUser>();
     for (const p of posts) {
       if (p.user && !map.has(p.user._id)) map.set(p.user._id, p.user);
@@ -72,33 +88,42 @@ export default function SocialPage() {
     return Array.from(map.values()).slice(0, 12);
   }, [posts]);
 
-  // Lightweight client-side search over the authors who posted.
+  // Debounced server-side user search.
   useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     if (!q) {
       setSearchResults([]);
       setShowResults(false);
+      setSearching(false);
       return;
     }
-    const filtered = storyAuthors.filter((u) => {
-      const name = (u.name || "").toLowerCase();
-      const username = (u.username || "").toLowerCase();
-      return name.includes(q) || username.includes(q) || u._id.includes(q);
-    });
-    setSearchResults(filtered);
-    setShowResults(true);
-  }, [searchQuery, storyAuthors]);
+    setSearching(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await apiClient(`/users/search?q=${encodeURIComponent(q)}&limit=20`);
+        const list = (res?.data ?? []) as MiniUser[];
+        setSearchResults(list);
+        setShowResults(true);
+      } catch (err) {
+        console.error("Search failed", err);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
 
   const handleUpload = (newPostData: any) => {
     setShowUpload(false);
     if (newPostData?._id) {
       const normalized: BackendPost = {
         _id: newPostData._id,
-        user: newPostData.user || {
-          _id: currentUserId || "me",
-          name: "Me",
-          username: "me",
-        },
+        user:
+          newPostData.user ||
+          (me
+            ? { _id: me._id, name: me.name, username: me.username, profileImage: me.profileImage }
+            : { _id: "me", name: "Me", username: "me" }),
         mediaUrl: newPostData.mediaUrl,
         mediaType: newPostData.mediaType,
         caption: newPostData.caption,
@@ -140,9 +165,15 @@ export default function SocialPage() {
               onFocus={() => searchQuery.length > 0 && setShowResults(true)}
               className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pl-10 pr-4 text-sm outline-none text-dark focus:bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary/30 transition-all"
             />
+            {searching && (
+              <Loader2
+                size={14}
+                className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400"
+              />
+            )}
           </div>
 
-          {showResults && searchResults.length > 0 && (
+          {showResults && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-border rounded-xl shadow-xl max-h-[400px] overflow-y-auto z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="p-2 border-b border-gray-border flex justify-between items-center bg-gray-light/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">
@@ -152,34 +183,38 @@ export default function SocialPage() {
                   onClick={() => setShowResults(false)}
                   className="text-[10px] text-primary font-bold pr-2 hover:underline"
                 >
-                  Clear
+                  Close
                 </button>
               </div>
-              {searchResults.map((u) => (
-                <Link
-                  key={u._id}
-                  href={`/u/${u._id}`}
-                  onClick={() => setShowResults(false)}
-                  className="flex items-center gap-3 p-3 hover:bg-gray-light transition-colors group"
-                >
-                  <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-border bg-white flex-shrink-0">
-                    <img
-                      src={
-                        u.profileImage ||
-                        `https://i.pravatar.cc/150?u=${u._id}`
-                      }
-                      alt=""
-                      className="w-full h-full object-cover"
+              {searchResults.length === 0 ? (
+                <div className="px-4 py-8 text-center text-[12px] text-gray-400">
+                  {searching ? "Searching..." : `No users found for "${searchQuery}"`}
+                </div>
+              ) : (
+                searchResults.map((u) => (
+                  <Link
+                    key={u._id}
+                    href={`/u/${u._id}`}
+                    onClick={() => setShowResults(false)}
+                    className="flex items-center gap-3 p-3 hover:bg-gray-light transition-colors group"
+                  >
+                    <Avatar
+                      src={u.profileImage}
+                      name={u.name}
+                      username={u.username}
+                      userId={u._id}
+                      size={40}
+                      className="rounded-full border border-gray-border flex-shrink-0"
                     />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-dark truncate group-hover:text-primary transition-colors">
-                      {u.username || u.name || "user"}
-                    </span>
-                    <span className="text-xs text-gray-500 truncate">{u.name || ""}</span>
-                  </div>
-                </Link>
-              ))}
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-bold text-dark truncate group-hover:text-primary transition-colors">
+                        {u.username || u.name || "user"}
+                      </span>
+                      <span className="text-xs text-gray-500 truncate">{u.name || ""}</span>
+                    </div>
+                  </Link>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -190,7 +225,10 @@ export default function SocialPage() {
             className="cursor-pointer hover:text-primary transition-colors text-dark"
             onClick={() => setShowUpload(true)}
           />
-          <Heart size={24} className="cursor-pointer hover:text-red-500 transition-colors text-dark hidden sm:block" />
+          <Heart
+            size={24}
+            className="cursor-pointer hover:text-red-500 transition-colors text-dark hidden sm:block"
+          />
           <Send
             size={24}
             className="cursor-pointer -rotate-12 transition-colors hover:text-primary text-dark"
@@ -200,25 +238,29 @@ export default function SocialPage() {
       </nav>
 
       {showResults && (
-        <div className="fixed inset-0 z-[55] bg-transparent" onClick={() => setShowResults(false)} />
+        <div
+          className="fixed inset-0 z-[55] bg-transparent"
+          onClick={() => setShowResults(false)}
+        />
       )}
 
       <main className="max-w-5xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-8">
         <div className="flex-1 max-w-xl mx-auto lg:mx-0 w-full">
           <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-6 shadow-sm hidden md:block">
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex-shrink-0">
-                <img
-                  src={`https://i.pravatar.cc/150?u=${currentUserId || "current"}`}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <Avatar
+                src={me?.profileImage}
+                name={me?.name}
+                username={me?.username}
+                userId={me?._id}
+                size={40}
+                className="rounded-full bg-slate-100 flex-shrink-0"
+              />
               <button
                 onClick={() => setShowUpload(true)}
                 className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-400 text-left px-5 py-2.5 rounded-full text-sm transition-colors"
               >
-                What's on your mind?
+                {me ? `What's on your mind, ${me.username || me.name || ""}?` : "What's on your mind?"}
               </button>
             </div>
             <div className="flex items-center justify-around pt-3 border-t border-slate-50">
@@ -247,10 +289,13 @@ export default function SocialPage() {
                 >
                   <div className="w-16 h-16 rounded-full p-[2px] ring-2 ring-primary ring-offset-2 group-hover:ring-accent transition-all duration-300">
                     <div className="w-full h-full rounded-full border-2 border-white overflow-hidden bg-white">
-                      <img
-                        src={u.profileImage || `https://i.pravatar.cc/150?u=${u._id}`}
-                        alt=""
-                        className="w-full h-full object-cover"
+                      <Avatar
+                        src={u.profileImage}
+                        name={u.name}
+                        username={u.username}
+                        userId={u._id}
+                        size={56}
+                        className="rounded-full"
                       />
                     </div>
                   </div>
@@ -273,7 +318,7 @@ export default function SocialPage() {
               </div>
             ) : (
               posts.map((post) => (
-                <SocialPost key={post._id} post={post} currentUserId={currentUserId || undefined} />
+                <SocialPost key={post._id} post={post} currentUserId={me?._id} />
               ))
             )}
           </div>
@@ -287,25 +332,30 @@ export default function SocialPage() {
             </div>
 
             <div className="space-y-4">
-              {storyAuthors.slice(0, 5).map((u) => (
-                <div key={u._id} className="flex items-center justify-between group">
-                  <Link href={`/u/${u._id}`} className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-border bg-white flex-shrink-0">
-                      <img
-                        src={u.profileImage || `https://i.pravatar.cc/150?u=${u._id}`}
-                        alt=""
-                        className="w-full h-full object-cover"
+              {storyAuthors.length === 0 ? (
+                <p className="text-xs text-gray-400">No suggestions yet</p>
+              ) : (
+                storyAuthors.slice(0, 5).map((u) => (
+                  <div key={u._id} className="flex items-center justify-between group">
+                    <Link href={`/u/${u._id}`} className="flex items-center gap-3 min-w-0">
+                      <Avatar
+                        src={u.profileImage}
+                        name={u.name}
+                        username={u.username}
+                        userId={u._id}
+                        size={40}
+                        className="rounded-full border border-gray-border flex-shrink-0"
                       />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-bold text-dark truncate group-hover:text-primary transition-colors">
-                        {u.username || u.name || "user"}
-                      </span>
-                      <span className="text-[10px] text-gray-500">Suggested for you</span>
-                    </div>
-                  </Link>
-                </div>
-              ))}
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-bold text-dark truncate group-hover:text-primary transition-colors">
+                          {u.username || u.name || "user"}
+                        </span>
+                        <span className="text-[10px] text-gray-500">Suggested for you</span>
+                      </div>
+                    </Link>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </aside>

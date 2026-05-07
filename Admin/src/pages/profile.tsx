@@ -1,26 +1,73 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Key, Smartphone, Mail, Save, User, Activity } from 'lucide-react';
+import { adminMe, type MeResponse } from '@/services/authApi';
+import { updateUser as updateAdminUser } from '@/services/adminApi';
 
 type Tab = 'profile' | 'security' | 'sessions';
 
+const formatDate = (s?: string): string => {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 const ProfilePage = () => {
   const [tab, setTab] = useState<Tab>('profile');
-  const [me] = useState({
-    id: 'ADM-0001',
-    fullName: 'Admin Alex',
-    email: 'alex@lala.shop',
-    phone: '020-5555-5555',
-    role: 'Super Admin',
-    twoFactor: true,
-    lastLogin: '2026-04-30 09:12',
-    createdAt: '2024-01-15',
-  });
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
-  const sessions = [
-    { id: 'sess-01', device: 'Chrome / Windows 11', ip: '192.168.1.45', location: 'Vientiane, LA', last: '2 mins ago', current: true },
-    { id: 'sess-02', device: 'Safari / iPhone 15', ip: '49.230.x.x', location: 'Vientiane, LA', last: '3 hours ago', current: false },
-    { id: 'sess-03', device: 'Firefox / macOS', ip: '171.5.x.x', location: 'Bangkok, TH', last: '2 days ago', current: false },
-  ];
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    adminMe()
+      .then((res) => {
+        if (cancelled) return;
+        setMe(res);
+        setEditName(res.name || '');
+        setEditEmail(res.email || '');
+        setEditPhone(res.phone || '');
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    if (!me?._id) return;
+    setSaving(true);
+    setSavedMessage(null);
+    try {
+      await updateAdminUser(me._id, { name: editName, email: editEmail, phone: editPhone });
+      setSavedMessage('Saved');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-[13px] text-gray-400 py-12 text-center">Loading profile...</div>;
+  }
+
+  if (error || !me) {
+    return <div className="rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-700">{error || 'Profile not available'}</div>;
+  }
 
   return (
     <div className="space-y-4 text-sm">
@@ -46,19 +93,28 @@ const ProfilePage = () => {
       </div>
 
       {tab === 'profile' && (
-        <div className="max-w-2xl">
+        <div className="max-w-2xl space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Admin ID" value={me.id} readOnly />
-            <Field label="Role" value={me.role} readOnly />
-            <Field label="Full Name" value={me.fullName} />
-            <Field label="Email" value={me.email} />
-            <Field label="Phone" value={me.phone} />
-            <Field label="Member Since" value={me.createdAt} readOnly />
+            <Field label="Admin ID" value={me.customId || me._id || ''} readOnly />
+            <Field label="Role" value={me.isAdmin ? 'Admin' : 'User'} readOnly />
+            <Field label="Full Name" value={editName} onChange={setEditName} />
+            <Field label="Email" value={editEmail} onChange={setEditEmail} />
+            <Field label="Phone" value={editPhone} onChange={setEditPhone} />
+            <Field label="Username" value={me.username || ''} readOnly />
           </div>
 
-          <button className="mt-6 bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900">
-            <Save className="w-3.5 h-3.5 mr-1.5" /> Save Changes
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900 disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" /> {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+            {savedMessage && (
+              <span className="text-[12px] text-green-700 font-medium">{savedMessage}</span>
+            )}
+          </div>
         </div>
       )}
 
@@ -68,70 +124,40 @@ const ProfilePage = () => {
           <SecurityRow
             icon={Smartphone}
             title="Two-Factor Authentication"
-            description={me.twoFactor ? 'Enabled — Authenticator app' : 'Disabled'}
-            actionLabel={me.twoFactor ? 'Manage' : 'Enable'}
-            highlight={me.twoFactor}
+            description="Manage 2FA via /2fa page after login"
+            actionLabel="Manage"
           />
-          <SecurityRow icon={Mail} title="Recovery Email" description="alex.recovery@lala.shop" actionLabel="Update" />
-          <SecurityRow icon={ShieldCheck} title="Backup Codes" description="10 codes available" actionLabel="Regenerate" />
+          <SecurityRow icon={Mail} title="Email" description={me.email || '—'} actionLabel="Update" />
+          <SecurityRow icon={ShieldCheck} title="Backup Codes" description="Available after enabling TOTP" actionLabel="Setup" />
         </div>
       )}
 
       {tab === 'sessions' && (
-        <>
-          <div className="rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px] tabular-nums">
-                <thead className="text-[11px] text-gray-500 tracking-wide">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-semibold">Device</th>
-                    <th className="px-4 py-2 text-left font-semibold">IP</th>
-                    <th className="px-4 py-2 text-left font-semibold">Location</th>
-                    <th className="px-4 py-2 text-left font-semibold">Last Active</th>
-                    <th className="px-4 py-2 text-right font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.map((s) => (
-                    <tr key={s.id}>
-                      <td className="px-4 py-2 font-medium text-gray-900">
-                        {s.device}
-                        {s.current && (
-                          <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded bg-green-50 text-green-700">
-                            Current
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 font-mono text-[11px] text-gray-700">{s.ip}</td>
-                      <td className="px-4 py-2 text-gray-700">{s.location}</td>
-                      <td className="px-4 py-2 text-gray-500">{s.last}</td>
-                      <td className="px-4 py-2 text-right">
-                        {!s.current && (
-                          <button className="text-[12px] text-red-600 hover:text-red-700 font-medium">Revoke</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <button className="px-3 py-1.5 rounded-md text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100">
-            Revoke All Other Sessions
-          </button>
-        </>
+        <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">
+          Session tracking model not implemented yet — last known IP: <span className="font-mono">{(me as any).lastKnownIp || '—'}</span>
+        </div>
       )}
     </div>
   );
 };
 
-const Field = ({ label, value, readOnly }: { label: string; value: string; readOnly?: boolean }) => (
+const Field = ({
+  label,
+  value,
+  readOnly,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  readOnly?: boolean;
+  onChange?: (v: string) => void;
+}) => (
   <label className="block">
     <span className="text-[11px] font-semibold text-gray-500 tracking-wide">{label}</span>
     <input
-      defaultValue={value}
+      value={value}
       readOnly={readOnly}
+      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       className={`w-full mt-1 py-2 px-3 rounded-md outline-none text-[12px] ${
         readOnly
           ? 'bg-gray-100 text-gray-500'
@@ -146,17 +172,15 @@ const SecurityRow = ({
   title,
   description,
   actionLabel,
-  highlight,
 }: {
   icon: typeof Key;
   title: string;
   description: string;
   actionLabel: string;
-  highlight?: boolean;
 }) => (
   <div className="flex items-center justify-between rounded-lg bg-gray-50 px-5 py-4">
     <div className="flex items-center gap-4">
-      <Icon className={`w-4 h-4 ${highlight ? 'text-green-600' : 'text-gray-400'}`} />
+      <Icon className="w-4 h-4 text-gray-400" />
       <div>
         <div className="font-semibold text-gray-900 text-[13px]">{title}</div>
         <div className="text-gray-500 text-[12px] mt-0.5">{description}</div>

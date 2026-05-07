@@ -185,3 +185,32 @@ export const getFollowing = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// Public user search — used by Social search bar
+export const searchUsers = async (req: Request, res: Response) => {
+    try {
+        const q = String(req.query.q || "").trim();
+        const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "20"), 10) || 20, 1), 50);
+
+        if (!q) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp(safe, "i");
+
+        const users = await User.find({
+            $or: [
+                { name: re },
+                { username: re },
+                { customId: re },
+            ],
+        })
+            .select("name username profileImage bio customId isSeller")
+            .limit(limit);
+
+        res.status(200).json({ success: true, data: users });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

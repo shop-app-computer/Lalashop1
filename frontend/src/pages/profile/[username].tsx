@@ -11,7 +11,8 @@ import {
   Plus,
   Store,
   Star,
-  User as UserIcon
+  Flag,
+  User as UserIcon,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -19,7 +20,9 @@ import FollowButton from "@/pages/Social/components/FollowButton";
 import UserListModal from "@/pages/Social/components/UserListModal";
 import SocialPost from "@/pages/Social/components/SocialPost";
 import MainSidebar from "@/components/layout/MainSidebar";
+import ReportModal, { type ReportTargetType } from "@/components/ReportModal";
 import { apiClient } from "@/services/apiClient";
+import { useCurrentUser } from "@/services/useCurrentUser";
 
 export default function UserProfilePage() {
   const router = useRouter();
@@ -39,17 +42,30 @@ export default function UserProfilePage() {
     title: "Followers"
   });
 
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { user: me } = useCurrentUser();
+  const currentUserId = me?._id || null;
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<ReportTargetType>("user");
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const cached = JSON.parse(localStorage.getItem("userInfo") || "null");
-      if (cached?._id) setCurrentUserId(cached._id);
-    } catch {
-      setCurrentUserId(null);
-    }
-  }, []);
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const openReport = (type: ReportTargetType) => {
+    setReportTarget(type);
+    setMenuOpen(false);
+    setReportOpen(true);
+  };
 
   const fetchTargetProfile = async () => {
     if (!username) return;
@@ -59,11 +75,13 @@ export default function UserProfilePage() {
       if (data.data) {
         setTargetUser(data.data);
 
-        // Check if I am following this user
-        const myInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-        setIsFollowing(data.data.followers?.some((f: any) =>
-            (typeof f === 'string' ? f : f._id) === myInfo._id
-        ));
+        if (currentUserId) {
+          setIsFollowing(
+            (data.data.followers || []).some(
+              (f: any) => (typeof f === "string" ? f : f._id) === currentUserId
+            )
+          );
+        }
       }
     } catch (error) {
       console.error("Fetch target profile error:", error);
@@ -90,7 +108,8 @@ export default function UserProfilePage() {
 
     window.addEventListener('followStatusChanged', handleFollowChange as any);
     return () => window.removeEventListener('followStatusChanged', handleFollowChange as any);
-  }, [username]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, currentUserId]);
 
   useEffect(() => {
     const fetchShop = async () => {
@@ -136,7 +155,35 @@ export default function UserProfilePage() {
         <h1 className="text-sm font-bold tracking-tight text-slate-800">
             {targetUser.name?.toLowerCase().replace(/\s+/g, '_')}
         </h1>
-        <button className="p-1 text-slate-800"><MoreHorizontal size={24} /></button>
+        <div className="relative" ref={menuRef}>
+          {!isOwnProfile ? (
+            <>
+              <button onClick={() => setMenuOpen((s) => !s)} className="p-1 text-slate-800">
+                <MoreHorizontal size={24} />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 min-w-[180px] z-40">
+                  <button
+                    onClick={() => openReport("user")}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <Flag size={14} /> Report user
+                  </button>
+                  {targetUser.isSeller && (
+                    <button
+                      onClick={() => openReport("shop")}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <Flag size={14} /> Report shop
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-7" />
+          )}
+        </div>
       </header>
 
       {/* Main Container */}
@@ -369,6 +416,14 @@ export default function UserProfilePage() {
           onClose={() => setUserListModal(prev => ({ ...prev, isOpen: false }))}
         />
       )}
+
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType={reportTarget}
+        targetId={targetUser._id}
+        targetLabel={targetUser.name || targetUser.username}
+      />
     </div>
   );
 }

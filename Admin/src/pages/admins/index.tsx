@@ -1,51 +1,41 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, MoreHorizontal, ShieldCheck, ChevronDown } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, ShieldCheck } from 'lucide-react';
+import { fetchUsers, type AdminUser } from '@/services/adminApi';
 
-type Status = 'active' | 'suspended' | 'invited';
-
-const mockAdmins = [
-  { id: 'ADM-0001', name: 'Admin Alex', email: 'alex@lala.shop', role: 'Super Admin', lastLogin: '2026-04-30 09:12', status: 'active' as Status, twoFactor: true },
-  { id: 'ADM-0002', name: 'Admin Keo', email: 'keo@lala.shop', role: 'Finance Admin', lastLogin: '2026-04-30 08:30', status: 'active' as Status, twoFactor: true },
-  { id: 'ADM-0003', name: 'Admin Somsack', email: 'somsack@lala.shop', role: 'Support Admin', lastLogin: '2026-04-29 22:01', status: 'active' as Status, twoFactor: false },
-  { id: 'ADM-0004', name: 'Admin Mali', email: 'mali@lala.shop', role: 'Content Admin', lastLogin: '2026-04-25 14:00', status: 'suspended' as Status, twoFactor: true },
-  { id: 'ADM-0005', name: 'Admin Viphone', email: 'viphone@lala.shop', role: 'Support Admin', lastLogin: '—', status: 'invited' as Status, twoFactor: false },
-];
-
-const statusBadge: Record<Status, string> = {
-  active: 'bg-green-50 text-green-700',
-  suspended: 'bg-red-50 text-red-700',
-  invited: 'bg-orange-50 text-orange-700',
-};
-
-const statusLabel: Record<Status, string> = {
-  active: 'Active',
-  suspended: 'Suspended',
-  invited: 'Invited',
+const formatDate = (s?: string): string => {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
 const AdminsList = () => {
-  const [filter, setFilter] = useState<'all' | Status>('all');
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [items, setItems] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    let cancelled = false;
+    setLoading(true);
+    fetchUsers({ role: 'admin', search: q || undefined, limit: 100 })
+      .then((res) => {
+        if (cancelled) return;
+        setItems(res.data ?? []);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const filtered = mockAdmins.filter(
-    (a) => (filter === 'all' || a.status === filter) &&
-      (!q || a.name.toLowerCase().includes(q.toLowerCase()) || a.email.toLowerCase().includes(q.toLowerCase()))
-  );
-
-  const tabs: ('all' | Status)[] = ['all', 'active', 'suspended', 'invited'];
+  }, [q]);
 
   return (
     <div className="space-y-4 text-sm">
@@ -71,32 +61,7 @@ const AdminsList = () => {
       </div>
 
       <div className="rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setOpen(!open)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 min-w-[100px] justify-between"
-          >
-            <span>{filter === 'all' ? 'All' : statusLabel[filter as Status]}</span>
-            <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
-          </button>
-          {open && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-100 rounded-md shadow-md py-1 z-10 min-w-[120px]">
-              {tabs.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setFilter(t); setOpen(false); }}
-                  className={`w-full text-left px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                    filter === t
-                      ? 'bg-gray-50 text-black'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-black'
-                  }`}
-                >
-                  {t === 'all' ? 'All' : statusLabel[t as Status]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <h2 className="text-[13px] font-semibold text-gray-900">Active admin users</h2>
         <div className="ml-auto relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
@@ -117,46 +82,46 @@ const AdminsList = () => {
                 <th className="px-4 py-2 text-left font-semibold">Admin ID</th>
                 <th className="px-4 py-2 text-left font-semibold">Name</th>
                 <th className="px-4 py-2 text-left font-semibold">Email</th>
-                <th className="px-4 py-2 text-left font-semibold">Role</th>
+                <th className="px-4 py-2 text-left font-semibold">Phone</th>
                 <th className="px-4 py-2 text-left font-semibold">2FA</th>
-                <th className="px-4 py-2 text-left font-semibold">Last Login</th>
-                <th className="px-4 py-2 text-left font-semibold">Status</th>
+                <th className="px-4 py-2 text-left font-semibold">Joined</th>
                 <th className="px-4 py-2 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a) => (
-                <tr key={a.id}>
-                  <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{a.id}</td>
-                  <td className="px-4 py-2 font-medium text-gray-900">{a.name}</td>
+              {loading && (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+              )}
+              {!loading && error && (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
+              )}
+              {!loading && !error && items.map((a) => (
+                <tr key={a._id}>
+                  <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{a.customId || a._id.slice(-8).toUpperCase()}</td>
+                  <td className="px-4 py-2 font-medium text-gray-900">
+                    <Link href={`/users/${a._id}`} className="hover:text-primary transition-colors">
+                      {a.name || a.username || '—'}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2 text-gray-700">{a.email}</td>
-                  <td className="px-4 py-2 text-gray-700">{a.role}</td>
+                  <td className="px-4 py-2 text-gray-700">{a.phone || '—'}</td>
                   <td className="px-4 py-2">
-                    {a.twoFactor ? (
+                    {a.twoFactorEnabled ? (
                       <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-green-50 text-green-700">On</span>
                     ) : (
                       <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-red-50 text-red-700">Off</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-gray-500 text-[11px]">{a.lastLogin}</td>
-                  <td className="px-4 py-2">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusBadge[a.status]}`}>
-                      {statusLabel[a.status]}
-                    </span>
-                  </td>
+                  <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(a.createdAt)}</td>
                   <td className="px-4 py-2 text-right">
-                    <button className="text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1">
+                    <Link href={`/users/${a._id}`} className="inline-block text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1">
                       <MoreHorizontal className="w-3.5 h-3.5" />
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-[12px]">
-                    No admins match your filter
-                  </td>
-                </tr>
+              {!loading && !error && items.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">No admin users found</td></tr>
               )}
             </tbody>
           </table>

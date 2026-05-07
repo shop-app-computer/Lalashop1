@@ -588,3 +588,73 @@ export const fetchHistorySupport = () =>
 export const fetchHistoryAdminAudit = () =>
   apiClient<unknown[]>(`/admin/history/admin-audit`);
 
+// ─── Reports ──────────────────────────────────────────────────────────
+
+export type ReportTargetType = "user" | "shop" | "product" | "post" | "comment";
+export type ReportReason = "spam" | "abuse" | "fraud" | "counterfeit" | "harassment" | "other";
+export type ReportStatus = "open" | "reviewing" | "actioned" | "dismissed";
+export type ReportAction = "none" | "warn" | "remove" | "suspend" | "ban";
+
+export interface AdminReportRow {
+  _id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: ReportReason;
+  description?: string;
+  evidence?: string[];
+  status: ReportStatus;
+  actionTaken: ReportAction;
+  adminNote?: string;
+  reviewedAt?: string;
+  reportedBy?: { _id: string; name?: string; email?: string; customId?: string; profileImage?: string };
+  assignedTo?: { _id: string; name?: string; email?: string; customId?: string } | null;
+  reviewedBy?: { _id: string; name?: string; email?: string; customId?: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminReportStats {
+  total: number;
+  open: number;
+  reviewing: number;
+  actioned: number;
+  dismissed: number;
+  byReason: Record<string, number>;
+  byTargetType: Record<string, number>;
+}
+
+export interface ListReportsParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: ReportStatus | "all";
+  reason?: ReportReason | "all";
+  targetType?: ReportTargetType | "all";
+  targetId?: string;
+}
+
+export const fetchAdminReports = (params: ListReportsParams = {}) =>
+  apiClient<AdminReportRow[]>(
+    `/admin/reports${buildQuery(params as Record<string, string | number | undefined>)}`,
+  );
+
+export const fetchAdminReport = (id: string) =>
+  apiClient<AdminReportRow>(`/admin/reports/${id}`);
+
+export const updateAdminReport = (
+  id: string,
+  payload: {
+    status?: ReportStatus;
+    actionTaken?: ReportAction;
+    adminNote?: string;
+    assignedTo?: string | null;
+  },
+) =>
+  apiClient<AdminReportRow>(`/admin/reports/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+export const fetchAdminReportStats = () =>
+  apiClient<AdminReportStats>("/admin/reports/stats");
+

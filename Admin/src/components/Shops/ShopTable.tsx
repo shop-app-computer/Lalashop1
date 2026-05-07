@@ -1,37 +1,25 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Search, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { fetchAdminShops, type AdminShopRow, type ListShopsParams } from '@/services/adminApi';
 
-export type ShopStatus = 'active' | 'closed' | 'pending' | 'suspended';
-
-export type Shop = {
-  id: string;
-  name: string;
-  owner: string;
-  email: string;
-  phone: string;
-  category: string;
-  products: number;
-  sales: string;
-  status: ShopStatus;
-  createdAt: string;
-};
-
-export const SHOP_MOCK: Shop[] = [
-  { id: 'SHOP-1001', name: 'Lala Fashion', owner: 'Somsack Souvanna', email: 'lala@fashion.la', phone: '020-5555-5555', category: 'Fashion', products: 145, sales: '12,400,000', status: 'active', createdAt: '2024-04-22' },
-  { id: 'SHOP-1002', name: 'Tech Gadgets', owner: 'Keo Viseth', email: 'tech@gadgets.la', phone: '020-2222-3333', category: 'Electronics', products: 89, sales: '8,200,000', status: 'active', createdAt: '2024-03-15' },
-  { id: 'SHOP-1003', name: 'Home Decor Plus', owner: 'Phonexay Silavong', email: 'home@decor.la', phone: '020-7777-3333', category: 'Home', products: 256, sales: '5,400,000', status: 'active', createdAt: '2024-02-10' },
-  { id: 'SHOP-1004', name: 'Beauty Studio', owner: 'Mali Thongdy', email: 'beauty@studio.la', phone: '020-9999-8888', category: 'Beauty', products: 78, sales: '3,200,000', status: 'pending', createdAt: '2026-04-25' },
-  { id: 'SHOP-1005', name: 'Coffee Roastery', owner: 'Bounmy Inthavong', email: 'coffee@roast.la', phone: '020-9999-1111', category: 'Food', products: 24, sales: '890,000', status: 'pending', createdAt: '2026-04-28' },
-  { id: 'SHOP-1006', name: 'Old Books Co', owner: 'Anousone K.', email: 'books@old.la', phone: '020-1111-2222', category: 'Books', products: 0, sales: '0', status: 'closed', createdAt: '2024-01-08' },
-  { id: 'SHOP-1007', name: 'Gym Supplements', owner: 'Viphone S.', email: 'gym@supp.la', phone: '020-3333-4444', category: 'Health', products: 45, sales: '2,100,000', status: 'suspended', createdAt: '2024-05-20' },
-];
+export type ShopStatus = 'active' | 'closed' | 'pending';
 
 const statusBadge: Record<ShopStatus, string> = {
   active: 'bg-green-50 text-green-700',
   pending: 'bg-orange-50 text-orange-700',
   closed: 'bg-gray-100 text-gray-600',
-  suspended: 'bg-red-50 text-red-700',
+};
+
+const formatMoney = (n: number): string =>
+  Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+const formatDate = (s?: string): string => {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 interface ShopTableProps {
@@ -43,6 +31,10 @@ const ShopTable = ({ initialFilter = 'all', hideFilters = false }: ShopTableProp
   const [filter, setFilter] = useState<'all' | ShopStatus>(initialFilter);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
+  const [shops, setShops] = useState<AdminShopRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,24 +47,40 @@ const ShopTable = ({ initialFilter = 'all', hideFilters = false }: ShopTableProp
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filtered = useMemo(
-    () =>
-      SHOP_MOCK.filter(
-        (s) =>
-          (filter === 'all' || s.status === filter) &&
-          (!q ||
-            s.name.toLowerCase().includes(q.toLowerCase()) ||
-            s.owner.toLowerCase().includes(q.toLowerCase()) ||
-            s.id.toLowerCase().includes(q.toLowerCase()))
-      ),
-    [filter, q]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const params: ListShopsParams = {
+      status: filter === 'all' ? undefined : filter,
+      search: q || undefined,
+      limit: 100,
+    };
+    fetchAdminShops(params)
+      .then((res) => {
+        if (cancelled) return;
+        setShops(res.data ?? []);
+        setTotal(res.meta?.total ?? 0);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filter, q]);
 
-  const tabs: ('all' | ShopStatus)[] = ['all', 'active', 'pending', 'closed', 'suspended'];
+  const tabs: ('all' | ShopStatus)[] = useMemo(
+    () => ['all', 'active', 'pending', 'closed'],
+    []
+  );
 
   return (
     <>
-      {/* Filter bar */}
       <div className="rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
         {!hideFilters && (
           <div className="relative" ref={dropdownRef}>
@@ -115,7 +123,6 @@ const ShopTable = ({ initialFilter = 'all', hideFilters = false }: ShopTableProp
         </div>
       </div>
 
-      {/* Table */}
       <div className="rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[12px] tabular-nums">
@@ -133,32 +140,54 @@ const ShopTable = ({ initialFilter = 'all', hideFilters = false }: ShopTableProp
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => (
-                <tr key={s.id}>
-                  <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{s.id}</td>
-                  <td className="px-4 py-2 font-medium text-gray-900">
-                    <Link href={`/shops/${s.id}`} className="hover:text-primary transition-colors">
-                      {s.name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-gray-700">{s.owner}</td>
-                  <td className="px-4 py-2 text-gray-700">{s.category}</td>
-                  <td className="px-4 py-2 text-right text-gray-900">{s.products}</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{s.sales}</td>
-                  <td className="px-4 py-2 text-gray-500 text-[11px]">{s.createdAt}</td>
-                  <td className="px-4 py-2">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded capitalize ${statusBadge[s.status]}`}>
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <button className="text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1">
-                      <MoreHorizontal className="w-3.5 h-3.5" />
-                    </button>
+              {loading && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-[12px]">
+                    Loading shops...
                   </td>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
+              )}
+              {!loading && error && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-red-500 text-[12px]">
+                    {error}
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && shops.map((s) => {
+                const status: ShopStatus =
+                  s.seller_type === 'closed'
+                    ? 'closed'
+                    : !s.seller_type || s.seller_type === ''
+                    ? 'pending'
+                    : 'active';
+                return (
+                  <tr key={s._id}>
+                    <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{s.customId || s._id.slice(-8).toUpperCase()}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">
+                      <Link href={`/shops/${s._id}`} className="hover:text-primary transition-colors">
+                        {s.shopName || s.ownerName || s.ownerEmail || '—'}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-gray-700">{s.ownerName || s.ownerEmail || '—'}</td>
+                    <td className="px-4 py-2 text-gray-700">{s.shopCategory || '—'}</td>
+                    <td className="px-4 py-2 text-right text-gray-900">{s.productsCount}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatMoney(s.revenue)}</td>
+                    <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(s.createdAt)}</td>
+                    <td className="px-4 py-2">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded capitalize ${statusBadge[status]}`}>
+                        {status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <Link href={`/shops/${s._id}`} className="inline-block text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1">
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!loading && !error && shops.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-[12px]">
                     No shops match your filter
@@ -170,11 +199,7 @@ const ShopTable = ({ initialFilter = 'all', hideFilters = false }: ShopTableProp
         </div>
 
         <div className="flex items-center justify-between px-4 py-2.5 text-[11px] text-gray-500">
-          <span>Showing {filtered.length} of {SHOP_MOCK.length} shops</span>
-          <div className="flex items-center gap-1">
-            <button className="px-2.5 py-1 rounded text-[11px] font-medium text-gray-400 cursor-not-allowed">Prev</button>
-            <button className="px-2.5 py-1 rounded text-[11px] font-medium text-gray-700">Next</button>
-          </div>
+          <span>Showing {shops.length} of {total} shops</span>
         </div>
       </div>
     </>

@@ -1,30 +1,193 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  Info, ChevronLeft,
-   ChevronRight,
-} from "lucide-react";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
-} from 'recharts';
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { apiClient } from "@/services/apiClient";
 
-const mockData = [
-  { name: '00:00', value: 400 },
-  { name: '04:00', value: 300 },
-  { name: '08:00', value: 900 },
-  { name: '12:00', value: 1500 },
-  { name: '16:00', value: 2400 },
-  { name: '20:00', value: 1800 },
-  { name: '23:59', value: 1200 },
-];
+interface OrderItem {
+  product?: string;
+  name: string;
+  image: string;
+  qty: number;
+  price: number;
+  seller?: string;
+}
+
+interface OrderRow {
+  _id: string;
+  orderItems: OrderItem[];
+  totalPrice: number;
+  isPaid: boolean;
+  isDelivered: boolean;
+  paidAt?: string;
+  createdAt: string;
+}
+
+interface ProductRow {
+  _id: string;
+  name: string;
+  image: string | string[];
+  images?: string[];
+  price: number;
+  soldCount?: number;
+}
+
+interface MeResponse {
+  balance?: number;
+  isSeller?: boolean;
+  orderCount?: number;
+}
+
+type RangeKey = "today" | "7d" | "30d" | "custom";
+
+const rangeStart = (range: RangeKey): Date => {
+  const now = new Date();
+  if (range === "today") {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  if (range === "7d") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 6);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  if (range === "30d") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 29);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  return new Date(0);
+};
+
+const bucketLabel = (d: Date, range: RangeKey): string => {
+  if (range === "today") {
+    return `${String(d.getHours()).padStart(2, "0")}:00`;
+  }
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+};
+
+const formatCurrency = (n: number): string =>
+  Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
+
+const productImage = (p: ProductRow): string => {
+  if (Array.isArray(p.images) && p.images.length > 0) return p.images[0];
+  if (typeof p.image === "string") return p.image;
+  if (Array.isArray(p.image) && p.image.length > 0) return p.image[0];
+  return "";
+};
 
 export default function AttrView({ onBack }: { onBack: () => void }) {
-  const [timeRange, setTimeRange] = useState("today");
+  const [timeRange, setTimeRange] = useState<RangeKey>("today");
+  const [balance, setBalance] = useState<number | null>(null);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [products, setProducts] = useState<ProductRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      apiClient("/auth/me").catch(() => null),
+      apiClient("/orders/seller").catch(() => null),
+      apiClient("/products/my").catch(() => null),
+    ])
+      .then(([meRes, ordersRes, productsRes]) => {
+        if (cancelled) return;
+        const me = (meRes ?? {}) as MeResponse;
+        setBalance(typeof me.balance === "number" ? me.balance : 0);
+        const orderList = (ordersRes?.orders ?? ordersRes?.data ?? []) as OrderRow[];
+        setOrders(Array.isArray(orderList) ? orderList : []);
+        const productList = (productsRes?.data ?? productsRes ?? []) as ProductRow[];
+        setProducts(Array.isArray(productList) ? productList : []);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const inRangeOrders = useMemo(() => {
+    const start = rangeStart(timeRange);
+    return orders.filter((o) => {
+      const d = new Date(o.paidAt || o.createdAt);
+      return !Number.isNaN(d.getTime()) && d >= start;
+    });
+  }, [orders, timeRange]);
+
+  const totalRevenue = useMemo(
+    () => inRangeOrders.filter((o) => o.isPaid).reduce((s, o) => s + (o.totalPrice || 0), 0),
+    [inRangeOrders]
+  );
+
+  const ordersCount = inRangeOrders.length;
+
+  const productCount = products.length;
+
+  const conversionRate = useMemo(() => {
+    if (productCount === 0) return "0%";
+    return `${((ordersCount / productCount) * 100).toFixed(1)}%`;
+  }, [ordersCount, productCount]);
+
+  const chartData = useMemo(() => {
+    if (timeRange === "today") {
+      const buckets = new Array(24).fill(0).map((_, h) => ({
+        name: `${String(h).padStart(2, "0")}:00`,
+        value: 0,
+      }));
+      for (const o of inRangeOrders) {
+        if (!o.isPaid) continue;
+        const d = new Date(o.paidAt || o.createdAt);
+        const h = d.getHours();
+        if (Number.isFinite(h)) buckets[h].value += o.totalPrice || 0;
+      }
+      return buckets;
+    }
+    const days = timeRange === "7d" ? 7 : 30;
+    const start = rangeStart(timeRange);
+    const buckets = new Array(days).fill(0).map((_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return { name: bucketLabel(d, timeRange), value: 0, key: d.toDateString() };
+    });
+    const indexByKey = new Map(buckets.map((b, i) => [b.key, i]));
+    for (const o of inRangeOrders) {
+      if (!o.isPaid) continue;
+      const d = new Date(o.paidAt || o.createdAt);
+      const k = d.toDateString();
+      const idx = indexByKey.get(k);
+      if (idx !== undefined) buckets[idx].value += o.totalPrice || 0;
+    }
+    return buckets.map(({ name, value }) => ({ name, value }));
+  }, [inRangeOrders, timeRange]);
+
+  const bestSellers = useMemo(
+    () =>
+      [...products]
+        .sort((a, b) => (b.soldCount ?? 0) - (a.soldCount ?? 0))
+        .slice(0, 3),
+    [products]
+  );
 
   return (
     <div className="min-h-screen bg-[#F8F8F8] text-[#121212] antialiased">
-      {/* Navigation Bar - Full width & TikTok Style */}
       <nav className="sticky top-0 z-50 bg-white border-b border-[#EEEEEE] flex items-center justify-between h-[52px] px-4">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="active:opacity-50 transition-opacity -ml-1">
@@ -35,37 +198,47 @@ export default function AttrView({ onBack }: { onBack: () => void }) {
       </nav>
 
       <main className="w-full pb-20">
-        {/* Time Filter - Sharp edges 100% per design */}
         <div className="bg-white px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar border-b border-[#EEEEEE]">
-          {["today", "7d", "30d", "custom"].map((id) => (
+          {(["today", "7d", "30d", "custom"] as RangeKey[]).map((id) => (
             <button
               key={id}
               onClick={() => setTimeRange(id)}
-              className={`px-5 py-2 text-[13px] rounded-2xl font-bold transition-all shrink-0 ${timeRange === id
-                ? "bg-black text-white border border-black" // Selected button: Black background, Black border
-                : "bg-white text-[#86878B] border border-[#EEEEEE]" // Normal button: White background, Gray border
-                }`}
-            // Removed style={{ borderRadius: '0px' }}
+              className={`px-5 py-2 text-[13px] rounded-2xl font-bold transition-all shrink-0 ${
+                timeRange === id
+                  ? "bg-black text-white border border-black"
+                  : "bg-white text-[#86878B] border border-[#EEEEEE]"
+              }`}
             >
               {id === "today" ? "Today" : id === "7d" ? "7 Days" : id === "30d" ? "30 Days" : "Custom"}
             </button>
           ))}
         </div>
 
-        {/* Metric Grid - Full width 2x2 with sharp dividers */}
+        {error && (
+          <div className="bg-rose-50 px-4 py-2 text-[12px] text-rose-700">{error}</div>
+        )}
+
         <div className="bg-white grid grid-cols-2 border-b border-[#EEEEEE]">
-          <MetricItem title="Total Revenue" value="฿0" percent="+18.2" isFirst />
-          <MetricItem title="Orders" value="1,284" percent="+5.4" />
-          <MetricItem title="CTR" value="4.2%" percent="-0.8" isFirst />
-          <MetricItem title="Total Products" value="850" />
+          <MetricItem
+            title="Current Balance"
+            value={balance == null ? "—" : `฿${formatCurrency(balance)}`}
+            isFirst
+          />
+          <MetricItem
+            title="Revenue (in range)"
+            value={`฿${formatCurrency(totalRevenue)}`}
+          />
+          <MetricItem title="Orders (in range)" value={ordersCount.toLocaleString()} isFirst />
+          <MetricItem title="Total Products" value={productCount.toLocaleString()} />
         </div>
 
-        {/* Chart Section - Full width, Sharp corners */}
-        <div className="bg-white mt-2 border-y border-[#EEEEEE] py-6 px-4"> 
+        <div className="bg-white mt-2 border-y border-[#EEEEEE] py-6 px-4">
           <div className="flex justify-between items-center mb-6 px-1">
             <div>
               <h3 className="text-[14px] font-bold">Revenue Trend</h3>
-              <p className="text-[11px] text-[#86878B]">Last updated: 5 minutes ago</p>
+              <p className="text-[11px] text-[#86878B]">
+                {loading ? "Loading..." : `Based on ${ordersCount} order${ordersCount === 1 ? "" : "s"}`}
+              </p>
             </div>
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#00aeff]">
               <div className="w-2 h-2 rounded-full bg-[#00aeff] animate-pulse"></div>
@@ -73,9 +246,9 @@ export default function AttrView({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          <div className="h-[220px] w-full -ml-4"> {/* Shift left to make the chart look more full screen */}
+          <div className="h-[220px] w-full -ml-4">
             <ResponsiveContainer width="110%" height="100%">
-              <AreaChart data={mockData} margin={{ left: 0, right: 0 }}>
+              <AreaChart data={chartData} margin={{ left: 0, right: 0 }}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#00aeff" stopOpacity={0.15} />
@@ -87,7 +260,7 @@ export default function AttrView({ onBack }: { onBack: () => void }) {
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: '#86878B' }}
+                  tick={{ fontSize: 10, fill: "#86878B" }}
                 />
                 <YAxis hide />
                 <Tooltip />
@@ -103,29 +276,51 @@ export default function AttrView({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* Top Products - Sharp edges, Full width */}
         <div className="bg-white mt-2 border-y border-[#EEEEEE]">
           <div className="px-5 py-4 border-b border-[#F8F8F8] flex justify-between items-center">
-            <h3 className="text-[14px] font-bold  tracking-tight">Best Sellers</h3>
+            <h3 className="text-[14px] font-bold tracking-tight">Best Sellers</h3>
             <ChevronRight size={18} className="text-[#C8C9CC]" />
           </div>
           <div className="divide-y divide-[#F8F8F8]">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="px-5 py-5 flex items-center justify-between active:bg-[#FAFAFA]">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-[#F5F5F5] flex-shrink-0">
-                    <img src={`https://api.dicebear.com/7.x/shapes/svg?seed=${i}`} alt="product" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[14px] font-bold line-clamp-1">Premium Product Gen {i}</p>
-                    <p className="text-[12px] text-[#86878B]">{120 * i} items sold</p>
-                  </div>
-                </div>
-                <div className="text-right text-[13px] font-bold">
-                  ฿2,400
-                </div>
+            {loading ? (
+              <div className="px-5 py-8 text-center text-[13px] text-[#86878B]">Loading...</div>
+            ) : bestSellers.length === 0 ? (
+              <div className="px-5 py-8 text-center text-[13px] text-[#86878B]">
+                No products yet
               </div>
-            ))}
+            ) : (
+              bestSellers.map((p) => {
+                const img = productImage(p);
+                return (
+                  <div
+                    key={p._id}
+                    className="px-5 py-5 flex items-center justify-between active:bg-[#FAFAFA]"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-[#F5F5F5] flex-shrink-0 overflow-hidden">
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={img}
+                            alt={p.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : null}
+                      </div>
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-[14px] font-bold line-clamp-1">{p.name}</p>
+                        <p className="text-[12px] text-[#86878B]">
+                          {(p.soldCount ?? 0).toLocaleString()} items sold
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right text-[13px] font-bold">
+                      ฿{formatCurrency(p.price)}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </main>
@@ -133,21 +328,21 @@ export default function AttrView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function MetricItem({ title, value, percent, isFirst }: any) {
-  const isPositive = percent && percent.startsWith('+');
+interface MetricItemProps {
+  title: string;
+  value: string;
+  isFirst?: boolean;
+}
+
+function MetricItem({ title, value, isFirst }: MetricItemProps) {
   return (
-    <div className={`p-5 space-y-2 ${isFirst ? 'border-r border-[#EEEEEE]' : ''}`}>
+    <div className={`p-5 space-y-2 ${isFirst ? "border-r border-[#EEEEEE]" : ""}`}>
       <div className="flex items-center gap-1.5">
-        <span className="text-[12px] font-medium text-[#86878B]  tracking-wider">{title}</span>
+        <span className="text-[12px] font-medium text-[#86878B] tracking-wider">{title}</span>
         <Info size={13} className="text-[#C8C9CC]" />
       </div>
       <div className="flex flex-col">
         <span className="text-[24px] font-bold leading-tight">{value}</span>
-        {percent && (
-          <div className={`text-[12px] font-bold mt-1 ${isPositive ? 'text-emerald-500' : 'text-rose-500'}`}>
-            {percent}% <span className="text-[#C8C9CC] font-normal ml-1">vs yesterday</span>
-          </div>
-        )}
       </div>
     </div>
   );

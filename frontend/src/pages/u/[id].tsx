@@ -7,11 +7,16 @@ import {
   UserCheck,
   Loader2,
   Grid3x3,
-  Film,
+  ShoppingBag,
   MessageCircle,
+  Star,
+  Flag,
+  MoreHorizontal,
 } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
-import SocialPost, { BackendPost } from "../Social/components/SocialPost";
+import Avatar from "@/components/ui/Avatar";
+import ReportModal, { type ReportTargetType } from "@/components/ReportModal";
+import { BackendPost } from "../Social/components/SocialPost";
 
 interface ProfileUser {
   _id: string;
@@ -24,29 +29,70 @@ interface ProfileUser {
   isSeller?: boolean;
 }
 
+interface ShopProduct {
+  _id: string;
+  name: string;
+  description?: string;
+  price: number;
+  image: string | string[];
+  images?: string[];
+  countInStock?: number;
+  rating?: number;
+  numReviews?: number;
+  freeShipping?: boolean;
+}
+
 export default function UserProfilePage() {
   const router = useRouter();
   const { id } = router.query;
 
   const [profile, setProfile] = useState<ProfileUser | null>(null);
   const [posts, setPosts] = useState<BackendPost[]>([]);
+  const [shopProducts, setShopProducts] = useState<ShopProduct[]>([]);
+  const [shopLoading, setShopLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"grid" | "feed">("grid");
+  const [tab, setTab] = useState<"grid" | "shop">("grid");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<ReportTargetType>("user");
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const openReport = (type: ReportTargetType) => {
+    setReportTarget(type);
+    setMenuOpen(false);
+    setReportOpen(true);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem("userInfo");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setCurrentUserId(parsed?._id || null);
-      }
-    } catch {
-      /* ignore */
-    }
+    const token = window.localStorage.getItem("token");
+    if (!token || token === "null" || token === "undefined") return;
+    let cancelled = false;
+    apiClient("/auth/me")
+      .then((res) => {
+        if (cancelled) return;
+        if (res?._id) setCurrentUserId(res._id);
+      })
+      .catch(() => {
+        /* unauthenticated viewer */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -83,6 +129,28 @@ export default function UserProfilePage() {
       mounted = false;
     };
   }, [id, currentUserId]);
+
+  // Fetch this user's product catalog (for the Shop tab).
+  useEffect(() => {
+    if (!profile?._id) return;
+    let cancelled = false;
+    setShopLoading(true);
+    apiClient(`/products/seller/${profile._id}`)
+      .then((res) => {
+        if (cancelled) return;
+        const list = (res?.data ?? res ?? []) as ShopProduct[];
+        setShopProducts(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setShopProducts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setShopLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?._id]);
 
   const isOwnProfile = useMemo(
     () => Boolean(currentUserId && profile && currentUserId === profile._id),
@@ -143,19 +211,52 @@ export default function UserProfilePage() {
           <ArrowLeft size={22} className="text-dark" />
         </button>
         <h1 className="text-base font-black text-slate-900">{handle}</h1>
-        <div className="w-7" />
+        <div className="relative" ref={menuRef}>
+          {!isOwnProfile ? (
+            <>
+              <button
+                onClick={() => setMenuOpen((s) => !s)}
+                className="p-2 -mr-2 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Profile options"
+              >
+                <MoreHorizontal size={22} className="text-dark" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 min-w-[180px] z-40">
+                  <button
+                    onClick={() => openReport("user")}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <Flag size={14} /> Report user
+                  </button>
+                  {profile.isSeller && (
+                    <button
+                      onClick={() => openReport("shop")}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <Flag size={14} /> Report shop
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-7" />
+          )}
+        </div>
       </header>
 
       <section className="max-w-3xl mx-auto px-5 pt-6 pb-4">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden border-2 border-slate-100">
-            <img
-              src={
-                profile.profileImage ||
-                `https://i.pravatar.cc/150?u=${profile._id}`
-              }
+            <Avatar
+              src={profile.profileImage}
+              name={profile.name}
+              username={profile.username}
+              userId={profile._id}
+              size={112}
+              className="rounded-full"
               alt={handle}
-              className="w-full h-full object-cover"
             />
           </div>
 
@@ -234,7 +335,7 @@ export default function UserProfilePage() {
           {(
             [
               { id: "grid" as const, label: "Posts", icon: Grid3x3 },
-              { id: "feed" as const, label: "Feed", icon: Film },
+              { id: "shop" as const, label: "Shop", icon: ShoppingBag },
             ]
           ).map((t) => (
             <button
@@ -255,43 +356,115 @@ export default function UserProfilePage() {
       </div>
 
       <main className="max-w-3xl mx-auto pt-4">
-        {posts.length === 0 ? (
-          <div className="py-20 text-center text-sm text-slate-400">
-            No posts yet
+        {tab === "grid" ? (
+          posts.length === 0 ? (
+            <div className="py-20 text-center text-sm text-slate-400">No posts yet</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1 px-1">
+              {posts.map((p) => (
+                <Link
+                  key={p._id}
+                  href={`/posts/${p._id}`}
+                  className="aspect-square bg-slate-100 overflow-hidden relative group"
+                >
+                  {p.mediaType === "video" ? (
+                    <video
+                      src={p.mediaUrl}
+                      className="w-full h-full object-cover"
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={p.mediaUrl}
+                      alt={p.caption || "post"}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                  )}
+                </Link>
+              ))}
+            </div>
+          )
+        ) : shopLoading ? (
+          <div className="py-20 flex justify-center">
+            <Loader2 size={28} className="animate-spin text-slate-300" />
           </div>
-        ) : tab === "grid" ? (
-          <div className="grid grid-cols-3 gap-1 px-1">
-            {posts.map((p) => (
-              <Link
-                key={p._id}
-                href={`/posts/${p._id}`}
-                className="aspect-square bg-slate-100 overflow-hidden relative group"
-              >
-                {p.mediaType === "video" ? (
-                  <video
-                    src={p.mediaUrl}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                  />
-                ) : (
-                  <img
-                    src={p.mediaUrl}
-                    alt={p.caption || "post"}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  />
-                )}
-              </Link>
-            ))}
+        ) : shopProducts.length === 0 ? (
+          <div className="py-20 text-center">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <ShoppingBag size={28} className="text-slate-300" strokeWidth={1.5} />
+            </div>
+            <p className="text-sm text-slate-400 font-medium">No products listed yet</p>
           </div>
         ) : (
-          <div className="space-y-8 px-2 md:px-0">
-            {posts.map((p) => (
-              <SocialPost key={p._id} post={p} currentUserId={currentUserId || undefined} />
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 px-2">
+            {shopProducts.map((p) => {
+              const cover =
+                Array.isArray(p.images) && p.images.length
+                  ? p.images[0]
+                  : Array.isArray(p.image)
+                  ? p.image[0]
+                  : p.image;
+              const rating = Number(p.rating) || 0;
+              return (
+                <Link
+                  key={p._id}
+                  href={`/product/${p._id}`}
+                  className="block group bg-white rounded-xl overflow-hidden border border-slate-100 hover:shadow-md transition-all"
+                >
+                  <div className="aspect-square bg-slate-50 relative overflow-hidden">
+                    {cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={cover}
+                        alt={p.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <ShoppingBag size={32} strokeWidth={1.5} />
+                      </div>
+                    )}
+                    {p.freeShipping && (
+                      <span className="absolute bottom-1 left-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-600 text-white">
+                        Free shipping
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <h3 className="text-xs font-bold text-slate-800 line-clamp-2 min-h-[32px]">
+                      {p.name}
+                    </h3>
+                    <div className="mt-1.5 flex items-center gap-1 text-[#ffab00]">
+                      <Star size={11} fill="currentColor" />
+                      <span className="text-[10px] font-bold text-slate-700">
+                        {rating > 0 ? rating.toFixed(1) : "—"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium ml-1">
+                        ({Number(p.numReviews) || 0})
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium ml-auto">
+                        Stock {Number(p.countInStock) || 0}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-sm font-black text-primary">
+                      ฿{Number(p.price || 0).toLocaleString()}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </main>
+
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType={reportTarget}
+        targetId={profile._id}
+        targetLabel={handle}
+      />
     </div>
   );
 }

@@ -10,19 +10,25 @@ export default function TopFactoriesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchTopProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:5000/api/products");
+        const response = await fetch("/api/products");
         const data = await response.json();
-        setProducts(data);
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : data?.data ?? [];
+        setProducts(list);
       } catch (error) {
         console.error("Error fetching top products:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchTopProducts();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

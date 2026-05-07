@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { ShieldCheck, Eye, EyeOff, Lock, User } from 'lucide-react';
+import { adminLogin } from '@/services/authApi';
 
 const LoginPage = () => {
   const router = useRouter();
@@ -19,15 +20,34 @@ const LoginPage = () => {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await adminLogin(email, password);
+      if (!res.token) {
+        throw new Error('Login response missing token');
+      }
+      if (!res.isAdmin) {
+        throw new Error('This account is not an admin');
+      }
+      window.localStorage.setItem('token', res.token);
+      window.localStorage.setItem('admin', JSON.stringify({
+        _id: res._id,
+        name: res.name,
+        email: res.email,
+        customId: res.customId,
+      }));
+      if (remember) {
+        window.localStorage.setItem('rememberDevice', 'true');
+      }
+      router.push('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
       setLoading(false);
-      router.push('/2fa');
-    }, 600);
+    }
   };
 
   return (
     <div className="min-h-screen w-full flex bg-white text-black font-sans">
-      {/* Left brand panel */}
       <div className="hidden lg:flex w-1/2 bg-black text-white flex-col justify-between p-16 relative overflow-hidden">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-primary" />
@@ -50,7 +70,6 @@ const LoginPage = () => {
         <div className="absolute -right-32 -bottom-32 w-96 h-96 rounded-full bg-primary opacity-10 blur-3xl" />
       </div>
 
-      {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2 mb-12">

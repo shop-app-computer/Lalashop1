@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { ShieldCheck, ArrowLeft, Mail } from 'lucide-react';
+import { adminForgotPassword } from '@/services/authApi';
 
 const ForgotPasswordPage = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+    try {
+      await adminForgotPassword(email);
       setSubmitted(true);
-    }, 600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset link');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,8 +44,14 @@ const ForgotPasswordPage = () => {
           <>
             <h2 className="text-2xl font-bold text-black">Forgot Password</h2>
             <p className="text-gray-500 text-sm mt-1">
-              Enter your admin email and we'll send a reset link
+              Enter your admin email and we'll send a reset code
             </p>
+
+            {error && (
+              <div className="mt-6 px-4 py-3 rounded-md bg-red-50 text-red-700 text-[12px] font-medium">
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <label className="block">
@@ -61,7 +74,7 @@ const ForgotPasswordPage = () => {
                 disabled={loading}
                 className="w-full mt-2 py-3 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-900 transition-colors disabled:opacity-50"
               >
-                {loading ? 'Sending...' : 'Send Reset Link →'}
+                {loading ? 'Sending...' : 'Send Reset Code →'}
               </button>
             </form>
           </>
@@ -71,7 +84,7 @@ const ForgotPasswordPage = () => {
             <h3 className="text-sm font-bold text-black">Check your inbox</h3>
             <p className="text-[12px] text-gray-600 mt-2">
               If an account exists for <span className="font-semibold">{email}</span>,
-              a reset link has been sent.
+              a reset code has been sent.
             </p>
           </div>
         )}

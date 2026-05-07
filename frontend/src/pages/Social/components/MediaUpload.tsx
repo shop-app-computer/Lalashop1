@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { compressImage, formatSize } from "../utils/media";
 import { apiClient } from "@/services/apiClient";
+import { useCurrentUser } from "@/services/useCurrentUser";
 
 type Visibility = "public" | "friends" | "friends_except" | "specific_friends";
 
@@ -29,26 +30,32 @@ export default function MediaUpload({ onUpload, onCancel }: MediaUploadProps) {
   const [selectingTarget, setSelectingTarget] = useState<"include" | "exclude" | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user: me } = useCurrentUser();
 
   useEffect(() => {
-    fetchConnections();
-  }, []);
-
-  const fetchConnections = async () => {
-    try {
-      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-      if (!userInfo._id) return;
-      const [followersData, followingData] = await Promise.all([
-        apiClient(`/users/followers/${userInfo._id}`),
-        apiClient(`/users/following/${userInfo._id}`)
-      ]);
-      const all = [...(followersData.data || []), ...(followingData.data || [])];
-      const unique = Array.from(new Map(all.map(item => [item._id, item])).values());
-      setConnections(unique);
-    } catch (err) {
-      console.error("Fetch connections error:", err);
-    }
-  };
+    if (!me?._id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [followersData, followingData] = await Promise.all([
+          apiClient(`/users/followers/${me._id}`),
+          apiClient(`/users/following/${me._id}`),
+        ]);
+        if (cancelled) return;
+        const all = [
+          ...(followersData?.data || []),
+          ...(followingData?.data || []),
+        ];
+        const unique = Array.from(new Map(all.map((item: any) => [item._id, item])).values());
+        setConnections(unique);
+      } catch (err) {
+        console.error("Fetch connections error:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [me?._id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];

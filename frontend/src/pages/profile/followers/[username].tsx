@@ -1,51 +1,79 @@
 import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { 
-  ChevronLeft, 
-  Search, 
+import {
+  ChevronLeft,
+  Search,
   User as UserIcon,
-  MoreHorizontal
+  MoreHorizontal,
 } from "lucide-react";
 import Link from "next/link";
-import { User } from "@/types";
 import FollowButton from "@/pages/Social/components/FollowButton";
 import BottomNav from "@/components/layout/BottomNav";
+import { apiClient } from "@/services/apiClient";
 
-// Mock data generator
-const generateMockUsers = (username: string): User[] => {
-  return Array.from({ length: 20 }).map((_, i) => ({
-    id: i + 1,
-    username: `follower_user_${i + 1}`,
-    name: `Follower ${i + 1}`,
-    avatar: `https://i.pravatar.cc/150?u=follower_${i}_${username}`,
-    isFollowing: Math.random() > 0.5,
-    bio: `Quality wholesale supplier based in Asia. 📦`
-  }));
-};
+interface FollowerUser {
+  _id: string;
+  username?: string;
+  name?: string;
+  email?: string;
+  profileImage?: string;
+  bio?: string;
+}
 
 export default function FollowersPage() {
   const router = useRouter();
   const { username } = router.query;
   const [searchQuery, setSearchQuery] = useState("");
-  const [userList, setUserList] = useState<User[]>([]);
+  const [userList, setUserList] = useState<FollowerUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (username) {
-      setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        setUserList(generateMockUsers(username as string));
-        setLoading(false);
-      }, 600);
-    }
+    if (!username || typeof username !== "string") return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const profileRes = await apiClient(`/users/profile/${username}`);
+        const userId = profileRes?._id || profileRes?.data?._id || profileRes?.user?._id;
+        if (!userId) {
+          if (!cancelled) {
+            setUserList([]);
+            setLoading(false);
+          }
+          return;
+        }
+        const followersRes = await apiClient(`/users/followers/${userId}`);
+        if (!cancelled) {
+          const list = Array.isArray(followersRes)
+            ? followersRes
+            : followersRes?.data ?? followersRes?.followers ?? [];
+          setUserList(list as FollowerUser[]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load followers");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [username]);
 
-  const filteredUsers = userList.filter(user => 
-    user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = userList.filter((user) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      (user.username && user.username.toLowerCase().includes(q)) ||
+      (user.name && user.name.toLowerCase().includes(q))
+    );
+  });
 
   if (!username && !loading) return null;
 
@@ -55,7 +83,6 @@ export default function FollowersPage() {
         <title>Followers of @{username} | SupplyNet</title>
       </Head>
 
-      {/* Header - Sticky & Responsive */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-border px-4 py-3 flex items-center justify-between max-w-2xl mx-auto w-full">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="p-1 hover:bg-gray-light rounded-full transition-colors">
@@ -72,7 +99,6 @@ export default function FollowersPage() {
       </header>
 
       <main className="max-w-2xl mx-auto w-full pt-4">
-        {/* Search Bar */}
         <div className="px-4 mb-6">
           <div className="relative">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -86,7 +112,6 @@ export default function FollowersPage() {
           </div>
         </div>
 
-        {/* User List */}
         <div className="px-4 flex flex-col gap-5">
           {loading ? (
             Array.from({ length: 8 }).map((_, i) => (
@@ -99,16 +124,19 @@ export default function FollowersPage() {
                 <div className="w-24 h-9 bg-gray-light rounded-lg" />
               </div>
             ))
+          ) : error ? (
+            <div className="py-12 text-center text-red-500 text-sm">{error}</div>
           ) : filteredUsers.length > 0 ? (
             filteredUsers.map((user) => (
-              <div key={user.id} className="flex items-center justify-between gap-3 group animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <Link 
-                  href={`/profile/${user.username}`} 
+              <div key={user._id} className="flex items-center justify-between gap-3 group animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <Link
+                  href={`/profile/${user.username || user._id}`}
                   className="flex items-center gap-3 flex-1 overflow-hidden"
                 >
                   <div className="w-14 h-14 rounded-full overflow-hidden border border-gray-border bg-gray-light flex-shrink-0 transition-transform group-hover:scale-105">
-                    {user.avatar ? (
-                      <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                    {user.profileImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={user.profileImage} alt={user.username || user.name || ""} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <UserIcon size={28} className="text-gray-300" />
@@ -116,14 +144,20 @@ export default function FollowersPage() {
                     )}
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold truncate text-dark leading-tight">{user.username}</span>
-                    <span className="text-xs text-gray-500 truncate leading-tight">{user.name}</span>
-                    <span className="text-[11px] text-gray-400 truncate mt-1">{user.bio}</span>
+                    <span className="text-sm font-bold truncate text-dark leading-tight">
+                      {user.username || user.name || user.email}
+                    </span>
+                    {user.name && (
+                      <span className="text-xs text-gray-500 truncate leading-tight">{user.name}</span>
+                    )}
+                    {user.bio && (
+                      <span className="text-[11px] text-gray-400 truncate mt-1">{user.bio}</span>
+                    )}
                   </div>
                 </Link>
                 <FollowButton
-                  initialFollowing={user.isFollowing}
-                  userId={String(user.id)}
+                  initialFollowing={false}
+                  userId={user._id}
                   className="h-9 px-5 text-xs font-bold"
                 />
               </div>
@@ -133,8 +167,8 @@ export default function FollowersPage() {
               <div className="w-20 h-20 rounded-full bg-gray-light flex items-center justify-center mb-4">
                 <Search size={32} strokeWidth={1.5} className="opacity-40" />
               </div>
-              <p className="text-base font-bold text-dark mb-1">No results found</p>
-              <p className="text-sm">Try searching for another name or username</p>
+              <p className="text-base font-bold text-dark mb-1">No followers yet</p>
+              <p className="text-sm">Once people follow @{username}, they'll appear here</p>
             </div>
           )}
         </div>

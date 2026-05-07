@@ -3,12 +3,26 @@ import { Send, History, AlertCircle } from 'lucide-react';
 import SendTab from './tabs/SendTab';
 import HistoryTab from './tabs/HistoryTab';
 import ReportsTab from './tabs/ReportsTab';
+import type { BroadcastPayload } from '@/services/adminApi';
 
 type Tab = 'send' | 'history' | 'reports';
 
+const audienceLabelToValue = (label: string): NonNullable<BroadcastPayload['audience']> => {
+  switch (label) {
+    case 'Sellers Only':
+      return 'sellers';
+    case 'Buyers Only':
+      return 'buyers';
+    case 'Creators Only':
+      return 'creators';
+    default:
+      return 'all';
+  }
+};
+
 const NotificationsPage = () => {
   const [activeTab, setActiveTab] = useState<Tab>('send');
-  const [targetAudience, setTargetAudience] = useState('All Users');
+  const [targetAudienceLabel, setTargetAudienceLabel] = useState('All Users');
 
   const tabs: { id: Tab; label: string; icon: typeof Send }[] = [
     { id: 'send', label: 'Send Push', icon: Send },
@@ -22,14 +36,14 @@ const NotificationsPage = () => {
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-gray-500">Target:</span>
           <select
-            value={targetAudience}
-            onChange={(e) => setTargetAudience(e.target.value)}
+            value={targetAudienceLabel}
+            onChange={(e) => setTargetAudienceLabel(e.target.value)}
             className="bg-gray-50 border border-gray-100 rounded-md px-3 py-1.5 text-[12px] font-medium outline-none cursor-pointer focus:border-primary"
           >
             <option>All Users</option>
             <option>Sellers Only</option>
+            <option>Buyers Only</option>
             <option>Creators Only</option>
-            <option>VIP Members</option>
           </select>
         </div>
       )}
@@ -52,7 +66,7 @@ const NotificationsPage = () => {
       </div>
 
       <div className="rounded-lg overflow-hidden">
-        {activeTab === 'send' && <SendTab />}
+        {activeTab === 'send' && <SendTab audience={audienceLabelToValue(targetAudienceLabel)} />}
         {activeTab === 'history' && <HistoryTab />}
         {activeTab === 'reports' && <ReportsTab />}
       </div>

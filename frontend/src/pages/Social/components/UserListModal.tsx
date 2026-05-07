@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import FollowButton from "./FollowButton";
 import { apiClient } from "@/services/apiClient";
+import { useCurrentUser } from "@/services/useCurrentUser";
 
 interface UserListItem {
   _id: string;
@@ -29,6 +30,8 @@ export default function UserListModal({ title, isOpen, onClose, type, userId }: 
   const [searchQuery, setSearchQuery] = useState("");
   const [userList, setUserList] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user: me } = useCurrentUser();
+  const currentUserId = me?._id;
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -38,12 +41,14 @@ export default function UserListModal({ title, isOpen, onClose, type, userId }: 
         const endpoint = type === "followers" ? "followers" : "following";
         const data = await apiClient(`/users/${endpoint}/${userId}`);
 
-        // Add isFollowing status check if current user is viewing another user's list
-        const currentUserId = JSON.parse(localStorage.getItem("userInfo") || "{}")._id;
-        
         const processedUsers = (data.data || []).map((u: any) => ({
           ...u,
-          isFollowing: type === "following" && userId === currentUserId ? true : u.followers?.includes(currentUserId)
+          isFollowing:
+            type === "following" && userId === currentUserId
+              ? true
+              : Array.isArray(u.followers) && currentUserId
+              ? u.followers.includes(currentUserId)
+              : false,
         }));
 
         setUserList(processedUsers);
@@ -55,7 +60,7 @@ export default function UserListModal({ title, isOpen, onClose, type, userId }: 
     };
 
     fetchUsers();
-  }, [isOpen, type, userId]);
+  }, [isOpen, type, userId, currentUserId]);
 
   if (!isOpen) return null;
 
@@ -147,8 +152,7 @@ export default function UserListModal({ title, isOpen, onClose, type, userId }: 
                   </Link>
 
                   <div className="flex-shrink-0">
-                    {/* Don't show follow button for self */}
-                    {JSON.parse(localStorage.getItem("userInfo") || "{}")._id !== user._id && (
+                    {currentUserId && currentUserId !== user._id && (
                       <FollowButton
                         initialFollowing={user.isFollowing}
                         userId={user._id}

@@ -21,6 +21,7 @@ import withdrawRoutes from "./routes/withdrawRoutes";
 import creatorProductRoutes from "./routes/creatorProductRoutes";
 import affiliateRoutes from "./routes/affiliateRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
+import reportRoutes from "./routes/reportRoutes";
 import { cookieParser } from "./middlewares/cookieParser";
 import { trackAndRedirect } from "./controllers/affiliateController";
 import { optionalProtect } from "./middlewares/authMiddleware";
@@ -65,6 +66,7 @@ app.use("/api/withdraw", withdrawRoutes);
 app.use("/api/creator-products", creatorProductRoutes);
 app.use("/api/affiliate", affiliateRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   const statusCode = err.statusCode || 500;

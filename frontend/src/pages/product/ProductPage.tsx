@@ -7,11 +7,12 @@ import Image from "next/image";
 import {
   ChevronLeft, ChevronRight, ShieldCheck, Truck,
   RefreshCw, Zap, ArrowRight, MessageCircle, ShoppingCart, CreditCard,
-  Store,
+  Store, Flag,
 } from "lucide-react";
 
 import Header from "@/components/layout/Header";
 import BuyPopup from "../buyproduct/buy";
+import ReportModal from "@/components/ReportModal";
 import { ImageGallery } from "./ImageGallery";
 import { PriceTierCard, QuantityStepper } from "./ProductControls";
 import { SpecRow, TrustPill, Stars } from "./ProductUIPrimitives";
@@ -84,6 +85,7 @@ export default function ProductPage() {
   const [tab, setTab] = useState("specs");
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [showBuyPopup, setShowBuyPopup] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [cartLoading, setCartLoading] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "" });
@@ -256,6 +258,15 @@ export default function ProductPage() {
 
       <Header />
 
+      {/* ── Report Modal ── */}
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="product"
+        targetId={String((product as any)._id ?? "")}
+        targetLabel={product.name}
+      />
+
       {/* ── Buy Popup ── */}
       <BuyPopup
         product={product}
@@ -280,6 +291,13 @@ export default function ProductPage() {
           <span className="text-gray-600">{product.category}</span>
           <ChevronRight size={10} />
           <span className="text-gray-300 max-w-[200px] truncate">{product.name}</span>
+          <button
+            onClick={() => setReportOpen(true)}
+            className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-bold text-gray-400 hover:text-red-500 px-2 py-1 rounded-full transition-colors"
+            title="Report this product"
+          >
+            <Flag size={12} /> Report
+          </button>
         </nav>
 
         {/* ── Hero Card ── */}

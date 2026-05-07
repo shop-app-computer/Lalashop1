@@ -1,30 +1,57 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { fetchHistoryWithdrawals, type AdminWithdrawRow } from '@/services/adminApi';
 
-type Status = 'approved' | 'declined' | 'pending';
+const formatMoney = (n: number): string =>
+  Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-const data: { id: number; requested: string; amount: string; bank: string; account: string; status: Status; admin: string; processed: string; reason?: string }[] = [
-  { id: 700112451, requested: '2024-04-23 14:30:12', amount: '5,000,000', bank: 'BCEL One', account: '160-12-3456', status: 'pending', admin: '—', processed: '—' },
-  { id: 700100020, requested: '2024-04-18 11:02:33', amount: '3,200,000', bank: 'BCEL One', account: '160-12-3456', status: 'approved', admin: 'admin_alex', processed: '2024-04-18 11:45:10' },
-  { id: 700099017, requested: '2024-04-12 16:50:18', amount: '1,000,000', bank: 'JDB Bank', account: '751-01-9988', status: 'declined', admin: 'admin_keo', processed: '2024-04-12 17:20:05', reason: 'Bank holder mismatch' },
-  { id: 700098001, requested: '2024-04-05 09:11:40', amount: '8,500,000', bank: 'BCEL One', account: '160-12-3456', status: 'approved', admin: 'admin_alex', processed: '2024-04-05 10:00:21' },
-  { id: 700096014, requested: '2024-03-28 13:20:00', amount: '2,400,000', bank: 'BCEL One', account: '160-12-3456', status: 'approved', admin: 'admin_lin', processed: '2024-03-28 14:00:11' },
-];
+const formatDate = (s?: string): string => {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
-const badge: Record<Status, { cls: string; icon: typeof CheckCircle2; label: string }> = {
-  approved: { cls: 'bg-green-50 text-green-700', icon: CheckCircle2, label: 'approved' },
-  declined: { cls: 'bg-red-50 text-red-700', icon: XCircle, label: 'declined' },
-  pending: { cls: 'bg-orange-50 text-orange-700', icon: Clock, label: 'pending' },
+const badge: Record<string, { cls: string; icon: typeof CheckCircle2 }> = {
+  approved: { cls: 'bg-blue-50 text-blue-700', icon: CheckCircle2 },
+  completed: { cls: 'bg-green-50 text-green-700', icon: CheckCircle2 },
+  rejected: { cls: 'bg-red-50 text-red-700', icon: XCircle },
+  failed: { cls: 'bg-red-50 text-red-700', icon: XCircle },
+  pending: { cls: 'bg-orange-50 text-orange-700', icon: Clock },
 };
 
 const WithdrawalHistoryTab = () => {
-  const total = data.length;
-  const approved = data.filter((d) => d.status === 'approved').length;
-  const declined = data.filter((d) => d.status === 'declined').length;
-  const last = data[0];
-  const totalApproved = data
-    .filter((d) => d.status === 'approved')
-    .reduce((s, d) => s + Number(d.amount.replace(/,/g, '')), 0);
+  const [items, setItems] = useState<AdminWithdrawRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchHistoryWithdrawals({ limit: 100 })
+      .then((res) => {
+        if (cancelled) return;
+        setItems(res.data ?? []);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const total = items.length;
+  const approved = items.filter((d) => d.status === 'approved' || d.status === 'completed').length;
+  const declined = items.filter((d) => d.status === 'rejected' || d.status === 'failed').length;
+  const totalApproved = items
+    .filter((d) => d.status === 'completed')
+    .reduce((s, d) => s + d.netAmount, 0);
+  const last = items[0];
 
   return (
     <div className="space-y-3">
@@ -43,11 +70,11 @@ const WithdrawalHistoryTab = () => {
         </div>
         <div>
           <p className="text-gray-500">total paid out (₭)</p>
-          <p className="text-base font-bold tabular-nums">{totalApproved.toLocaleString()}</p>
+          <p className="text-base font-bold tabular-nums">{formatMoney(totalApproved)}</p>
         </div>
         <div>
           <p className="text-gray-500">last request</p>
-          <p className="font-mono text-[11px] text-gray-700">{last.requested}</p>
+          <p className="font-mono text-[11px] text-gray-700">{last ? formatDate(last.createdAt) : '—'}</p>
         </div>
       </div>
 
@@ -56,41 +83,48 @@ const WithdrawalHistoryTab = () => {
           <thead className="text-[11px] text-gray-500 tracking-wide">
             <tr>
               <th className="px-4 py-2 text-left font-semibold">withdraw id</th>
+              <th className="px-4 py-2 text-left font-semibold">user</th>
               <th className="px-4 py-2 text-left font-semibold">requested</th>
               <th className="px-4 py-2 text-right font-semibold">amount (₭)</th>
               <th className="px-4 py-2 text-left font-semibold">bank / account</th>
               <th className="px-4 py-2 text-left font-semibold">status</th>
-              <th className="px-4 py-2 text-left font-semibold">admin</th>
               <th className="px-4 py-2 text-left font-semibold">processed</th>
-              <th className="px-4 py-2 text-left font-semibold">reason</th>
+              <th className="px-4 py-2 text-left font-semibold">note</th>
             </tr>
           </thead>
           <tbody>
-            {data.map((w) => {
-              const B = badge[w.status];
+            {loading && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+            )}
+            {!loading && error && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
+            )}
+            {!loading && !error && items.map((w) => {
+              const B = badge[w.status] || badge.pending;
               const Icon = B.icon;
               return (
-                <tr key={w.id} className="border-t border-gray-50">
-                  <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{w.id}</td>
-                  <td className="px-4 py-2 text-gray-500 text-[11px]">{w.requested}</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{w.amount}</td>
+                <tr key={w._id} className="border-t border-gray-50">
+                  <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{w._id.slice(-8).toUpperCase()}</td>
+                  <td className="px-4 py-2 text-gray-700">{w.user?.name || w.user?.email || '—'}</td>
+                  <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(w.createdAt)}</td>
+                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatMoney(w.amount)}</td>
                   <td className="px-4 py-2">
-                    <div className="text-gray-700">{w.bank}</div>
-                    <div className="font-mono text-[11px] text-gray-500">{w.account}</div>
+                    <div className="text-gray-700">{w.bankAccount?.bankName || '—'}</div>
+                    <div className="font-mono text-[11px] text-gray-500">{w.bankAccount?.accountNumber || '—'}</div>
                   </td>
                   <td className="px-4 py-2">
                     <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded ${B.cls}`}>
-                      <Icon className="w-3 h-3" /> {B.label}
+                      <Icon className="w-3 h-3" /> {w.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2 font-mono text-[11px] text-gray-700">
-                    {w.admin === '—' ? <span className="text-gray-300">—</span> : `@${w.admin}`}
-                  </td>
-                  <td className="px-4 py-2 text-gray-500 text-[11px]">{w.processed}</td>
-                  <td className="px-4 py-2 text-[11px] text-gray-600">{w.reason || <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-2 text-gray-500 text-[11px]">{w.processedAt ? formatDate(w.processedAt) : '—'}</td>
+                  <td className="px-4 py-2 text-[11px] text-gray-600">{w.adminNote || <span className="text-gray-300">—</span>}</td>
                 </tr>
               );
             })}
+            {!loading && !error && items.length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-[12px]">No withdrawals</td></tr>
+            )}
           </tbody>
         </table>
       </div>

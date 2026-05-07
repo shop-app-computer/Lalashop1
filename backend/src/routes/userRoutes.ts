@@ -6,11 +6,13 @@ import {
   followUser,
   getFollowers,
   getFollowing,
+  searchUsers,
 } from "../controllers/userController";
 import { protect } from "../middlewares/authMiddleware";
 
 const router: Router = Router();
 
+router.get("/search", searchUsers);
 router.get("/profile", protect, getProfile);
 router.get("/profile/:id", getUserProfile);
 router.put("/profile", protect, updateProfile);

@@ -56,6 +56,12 @@ import {
   historySupport,
   historyAdminAudit,
 } from "../controllers/adminHistoryController";
+import {
+  adminListReports,
+  adminGetReport,
+  adminUpdateReport,
+  adminReportStats,
+} from "../controllers/reportController";
 
 const router: Router = Router();
 
@@ -104,6 +110,12 @@ router.get("/shops/:id", adminGetShop);
 router.get("/notifications/stats", adminNotificationStats);
 router.get("/notifications", adminListNotifications);
 router.post("/notifications/broadcast", adminBroadcastNotification);
+
+// Reports
+router.get("/reports/stats", adminReportStats);
+router.get("/reports", adminListReports);
+router.get("/reports/:id", adminGetReport);
+router.patch("/reports/:id", adminUpdateReport);
 
 // History tabs
 router.get("/history/orders", historyOrders);

@@ -1,46 +1,86 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { fetchHistoryEditLogs } from '@/services/adminApi';
 
-const editLogsData = [
-  { id: 'LOG-001', admin: 'admin_01', ip: '192.168.1.10', target: 'user: somsack_s', action: 'Update Balance', oldValue: '10M', newValue: '15.4M', date: '2024-04-23 14:20' },
-  { id: 'LOG-002', admin: 'admin_02', ip: '192.168.1.15', target: 'product: iPhone 15', action: 'Update Price', oldValue: '12M', newValue: '11.5M', date: '2024-04-23 13:10' },
-];
+interface EditLogRow {
+  _id: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+  user?: { _id: string; name?: string; email?: string; customId?: string };
+}
 
-const EditLogsTab = () => (
-  <div className="overflow-x-auto">
-    <table className="w-full text-[12px] tabular-nums">
-      <thead className="text-[11px] text-gray-500 tracking-wide">
-        <tr>
-          <th className="px-4 py-2 text-left font-semibold">Log ID</th>
-          <th className="px-4 py-2 text-left font-semibold">Admin / IP</th>
-          <th className="px-4 py-2 text-left font-semibold">Target</th>
-          <th className="px-4 py-2 text-left font-semibold">Action</th>
-          <th className="px-4 py-2 text-left font-semibold">Value Change</th>
-          <th className="px-4 py-2 text-left font-semibold">Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        {editLogsData.map((item) => (
-          <tr key={item.id}>
-            <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{item.id}</td>
-            <td className="px-4 py-2">
-              <div className="font-mono text-[11px] font-semibold text-gray-900">@{item.admin}</div>
-              <div className="font-mono text-[11px] text-gray-500 mt-0.5">{item.ip}</div>
-            </td>
-            <td className="px-4 py-2 text-gray-700">{item.target}</td>
-            <td className="px-4 py-2 text-gray-700">{item.action}</td>
-            <td className="px-4 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 line-through text-[11px]">{item.oldValue}</span>
-                <span className="text-gray-300">→</span>
-                <span className="text-gray-900 font-semibold">{item.newValue}</span>
-              </div>
-            </td>
-            <td className="px-4 py-2 text-gray-500 text-[11px]">{item.date}</td>
+const formatDate = (s?: string): string => {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const EditLogsTab = () => {
+  const [items, setItems] = useState<EditLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchHistoryEditLogs({ limit: 100 })
+      .then((res) => {
+        if (cancelled) return;
+        setItems((res.data ?? []) as EditLogRow[]);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-[12px] tabular-nums">
+        <thead className="text-[11px] text-gray-500 tracking-wide">
+          <tr>
+            <th className="px-4 py-2 text-left font-semibold">Log ID</th>
+            <th className="px-4 py-2 text-left font-semibold">User</th>
+            <th className="px-4 py-2 text-left font-semibold">Type</th>
+            <th className="px-4 py-2 text-left font-semibold">Title / Description</th>
+            <th className="px-4 py-2 text-left font-semibold">Date</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+        </thead>
+        <tbody>
+          {loading && (
+            <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+          )}
+          {!loading && error && (
+            <tr><td colSpan={5} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
+          )}
+          {!loading && !error && items.map((l) => (
+            <tr key={l._id}>
+              <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{l._id.slice(-8).toUpperCase()}</td>
+              <td className="px-4 py-2 text-gray-700">{l.user?.name || l.user?.email || '—'}</td>
+              <td className="px-4 py-2 text-gray-700 capitalize">{l.type}</td>
+              <td className="px-4 py-2">
+                <div className="font-medium text-gray-900">{l.title}</div>
+                <div className="text-[11px] text-gray-500 mt-0.5 truncate max-w-md">{l.body}</div>
+              </td>
+              <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(l.createdAt)}</td>
+            </tr>
+          ))}
+          {!loading && !error && items.length === 0 && (
+            <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">No edit logs</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export default EditLogsTab;

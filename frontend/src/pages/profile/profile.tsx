@@ -53,7 +53,6 @@ export default function ProfilePage() {
       const data = await apiClient("/users/profile");
       if (data.data) {
         setUser(data.data);
-        localStorage.setItem("userInfo", JSON.stringify(data.data));
       }
     } catch (error) {
       console.error("Fetch profile error:", error);
@@ -90,20 +89,7 @@ export default function ProfilePage() {
   };
 
   const handlePostClick = (product: any) => {
-    const postData = {
-      id: product.id,
-      username: user?.name?.toLowerCase().replace(/\s+/g, '_') || "supplynet_user",
-      avatar: user?.profileImage || `https://i.pravatar.cc/150?u=${user?.name || "current"}`,
-      location: product.location || "Vientiane, LA",
-      image: product.image,
-      likes: product.likes,
-      caption: product.description,
-      comments: product.comments,
-      timeAgo: product.timeAgo,
-      isLiked: false,
-      isSaved: false
-    };
-    setSelectedPost(postData);
+    setSelectedPost(product);
   };
 
   function setPreviewOpen(arg0: boolean): void {

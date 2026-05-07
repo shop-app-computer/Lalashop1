@@ -1,43 +1,77 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
+import { adminVerifyEmailOTP, adminSendEmailOTP, adminVerifyTOTP } from '@/services/authApi';
+
+type Method = 'email' | 'totp';
 
 const TwoFactorPage = () => {
   const router = useRouter();
+  const [method, setMethod] = useState<Method>('email');
   const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (method === 'email') {
+      adminSendEmailOTP().catch(() => {
+        // Best effort — still allow user to enter code
+      });
+    }
+  }, [method]);
 
   const handleChange = (idx: number, value: string) => {
     const cleaned = value.replace(/[^0-9]/g, '').slice(0, 1);
     const next = [...code];
     next[idx] = cleaned;
     setCode(next);
-    if (cleaned && idx < 5) {
-      inputs.current[idx + 1]?.focus();
-    }
+    if (cleaned && idx < 5) inputs.current[idx + 1]?.focus();
   };
 
   const handleKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !code[idx] && idx > 0) {
-      inputs.current[idx - 1]?.focus();
-    }
+    if (e.key === 'Backspace' && !code[idx] && idx > 0) inputs.current[idx - 1]?.focus();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setInfo('');
     const fullCode = code.join('');
     if (fullCode.length !== 6) {
       setError('Please enter all 6 digits');
       return;
     }
     setLoading(true);
-    setError('');
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      if (method === 'email') {
+        const res = await adminVerifyEmailOTP(fullCode);
+        if (res.token) window.localStorage.setItem('token', res.token);
+      } else {
+        await adminVerifyTOTP(fullCode);
+      }
       router.push('/');
-    }, 600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '2FA verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    setError('');
+    setInfo('');
+    try {
+      await adminSendEmailOTP();
+      setInfo('A new code has been sent to your email');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resend');
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -56,15 +90,41 @@ const TwoFactorPage = () => {
         </div>
 
         <h2 className="text-2xl font-bold text-black">Verify identity</h2>
-        <p className="text-gray-500 text-sm mt-1">Enter the 6-digit code from your authenticator app</p>
+        <p className="text-gray-500 text-sm mt-1">
+          {method === 'email'
+            ? 'Enter the 6-digit code sent to your email'
+            : 'Enter the 6-digit code from your authenticator app'}
+        </p>
+
+        <div className="flex gap-2 mt-4 text-[12px]">
+          <button
+            type="button"
+            onClick={() => setMethod('email')}
+            className={`px-3 py-1 rounded font-medium ${method === 'email' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            Email
+          </button>
+          <button
+            type="button"
+            onClick={() => setMethod('totp')}
+            className={`px-3 py-1 rounded font-medium ${method === 'totp' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            Authenticator
+          </button>
+        </div>
 
         {error && (
           <div className="mt-6 px-4 py-3 rounded-md bg-red-50 text-red-700 text-[12px] font-medium">
             {error}
           </div>
         )}
+        {info && !error && (
+          <div className="mt-6 px-4 py-3 rounded-md bg-green-50 text-green-700 text-[12px] font-medium">
+            {info}
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="mt-10">
+        <form onSubmit={handleSubmit} className="mt-8">
           <div className="flex gap-2 justify-between">
             {code.map((d, i) => (
               <input
@@ -89,10 +149,18 @@ const TwoFactorPage = () => {
             {loading ? 'Verifying...' : 'Verify →'}
           </button>
 
-          <div className="flex items-center justify-between text-[12px] mt-6 text-gray-500">
-            <button type="button" className="hover:text-black font-medium">Use backup code</button>
-            <button type="button" className="hover:text-black font-medium">Resend</button>
-          </div>
+          {method === 'email' && (
+            <div className="flex items-center justify-center text-[12px] mt-6 text-gray-500">
+              <button
+                type="button"
+                disabled={resending}
+                onClick={handleResend}
+                className="hover:text-black font-medium disabled:opacity-50"
+              >
+                {resending ? 'Sending...' : 'Resend code'}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
