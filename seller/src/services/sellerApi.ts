@@ -494,3 +494,323 @@ export const deleteBroadcast = async (id: string): Promise<boolean> => {
   await apiClient(`/marketing/broadcasts/${id}`, { method: "DELETE" });
   return true;
 };
+
+// ─── Shop Settings ────────────────────────────────────────────────────
+
+export interface ShopGeneral {
+  storeName: string;
+  storeSlug: string;
+  tagline: string;
+  description: string;
+  logo: string;
+  banner: string;
+  category: string;
+  language: string;
+  currency: string;
+}
+
+export interface ShippingZone {
+  id: string;
+  name: string;
+  countries: string[];
+  rate: number;
+  freeShippingThreshold: number;
+  estimatedDays: { min: number; max: number };
+}
+
+export interface ShopShipping {
+  enabled: boolean;
+  freeShippingDefault: boolean;
+  defaultRate: number;
+  defaultLeadDays: { min: number; max: number };
+  zones: ShippingZone[];
+  defaultPackageWeight: number;
+  weightUnit: "g" | "kg";
+}
+
+export interface ShopPayment {
+  acceptCash: boolean;
+  acceptBankTransfer: boolean;
+  acceptCreditCard: boolean;
+  acceptPromptPay: boolean;
+  promptPayId: string;
+  vatRegistered: boolean;
+  vatNumber: string;
+  vatPercent: number;
+  payoutSchedule: "weekly" | "biweekly" | "monthly";
+}
+
+export type IntegrationKey = "tiktok" | "facebook" | "instagram" | "line" | "shopify";
+
+export interface ShopIntegration {
+  key: IntegrationKey;
+  enabled: boolean;
+  connectedAt?: string;
+  account?: string;
+}
+
+export interface ShopSettingDoc {
+  _id: string;
+  shop: string;
+  general: ShopGeneral;
+  shipping: ShopShipping;
+  payment: ShopPayment;
+  integrations: ShopIntegration[];
+}
+
+interface SettingsResponse {
+  success: boolean;
+  data?: ShopSettingDoc;
+}
+interface GeneralResponse {
+  success: boolean;
+  data?: ShopGeneral;
+}
+interface ShippingResponse {
+  success: boolean;
+  data?: ShopShipping;
+}
+interface PaymentResponse {
+  success: boolean;
+  data?: ShopPayment;
+}
+interface IntegrationsResponse {
+  success: boolean;
+  data?: ShopIntegration[];
+}
+
+export const fetchShopSettings = async (): Promise<ShopSettingDoc | null> => {
+  const res = await apiClient<SettingsResponse>("/shop-settings");
+  return res.data ?? null;
+};
+
+export const updateShopGeneral = async (input: Partial<ShopGeneral>): Promise<ShopGeneral | null> => {
+  const res = await apiClient<GeneralResponse>("/shop-settings/general", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return res.data ?? null;
+};
+
+export const updateShopShipping = async (input: Partial<ShopShipping>): Promise<ShopShipping | null> => {
+  const res = await apiClient<ShippingResponse>("/shop-settings/shipping", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return res.data ?? null;
+};
+
+export const updateShopPayment = async (input: Partial<ShopPayment>): Promise<ShopPayment | null> => {
+  const res = await apiClient<PaymentResponse>("/shop-settings/payment", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return res.data ?? null;
+};
+
+export const toggleIntegration = async (
+  key: IntegrationKey,
+  enabled: boolean,
+  account?: string
+): Promise<ShopIntegration[] | null> => {
+  const res = await apiClient<IntegrationsResponse>(`/shop-settings/integrations/${key}/toggle`, {
+    method: "POST",
+    body: JSON.stringify({ enabled, account }),
+  });
+  return res.data ?? null;
+};
+
+// ─── Customers ────────────────────────────────────────────────────────
+
+export type CustomerSegment = "vip" | "regular" | "new" | "inactive" | "blocked" | "";
+
+export interface SellerCustomer {
+  _id: string;
+  name?: string;
+  username?: string;
+  email?: string;
+  profileImage?: string;
+  joinedAt?: string;
+  orderCount: number;
+  paidOrderCount: number;
+  totalSpent: number;
+  lastOrderAt?: string;
+  channels: string[];
+  tags: string[];
+  segment: CustomerSegment;
+  note: string;
+}
+
+export interface CustomerActivity {
+  profile: {
+    _id: string;
+    name?: string;
+    username?: string;
+    email?: string;
+    profileImage?: string;
+    createdAt?: string;
+  };
+  orders: Array<{
+    _id: string;
+    totalPrice: number;
+    isPaid: boolean;
+    status: string;
+    createdAt: string;
+    channel?: string;
+    items: Array<{ name: string; qty: number; price: number; image: string }>;
+  }>;
+  label: {
+    tags: string[];
+    segment: CustomerSegment;
+    note: string;
+  } | null;
+}
+
+export interface SegmentSummary {
+  total: number;
+  vip: number;
+  regular: number;
+  newCustomers: number;
+  inactive: number;
+  totalRevenue: number;
+}
+
+interface CustomerListResponse {
+  success: boolean;
+  data?: SellerCustomer[];
+}
+interface CustomerActivityResponse {
+  success: boolean;
+  data?: CustomerActivity;
+}
+interface SegmentResponse {
+  success: boolean;
+  data?: SegmentSummary;
+}
+interface LabelResponse {
+  success: boolean;
+  data?: { tags: string[]; segment: CustomerSegment; note: string };
+}
+
+export const fetchCustomers = async (): Promise<SellerCustomer[]> => {
+  const res = await apiClient<CustomerListResponse>("/customers");
+  return res.data ?? [];
+};
+
+export const fetchCustomerActivity = async (id: string): Promise<CustomerActivity | null> => {
+  const res = await apiClient<CustomerActivityResponse>(`/customers/${id}/activity`);
+  return res.data ?? null;
+};
+
+export const fetchSegmentSummary = async (): Promise<SegmentSummary | null> => {
+  const res = await apiClient<SegmentResponse>("/customers/segments");
+  return res.data ?? null;
+};
+
+export const updateCustomerLabel = async (
+  id: string,
+  payload: { tags?: string[]; segment?: CustomerSegment; note?: string }
+): Promise<LabelResponse["data"] | null> => {
+  const res = await apiClient<LabelResponse>(`/customers/${id}/label`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return res.data ?? null;
+};
+
+// ─── Finance: Refunds / Settlements / Transactions ───────────────────
+
+export type RefundStatus = "requested" | "approved" | "rejected" | "completed";
+export type RefundReason =
+  | "not_received"
+  | "damaged"
+  | "wrong_item"
+  | "not_as_described"
+  | "changed_mind"
+  | "other";
+
+export interface SellerRefund {
+  _id: string;
+  customer?: { _id: string; name?: string; username?: string; profileImage?: string; email?: string };
+  order?: { _id: string; totalPrice: number; createdAt: string };
+  amount: number;
+  reason: RefundReason;
+  description: string;
+  status: RefundStatus;
+  evidenceImages: string[];
+  resolutionNote: string;
+  decidedAt?: string;
+  createdAt: string;
+}
+
+export interface SellerSettlement {
+  period: string;
+  startDate: string;
+  gross: number;
+  fees: number;
+  net: number;
+  count: number;
+  withdrawals: Array<{
+    _id: string;
+    amount: number;
+    fee: number;
+    netAmount: number;
+    status: string;
+    createdAt: string;
+    processedAt?: string;
+    bankAccount?: { bankName: string; accountNumber: string };
+  }>;
+}
+
+export interface SellerTransaction {
+  _id: string;
+  type: "income" | "withdrawal" | "refund" | "fee";
+  description: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+}
+
+interface RefundsResponse {
+  success: boolean;
+  data?: SellerRefund[];
+}
+interface RefundResponse {
+  success: boolean;
+  data?: SellerRefund;
+}
+interface SettlementsResponse {
+  success: boolean;
+  data?: SellerSettlement[];
+}
+interface TransactionsResponse {
+  success: boolean;
+  data?: SellerTransaction[];
+}
+
+export const fetchRefunds = async (): Promise<SellerRefund[]> => {
+  const res = await apiClient<RefundsResponse>("/finance/refunds");
+  return res.data ?? [];
+};
+
+export const decideRefund = async (
+  id: string,
+  action: "approve" | "reject" | "complete",
+  note?: string
+): Promise<SellerRefund | null> => {
+  const res = await apiClient<RefundResponse>(`/finance/refunds/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ action, note: note || "" }),
+  });
+  return res.data ?? null;
+};
+
+export const fetchSettlements = async (period: "week" | "month" = "month"): Promise<SellerSettlement[]> => {
+  const res = await apiClient<SettlementsResponse>(`/finance/settlements?period=${period}`);
+  return res.data ?? [];
+};
+
+export const fetchTransactions = async (limit = 200): Promise<SellerTransaction[]> => {
+  const res = await apiClient<TransactionsResponse>(`/finance/transactions?limit=${limit}`);
+  return res.data ?? [];
+};

@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ShoppingBag, Package, Wallet, MessageSquare,
-  Users, Megaphone, Share2, BarChart3, LifeBuoy, ShieldCheck,
+  Users, Megaphone, Share2, BarChart3, LifeBuoy,
   Settings, LogOut, ChevronDown, Bell, Search, User, ScanLine
 } from 'lucide-react';
 
@@ -137,16 +137,6 @@ const Sidebar = () => {
         { name: 'Tickets', href: '/support/tickets' },
         { name: 'Appeals', href: '/support/appeals' },
         { name: 'Reports', href: '/support/reports' },
-      ]
-    },
-    {
-      name: 'Team',
-      href: '/team',
-      icon: ShieldCheck,
-      subItems: [
-        { name: 'Staff Accounts', href: '/team/staff' },
-        { name: 'Roles', href: '/team/roles' },
-        { name: 'Permissions', href: '/team/permissions' },
       ]
     },
     {

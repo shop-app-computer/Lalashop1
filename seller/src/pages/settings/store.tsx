@@ -1,281 +1,327 @@
-import React, { useState } from 'react';
-import { Upload, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { Loader2, CheckCircle2, AlertCircle, Upload, Image as ImageIcon } from "lucide-react";
+import {
+  fetchShopSettings,
+  updateShopGeneral,
+  type ShopGeneral,
+} from "@/services/sellerApi";
+import { uploadImage } from "@/services/uploadImage";
 
-const StoreSettings = () => {
-  const [logoEnabled, setLogoEnabled] = useState(true);
+const CATEGORIES = [
+  "Fashion & Accessories",
+  "Electronics",
+  "Beauty & Personal Care",
+  "Food & Beverages",
+  "Home & Living",
+  "Sports & Outdoors",
+  "Toys & Hobbies",
+  "Health & Wellness",
+  "Other",
+];
+
+const LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "th", label: "ไทย (Thai)" },
+  { code: "lo", label: "ລາວ (Lao)" },
+];
+
+const CURRENCIES = [
+  { code: "THB", label: "Thai Baht (฿)" },
+  { code: "USD", label: "US Dollar ($)" },
+  { code: "LAK", label: "Lao Kip (₭)" },
+];
+
+const initial: ShopGeneral = {
+  storeName: "",
+  storeSlug: "",
+  tagline: "",
+  description: "",
+  logo: "",
+  banner: "",
+  category: CATEGORIES[0],
+  language: "en",
+  currency: "THB",
+};
+
+const StoreSettings: React.FC = () => {
+  const [form, setForm] = useState<ShopGeneral>(initial);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchShopSettings()
+      .then((doc) => {
+        if (cancelled || !doc) return;
+        setForm({ ...initial, ...doc.general });
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: "logo" | "banner"
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (field === "logo") setUploadingLogo(true);
+    else setUploadingBanner(true);
+    try {
+      const url = await uploadImage(file, "profile");
+      setForm((prev) => ({ ...prev, [field]: url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      if (field === "logo") setUploadingLogo(false);
+      else setUploadingBanner(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await updateShopGeneral(form);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center">
+        <Loader2 className="w-5 h-5 animate-spin text-gray-300 mx-auto" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 text-sm">
-      {/* Title bar */}
-      <div className="flex items-center gap-2">
-        <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700">
-          Cancel
+    <div className="space-y-4 text-sm max-w-3xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[16px] font-bold text-gray-900">Store settings</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            Public-facing identifiers and copy for your storefront.
+          </p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-[#00aeff] text-white px-4 py-2 rounded-md text-xs font-bold inline-flex items-center hover:bg-[#0096db] disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+          {saving ? "Saving…" : "Save changes"}
         </button>
-        <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-gray-900">
-          Save changes
-        </button>
       </div>
 
-      {/* General */}
-      <div className="rounded-lg">
-        <div className="px-4 py-3">
-          <h3 className="text-sm font-bold text-black">General</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Public-facing identifiers and copy for your storefront.</p>
+      {error && (
+        <div className="rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700 inline-flex items-center gap-2">
+          <AlertCircle className="w-3.5 h-3.5" /> {error}
         </div>
+      )}
+      {success && (
+        <div className="rounded-md bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700 inline-flex items-center gap-2">
+          <CheckCircle2 className="w-3.5 h-3.5" /> Saved successfully
+        </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Store name</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Shown in checkout, invoices, and search results.</p>
-          </div>
-          <div className="md:col-span-2">
+      <Section title="Brand identity" hint="Logo, banner, and how customers find your store.">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Store name" required>
             <input
-              type="text"
-              defaultValue="Lala Premium Global"
-              className="w-full px-3 py-1.5 rounded-md text-xs"
+              className={inputCls}
+              value={form.storeName}
+              onChange={(e) => setForm({ ...form, storeName: e.target.value })}
+              placeholder="Lala Premium Co."
             />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Store URL</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Slug used for your public storefront link.</p>
-          </div>
-          <div className="md:col-span-2">
-            <div className="flex items-center">
-              <span className="px-3 py-1.5 rounded-l-md text-xs text-gray-500 font-mono">lalashop.com/</span>
-              <input
-                type="text"
-                defaultValue="lala-premium"
-                className="flex-1 px-3 py-1.5 rounded-r-md text-xs font-mono"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Description</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Short summary shown on the store profile and meta tags.</p>
-          </div>
-          <div className="md:col-span-2">
-            <textarea
-              defaultValue="Premium wholesale and lifestyle goods curated for SEA-Pacific buyers. Verified factories, regional fulfillment."
-              className="w-full px-3 py-1.5 rounded-md text-xs min-h-[80px] resize-y"
-            />
-            <p className="text-[10px] text-gray-400 mt-1">Recommended: under 160 characters for SEO previews.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Default language</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Primary language for product copy.</p>
-          </div>
-          <div className="md:col-span-2">
-            <div className="relative">
-              <select className="w-full px-3 py-1.5 rounded-md text-xs appearance-none pr-8">
-                <option>English (en-US)</option>
-                <option>Lao (lo-LA)</option>
-                <option>Thai (th-TH)</option>
-                <option>Vietnamese (vi-VN)</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Branding */}
-      <div className="rounded-lg">
-        <div className="px-4 py-3">
-          <h3 className="text-sm font-bold text-black">Branding</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Visual identity assets used across storefront surfaces.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Store logo</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">PNG or JPG, square. Min 512x512px.</p>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block rounded-md p-4 text-[11px] text-gray-500 text-center cursor-pointer">
-              <Upload className="w-4 h-4 mx-auto mb-1 text-gray-400" />
-              Drop a file here or click to upload
-              <input type="file" className="hidden" accept="image/png,image/jpeg" />
-            </label>
-            <label className="inline-flex items-center mt-2 text-[11px] text-gray-700">
-              <input type="checkbox" defaultChecked={logoEnabled} onChange={(e) => setLogoEnabled(e.target.checked)} className="accent-black mr-1.5" />
-              Show logo in checkout email header
-            </label>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Banner image</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Wide hero image for the storefront. 1600x600 recommended.</p>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block rounded-md p-4 text-[11px] text-gray-500 text-center cursor-pointer">
-              <Upload className="w-4 h-4 mx-auto mb-1 text-gray-400" />
-              Upload banner
-              <input type="file" className="hidden" accept="image/*" />
-            </label>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Brand color</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Used for buttons and accents on the storefront.</p>
-          </div>
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                defaultValue="#111111"
-                className="w-9 h-8 rounded-md cursor-pointer"
-              />
-              <input
-                type="text"
-                defaultValue="#111111"
-                className="w-32 px-3 py-1.5 rounded-md text-xs font-mono"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Contact */}
-      <div className="rounded-lg">
-        <div className="px-4 py-3">
-          <h3 className="text-sm font-bold text-black">Contact</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">How customers can reach support and where invoices originate.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Support email</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Used in transactional email reply-to.</p>
-          </div>
-          <div className="md:col-span-2">
+          </Field>
+          <Field label="Store URL handle" hint="lalashop.com/shop/[slug]">
             <input
-              type="email"
-              defaultValue="support@lalashop.com"
-              className="w-full px-3 py-1.5 rounded-md text-xs"
+              className={`${inputCls} font-mono`}
+              value={form.storeSlug}
+              onChange={(e) =>
+                setForm({ ...form, storeSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })
+              }
+              placeholder="lala-premium"
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Phone</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Include country code.</p>
-          </div>
-          <div className="md:col-span-2">
-            <input
-              type="tel"
-              defaultValue="+856 20 5511 8892"
-              className="w-full px-3 py-1.5 rounded-md text-xs"
-            />
-          </div>
-        </div>
+        <Field label="Tagline">
+          <input
+            className={inputCls}
+            value={form.tagline}
+            onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+            placeholder="Premium wholesale for boutique buyers"
+          />
+        </Field>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Business address</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Used on invoices and customs documents.</p>
-          </div>
-          <div className="md:col-span-2 space-y-2">
-            <input
-              type="text"
-              placeholder="Street"
-              defaultValue="Ban Phonsavanh, Saysettha District"
-              className="w-full px-3 py-1.5 rounded-md text-xs"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="City"
-                defaultValue="Vientiane"
-                className="w-full px-3 py-1.5 rounded-md text-xs"
-              />
-              <input
-                type="text"
-                placeholder="Postal code"
-                defaultValue="01000"
-                className="w-full px-3 py-1.5 rounded-md text-xs"
-              />
-            </div>
-            <div className="relative">
-              <select className="w-full px-3 py-1.5 rounded-md text-xs appearance-none pr-8">
-                <option>Lao PDR</option>
-                <option>Thailand</option>
-                <option>Vietnam</option>
-                <option>Cambodia</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-      </div>
+        <Field label="Description">
+          <textarea
+            className={`${inputCls} resize-y leading-relaxed`}
+            rows={4}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Tell shoppers what makes your shop unique."
+          />
+          <p className="text-[10px] text-gray-400">{form.description.length} characters</p>
+        </Field>
 
-      {/* Tax info */}
-      <div className="rounded-lg">
-        <div className="px-4 py-3">
-          <h3 className="text-sm font-bold text-black">Tax information</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Required for invoice generation and cross-border settlement.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ImageField
+            label="Logo"
+            url={form.logo}
+            uploading={uploadingLogo}
+            onUpload={(e) => handleUpload(e, "logo")}
+            onClear={() => setForm({ ...form, logo: "" })}
+            aspect="aspect-square"
+          />
+          <ImageField
+            label="Banner"
+            url={form.banner}
+            uploading={uploadingBanner}
+            onUpload={(e) => handleUpload(e, "banner")}
+            onClear={() => setForm({ ...form, banner: "" })}
+            aspect="aspect-[4/1]"
+          />
         </div>
+      </Section>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Tax registration ID</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">VAT, GST, or local equivalent.</p>
-          </div>
-          <div className="md:col-span-2">
-            <input
-              type="text"
-              defaultValue="LA-1102-883920"
-              className="w-full px-3 py-1.5 rounded-md text-xs font-mono"
-            />
-          </div>
+      <Section title="Localization" hint="Default language and currency for new customers.">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field label="Primary category">
+            <select
+              className={inputCls}
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Language">
+            <select
+              className={inputCls}
+              value={form.language}
+              onChange={(e) => setForm({ ...form, language: e.target.value })}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Currency">
+            <select
+              className={inputCls}
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.label}</option>
+              ))}
+            </select>
+          </Field>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Country of registration</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Where your tax ID is issued.</p>
-          </div>
-          <div className="md:col-span-2">
-            <div className="relative">
-              <select className="w-full px-3 py-1.5 rounded-md text-xs appearance-none pr-8">
-                <option>Lao PDR</option>
-                <option>Thailand</option>
-                <option>Vietnam</option>
-                <option>Singapore</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Charge tax on shipping</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Apply local tax rates to shipping line items.</p>
-          </div>
-          <div className="md:col-span-2">
-            <label className="inline-flex items-center text-[11px] text-gray-700">
-              <input type="checkbox" defaultChecked className="accent-black mr-1.5" />
-              Enable shipping tax
-            </label>
-          </div>
-        </div>
-      </div>
+      </Section>
     </div>
   );
 };
+
+const inputCls =
+  "w-full px-3 py-2 rounded-md text-sm bg-gray-50 border border-gray-100 focus:border-[#00aeff] focus:bg-white focus:outline-none transition-colors";
+
+const Section: React.FC<{ title: string; hint?: string; children: React.ReactNode }> = ({
+  title,
+  hint,
+  children,
+}) => (
+  <div className="rounded-lg bg-white border border-gray-100">
+    <div className="px-4 py-3 border-b border-gray-100">
+      <h3 className="text-sm font-bold text-black">{title}</h3>
+      {hint && <p className="text-[11px] text-gray-500 mt-0.5">{hint}</p>}
+    </div>
+    <div className="p-4 space-y-4">{children}</div>
+  </div>
+);
+
+const Field: React.FC<{
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}> = ({ label, hint, required, children }) => (
+  <div className="space-y-1">
+    <div className="flex items-center justify-between">
+      <label className="text-[11px] font-semibold text-gray-700">
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </label>
+      {hint && <span className="text-[10px] text-gray-400">{hint}</span>}
+    </div>
+    {children}
+  </div>
+);
+
+interface ImageFieldProps {
+  label: string;
+  url: string;
+  uploading: boolean;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClear: () => void;
+  aspect: string;
+}
+
+const ImageField: React.FC<ImageFieldProps> = ({ label, url, uploading, onUpload, onClear, aspect }) => (
+  <Field label={label}>
+    <div className={`${aspect} rounded-md bg-gray-50 border border-gray-100 overflow-hidden relative group`}>
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt={label} className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-gray-300">
+          <ImageIcon className="w-8 h-8" />
+        </div>
+      )}
+      <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center text-white text-xs font-bold">
+        {uploading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <Upload className="w-3.5 h-3.5" /> Upload
+          </span>
+        )}
+        <input type="file" accept="image/*" className="hidden" onChange={onUpload} disabled={uploading} />
+      </label>
+    </div>
+    {url && (
+      <button
+        type="button"
+        onClick={onClear}
+        className="text-[10px] text-red-600 font-bold hover:underline mt-1"
+      >
+        Remove
+      </button>
+    )}
+  </Field>
+);
 
 export default StoreSettings;

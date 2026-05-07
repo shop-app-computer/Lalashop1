@@ -1,252 +1,368 @@
-import React from 'react';
-import { Plus, ChevronDown, MoreHorizontal } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import {
+  Loader2, CheckCircle2, AlertCircle, Plus, Trash2, Truck, MapPin,
+} from "lucide-react";
+import {
+  fetchShopSettings,
+  updateShopShipping,
+  type ShopShipping,
+  type ShippingZone,
+} from "@/services/sellerApi";
 
-type ZoneStatus = 'active' | 'inactive';
-
-interface Zone {
-  id: string;
-  name: string;
-  regions: string;
-  methods: number;
-  status: ZoneStatus;
-}
-
-interface Rate {
-  id: string;
-  zone: string;
-  method: string;
-  price: string;
-  eta: string;
-}
-
-const zones: Zone[] = [
-  { id: 'z-vt', name: 'Vientiane Capital', regions: 'VT, Saysettha, Sikhottabong', methods: 3, status: 'active' },
-  { id: 'z-north', name: 'Northern Provinces', regions: 'LP, OD, PSL +5', methods: 2, status: 'active' },
-  { id: 'z-south', name: 'Southern Provinces', regions: 'CHA, SVN, SLV +3', methods: 2, status: 'active' },
-  { id: 'z-intl-th', name: 'Thailand (Intl)', regions: 'TH (all)', methods: 2, status: 'active' },
-  { id: 'z-intl-vn', name: 'Vietnam (Intl)', regions: 'VN (all)', methods: 1, status: 'inactive' },
-];
-
-const rates: Rate[] = [
-  { id: 'r-1', zone: 'Vientiane Capital', method: 'Standard (Anousith)', price: '15,000 LAK', eta: '1–2 days' },
-  { id: 'r-2', zone: 'Vientiane Capital', method: 'Express (HAL Same-day)', price: '35,000 LAK', eta: 'Same day' },
-  { id: 'r-3', zone: 'Northern Provinces', method: 'Standard', price: '35,000 LAK', eta: '3–5 days' },
-  { id: 'r-4', zone: 'Southern Provinces', method: 'Standard', price: '32,000 LAK', eta: '3–5 days' },
-  { id: 'r-5', zone: 'Thailand (Intl)', method: 'Cross-border Std', price: '180,000 LAK', eta: '5–8 days' },
-];
-
-const StatusBadge = ({ status }: { status: ZoneStatus }) => {
-  const cls = status === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600';
-  return <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${cls}`}>{status === 'active' ? 'Active' : 'Inactive'}</span>;
+const initial: ShopShipping = {
+  enabled: true,
+  freeShippingDefault: false,
+  defaultRate: 50,
+  defaultLeadDays: { min: 3, max: 7 },
+  zones: [],
+  defaultPackageWeight: 500,
+  weightUnit: "g",
 };
 
-const ShippingSettings = () => {
+const newZone = (): ShippingZone => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  name: "",
+  countries: [],
+  rate: 0,
+  freeShippingThreshold: 0,
+  estimatedDays: { min: 3, max: 7 },
+});
+
+const ShippingSettings: React.FC = () => {
+  const [form, setForm] = useState<ShopShipping>(initial);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchShopSettings()
+      .then((doc) => {
+        if (cancelled || !doc) return;
+        setForm({ ...initial, ...doc.shipping, zones: doc.shipping.zones || [] });
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await updateShopShipping(form);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateZone = (id: string, patch: Partial<ShippingZone>) => {
+    setForm({
+      ...form,
+      zones: form.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)),
+    });
+  };
+
+  const removeZone = (id: string) => {
+    setForm({ ...form, zones: form.zones.filter((z) => z.id !== id) });
+  };
+
+  const addZone = () => {
+    setForm({ ...form, zones: [...form.zones, newZone()] });
+  };
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center">
+        <Loader2 className="w-5 h-5 animate-spin text-gray-300 mx-auto" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4 text-sm">
-      {/* Title bar */}
-      <div className="flex items-center gap-2">
-        <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700">
-          Cancel
+    <div className="space-y-4 text-sm max-w-3xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[16px] font-bold text-gray-900">Shipping settings</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            Default rates, free-shipping rules, and per-region zones.
+          </p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-[#00aeff] text-white px-4 py-2 rounded-md text-xs font-bold inline-flex items-center hover:bg-[#0096db] disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+          {saving ? "Saving…" : "Save changes"}
         </button>
-        <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-gray-900">
-          Save changes
-        </button>
       </div>
 
-      {/* Shipping zones table */}
-      <div className="rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h3 className="text-sm font-bold text-black">Shipping zones</h3>
-            <p className="text-[11px] text-gray-500 mt-0.5">Geographic groups that share shipping methods and rates.</p>
-          </div>
-          <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900">
-            <Plus className="w-3.5 h-3.5 mr-1.5" /> Add zone
-          </button>
+      {error && (
+        <div className="rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700 inline-flex items-center gap-2">
+          <AlertCircle className="w-3.5 h-3.5" /> {error}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px] tabular-nums">
-            <thead className="text-[11px] text-gray-500 tracking-wide">
-              <tr>
-                <th className="px-4 py-2 text-left font-semibold">Zone</th>
-                <th className="px-4 py-2 text-left font-semibold">Regions</th>
-                <th className="px-4 py-2 text-right font-semibold">Methods</th>
-                <th className="px-4 py-2 text-left font-semibold">Status</th>
-                <th className="px-4 py-2 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="">
-              {zones.map((z) => (
-                <tr key={z.id} className="">
-                  <td className="px-4 py-2 font-medium text-gray-900">{z.name}</td>
-                  <td className="px-4 py-2 text-gray-600">{z.regions}</td>
-                  <td className="px-4 py-2 text-right text-gray-700">{z.methods}</td>
-                  <td className="px-4 py-2"><StatusBadge status={z.status} /></td>
-                  <td className="px-4 py-2 text-right">
-                    <button className="text-[11px] font-semibold text-gray-700 hover:underline mr-3">Edit</button>
-                    <button className="text-[11px] font-semibold text-red-600 hover:underline">Remove</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
+      {success && (
+        <div className="rounded-md bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700 inline-flex items-center gap-2">
+          <CheckCircle2 className="w-3.5 h-3.5" /> Saved successfully
         </div>
-      </div>
+      )}
 
-      {/* Default rates table */}
-      <div className="rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h3 className="text-sm font-bold text-black">Default rates</h3>
-            <p className="text-[11px] text-gray-500 mt-0.5">Flat-rate fallbacks applied when no carrier API quote is available.</p>
-          </div>
-          <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center">
-            <Plus className="w-3.5 h-3.5 mr-1.5" /> Add rate
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px] tabular-nums">
-            <thead className="text-[11px] text-gray-500 tracking-wide">
-              <tr>
-                <th className="px-4 py-2 text-left font-semibold">Zone</th>
-                <th className="px-4 py-2 text-left font-semibold">Method</th>
-                <th className="px-4 py-2 text-right font-semibold">Price</th>
-                <th className="px-4 py-2 text-left font-semibold">ETA</th>
-                <th className="px-4 py-2 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="">
-              {rates.map((r) => (
-                <tr key={r.id} className="">
-                  <td className="px-4 py-2 font-medium text-gray-900">{r.zone}</td>
-                  <td className="px-4 py-2 text-gray-700">{r.method}</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{r.price}</td>
-                  <td className="px-4 py-2 text-gray-600">{r.eta}</td>
-                  <td className="px-4 py-2 text-right">
-                    <button className="text-[11px] font-semibold text-gray-700 hover:underline mr-3">Edit</button>
-                    <button className="text-[11px] font-semibold text-red-600 hover:underline">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Section title="Defaults" hint="Used when a product doesn't override shipping.">
+        <ToggleRow
+          icon={Truck}
+          title="Enable shipping"
+          desc="Disable to mark all products as digital / pickup-only."
+          checked={form.enabled}
+          onChange={(v) => setForm({ ...form, enabled: v })}
+        />
+        <ToggleRow
+          icon={CheckCircle2}
+          title="Free shipping by default"
+          desc="Override per-product. New products inherit this setting."
+          checked={form.freeShippingDefault}
+          onChange={(v) => setForm({ ...form, freeShippingDefault: v })}
+        />
 
-      {/* Free shipping threshold */}
-      <div className="rounded-lg">
-        <div className="px-4 py-3">
-          <h3 className="text-sm font-bold text-black">Free shipping</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Automatic discount applied to orders over a configured subtotal.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Enable</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Toggle the storefront promotion banner.</p>
-          </div>
-          <div className="md:col-span-2">
-            <label className="inline-flex items-center text-[11px] text-gray-700">
-              <input type="checkbox" defaultChecked className="accent-black mr-1.5" />
-              Free shipping enabled site-wide
-            </label>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Threshold</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Order subtotal at which shipping becomes free.</p>
-          </div>
-          <div className="md:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-7">
+          <Field label="Default rate (฿)">
+            <input
+              type="number"
+              min="0"
+              className={inputCls}
+              value={form.defaultRate}
+              onChange={(e) => setForm({ ...form, defaultRate: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Lead time (days)">
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                defaultValue={500000}
-                className="w-40 px-3 py-1.5 rounded-md text-xs font-mono"
+                min="0"
+                className={inputCls}
+                value={form.defaultLeadDays.min}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    defaultLeadDays: { ...form.defaultLeadDays, min: Number(e.target.value) },
+                  })
+                }
               />
-              <div className="relative">
-                <select className="px-3 py-1.5 rounded-md text-xs appearance-none pr-8">
-                  <option>LAK</option>
-                  <option>THB</option>
-                  <option>USD</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <span className="text-gray-400">–</span>
+              <input
+                type="number"
+                min="0"
+                className={inputCls}
+                value={form.defaultLeadDays.max}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    defaultLeadDays: { ...form.defaultLeadDays, max: Number(e.target.value) },
+                  })
+                }
+              />
             </div>
-          </div>
+          </Field>
+          <Field label="Default package weight">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                className={inputCls}
+                value={form.defaultPackageWeight}
+                onChange={(e) =>
+                  setForm({ ...form, defaultPackageWeight: Number(e.target.value) })
+                }
+              />
+              <select
+                className={`${inputCls} max-w-[80px]`}
+                value={form.weightUnit}
+                onChange={(e) =>
+                  setForm({ ...form, weightUnit: e.target.value as "g" | "kg" })
+                }
+              >
+                <option value="g">g</option>
+                <option value="kg">kg</option>
+              </select>
+            </div>
+          </Field>
         </div>
+      </Section>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Applies to zones</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Limit the discount to specific shipping zones.</p>
+      <Section
+        title="Shipping zones"
+        hint="Override defaults per region. Buyers in matching countries get the zone rate."
+      >
+        {form.zones.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <MapPin className="w-7 h-7 mx-auto mb-2 text-gray-300" />
+            <p className="text-[12px]">No zones yet — defaults apply to all destinations.</p>
           </div>
-          <div className="md:col-span-2 grid grid-cols-2 gap-1.5">
-            {zones.map((z) => (
-              <label key={z.id} className="inline-flex items-center text-[11px] text-gray-700">
-                <input type="checkbox" defaultChecked={z.status === 'active'} className="accent-black mr-1.5" />
-                {z.name}
-              </label>
+        ) : (
+          <div className="space-y-3">
+            {form.zones.map((z) => (
+              <div key={z.id} className="rounded-md border border-gray-100 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <input
+                    className={`${inputCls} flex-1 mr-2`}
+                    value={z.name}
+                    onChange={(e) => updateZone(z.id, { name: e.target.value })}
+                    placeholder="Zone name (e.g. Bangkok metro)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeZone(z.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <Field label="Countries (comma-separated ISO codes)">
+                  <input
+                    className={`${inputCls} font-mono`}
+                    value={z.countries.join(", ")}
+                    onChange={(e) =>
+                      updateZone(z.id, {
+                        countries: e.target.value
+                          .split(",")
+                          .map((c) => c.trim().toUpperCase())
+                          .filter(Boolean),
+                      })
+                    }
+                    placeholder="TH, LA, KH"
+                  />
+                </Field>
+                <div className="grid grid-cols-3 gap-2">
+                  <Field label="Rate (฿)">
+                    <input
+                      type="number"
+                      min="0"
+                      className={inputCls}
+                      value={z.rate}
+                      onChange={(e) => updateZone(z.id, { rate: Number(e.target.value) })}
+                    />
+                  </Field>
+                  <Field label="Free over (฿)">
+                    <input
+                      type="number"
+                      min="0"
+                      className={inputCls}
+                      value={z.freeShippingThreshold}
+                      onChange={(e) =>
+                        updateZone(z.id, { freeShippingThreshold: Number(e.target.value) })
+                      }
+                    />
+                  </Field>
+                  <Field label="Days (min–max)">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        className={inputCls}
+                        value={z.estimatedDays.min}
+                        onChange={(e) =>
+                          updateZone(z.id, {
+                            estimatedDays: { ...z.estimatedDays, min: Number(e.target.value) },
+                          })
+                        }
+                      />
+                      <span className="text-gray-400">–</span>
+                      <input
+                        type="number"
+                        min="0"
+                        className={inputCls}
+                        value={z.estimatedDays.max}
+                        onChange={(e) =>
+                          updateZone(z.id, {
+                            estimatedDays: { ...z.estimatedDays, max: Number(e.target.value) },
+                          })
+                        }
+                      />
+                    </div>
+                  </Field>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-      </div>
-
-      {/* Packaging defaults */}
-      <div className="rounded-lg">
-        <div className="px-4 py-3">
-          <h3 className="text-sm font-bold text-black">Packaging defaults</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Used when a SKU has no explicit packaging dimensions.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Default weight</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Average parcel weight in grams.</p>
-          </div>
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                defaultValue={500}
-                className="w-32 px-3 py-1.5 rounded-md text-xs font-mono"
-              />
-              <span className="text-[11px] text-gray-500">grams</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Default dimensions</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">L × W × H in centimeters.</p>
-          </div>
-          <div className="md:col-span-2 flex items-center gap-2">
-            <input type="number" defaultValue={20} className="w-20 px-3 py-1.5 rounded-md text-xs font-mono" />
-            <span className="text-[11px] text-gray-400">×</span>
-            <input type="number" defaultValue={15} className="w-20 px-3 py-1.5 rounded-md text-xs font-mono" />
-            <span className="text-[11px] text-gray-400">×</span>
-            <input type="number" defaultValue={8} className="w-20 px-3 py-1.5 rounded-md text-xs font-mono" />
-            <span className="text-[11px] text-gray-500 ml-1">cm</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Insurance</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Auto-insure parcels above a configured value.</p>
-          </div>
-          <div className="md:col-span-2">
-            <label className="inline-flex items-center text-[11px] text-gray-700">
-              <input type="checkbox" defaultChecked className="accent-black mr-1.5" />
-              Auto-insure parcels over 1,000,000 LAK
-            </label>
-          </div>
-        </div>
-      </div>
+        )}
+        <button
+          type="button"
+          onClick={addZone}
+          className="mt-2 inline-flex items-center text-[12px] font-bold text-[#00aeff] hover:underline"
+        >
+          <Plus className="w-3.5 h-3.5 mr-1" /> Add zone
+        </button>
+      </Section>
     </div>
   );
 };
+
+const inputCls =
+  "w-full px-3 py-2 rounded-md text-sm bg-gray-50 border border-gray-100 focus:border-[#00aeff] focus:bg-white focus:outline-none transition-colors";
+
+const Section: React.FC<{ title: string; hint?: string; children: React.ReactNode }> = ({
+  title,
+  hint,
+  children,
+}) => (
+  <div className="rounded-lg bg-white border border-gray-100">
+    <div className="px-4 py-3 border-b border-gray-100">
+      <h3 className="text-sm font-bold text-black">{title}</h3>
+      {hint && <p className="text-[11px] text-gray-500 mt-0.5">{hint}</p>}
+    </div>
+    <div className="p-4 space-y-3">{children}</div>
+  </div>
+);
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="space-y-1">
+    <label className="text-[11px] font-semibold text-gray-700">{label}</label>
+    {children}
+  </div>
+);
+
+interface ToggleRowProps {
+  icon: typeof Truck;
+  title: string;
+  desc: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}
+
+const ToggleRow: React.FC<ToggleRowProps> = ({ icon: Icon, title, desc, checked, onChange }) => (
+  <label className="flex items-start gap-3 cursor-pointer">
+    <Icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <p className="text-[12px] font-bold text-gray-900">{title}</p>
+      <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
+    </div>
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors ${
+        checked ? "bg-[#00aeff]" : "bg-gray-200"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-4" : "translate-x-0"
+        }`}
+      />
+    </button>
+  </label>
+);
 
 export default ShippingSettings;

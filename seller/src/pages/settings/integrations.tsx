@@ -1,213 +1,221 @@
-import React, { useState } from 'react';
-import { Plus, Eye, EyeOff } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import {
+  Loader2, CheckCircle2, AlertCircle, Music2, Hash, Camera,
+  MessageCircle, ShoppingBag,
+} from "lucide-react";
+import {
+  fetchShopSettings,
+  toggleIntegration,
+  type IntegrationKey,
+  type ShopIntegration,
+} from "@/services/sellerApi";
 
-type AppStatus = 'connected' | 'disconnected' | 'error';
-type AppCategory = 'Marketing' | 'Shipping' | 'Analytics' | 'Payments';
-
-interface AppItem {
-  id: string;
+interface IntegrationDef {
+  key: IntegrationKey;
   name: string;
-  description: string;
-  category: AppCategory;
-  status: AppStatus;
+  desc: string;
+  icon: typeof Music2;
+  color: string;
+  fieldLabel?: string;
+  fieldPlaceholder?: string;
 }
 
-interface ApiKey {
-  id: string;
-  name: string;
-  prefix: string;
-  lastUsed: string;
-  created: string;
-}
-
-const apps: AppItem[] = [
-  { id: 'tiktok', name: 'TikTok Shop', description: 'Sync products and orders with TikTok Shop.', category: 'Marketing', status: 'connected' },
-  { id: 'fb', name: 'Facebook Messenger', description: 'Reply to inbound DMs from your inbox.', category: 'Marketing', status: 'connected' },
-  { id: 'ig', name: 'Instagram Business', description: 'Tag products in posts and stories.', category: 'Marketing', status: 'disconnected' },
-  { id: 'wa', name: 'WhatsApp Business', description: 'Customer support over WhatsApp.', category: 'Marketing', status: 'error' },
-  { id: 'anousith', name: 'Anousith Express', description: 'Generate shipping labels and track parcels.', category: 'Shipping', status: 'connected' },
-  { id: 'hal', name: 'HAL Logistic', description: 'Same-day couriers in Vientiane.', category: 'Shipping', status: 'connected' },
-  { id: 'flash', name: 'Flash Express', description: 'Cross-border shipping to Thailand.', category: 'Shipping', status: 'disconnected' },
-  { id: 'ga4', name: 'Google Analytics 4', description: 'Forward storefront events to GA4.', category: 'Analytics', status: 'connected' },
-  { id: 'meta-pixel', name: 'Meta Pixel', description: 'Conversions API for Facebook/Instagram ads.', category: 'Analytics', status: 'disconnected' },
-  { id: 'jdb-pay', name: 'JDB Payment Gateway', description: 'Direct debit and card processing.', category: 'Payments', status: 'connected' },
-  { id: 'bcel-pay', name: 'BCEL OnePay', description: 'OnePay QR and bank transfer.', category: 'Payments', status: 'connected' },
+const INTEGRATIONS: IntegrationDef[] = [
+  {
+    key: "tiktok",
+    name: "TikTok Shop",
+    desc: "Sync products to TikTok Shop and import orders.",
+    icon: Music2,
+    color: "from-black to-rose-600",
+    fieldLabel: "TikTok username",
+    fieldPlaceholder: "@yourshop",
+  },
+  {
+    key: "facebook",
+    name: "Facebook Shop",
+    desc: "Mirror your catalog to a Facebook Page shop.",
+    icon: Hash,
+    color: "from-blue-500 to-blue-700",
+    fieldLabel: "Page ID or URL",
+    fieldPlaceholder: "facebook.com/yourpage",
+  },
+  {
+    key: "instagram",
+    name: "Instagram Shopping",
+    desc: "Tag products in Instagram posts and reels.",
+    icon: Camera,
+    color: "from-pink-500 via-rose-500 to-amber-500",
+    fieldLabel: "Instagram handle",
+    fieldPlaceholder: "@yourshop",
+  },
+  {
+    key: "line",
+    name: "LINE Official Account",
+    desc: "Get DMs from LINE customers in your inbox.",
+    icon: MessageCircle,
+    color: "from-emerald-500 to-emerald-700",
+    fieldLabel: "LINE OA ID",
+    fieldPlaceholder: "@your-oa-id",
+  },
+  {
+    key: "shopify",
+    name: "Shopify",
+    desc: "Two-way sync with an existing Shopify store.",
+    icon: ShoppingBag,
+    color: "from-emerald-600 to-green-700",
+    fieldLabel: "Shopify domain",
+    fieldPlaceholder: "yourshop.myshopify.com",
+  },
 ];
 
-const apiKeys: ApiKey[] = [
-  { id: 'k-1', name: 'Webhook ingestion (prod)', prefix: 'lsh_live_a83f…', lastUsed: '2 minutes ago', created: 'Mar 12, 2026' },
-  { id: 'k-2', name: 'Inventory sync (warehouse)', prefix: 'lsh_live_b91c…', lastUsed: '1 hour ago', created: 'Feb 28, 2026' },
-  { id: 'k-3', name: 'Read-only reporting', prefix: 'lsh_live_c40e…', lastUsed: '3 days ago', created: 'Jan 09, 2026' },
-  { id: 'k-4', name: 'Sandbox testing', prefix: 'lsh_test_d18a…', lastUsed: 'Never', created: 'Apr 22, 2026' },
-];
+const IntegrationsPage: React.FC = () => {
+  const [items, setItems] = useState<ShopIntegration[]>([]);
+  const [accounts, setAccounts] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-const StatusBadge = ({ status }: { status: AppStatus }) => {
-  const map: Record<AppStatus, { cls: string; label: string }> = {
-    connected: { cls: 'bg-green-50 text-green-700', label: 'Connected' },
-    disconnected: { cls: 'bg-gray-100 text-gray-600', label: 'Disconnected' },
-    error: { cls: 'bg-red-50 text-red-700', label: 'Error' },
+  useEffect(() => {
+    let cancelled = false;
+    fetchShopSettings()
+      .then((doc) => {
+        if (cancelled || !doc) return;
+        setItems(doc.integrations || []);
+        const map: Record<string, string> = {};
+        for (const i of doc.integrations || []) map[i.key] = i.account || "";
+        setAccounts(map);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const status = (key: IntegrationKey): boolean =>
+    items.find((i) => i.key === key)?.enabled || false;
+
+  const handleToggle = async (key: IntegrationKey, enabled: boolean) => {
+    setSavingKey(key);
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await toggleIntegration(key, enabled, accounts[key]);
+      if (updated) {
+        setItems(updated);
+        setSuccess(`${key} ${enabled ? "connected" : "disconnected"}`);
+        setTimeout(() => setSuccess(null), 2500);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSavingKey(null);
+    }
   };
-  const { cls, label } = map[status];
-  return <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${cls}`}>{label}</span>;
-};
 
-const CATEGORIES: AppCategory[] = ['Marketing', 'Shipping', 'Analytics', 'Payments'];
-
-const Integrations = () => {
-  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
-
-  const toggleReveal = (id: string) => {
-    setRevealed({ ...revealed, [id]: !revealed[id] });
-  };
+  if (loading) {
+    return (
+      <div className="py-16 text-center">
+        <Loader2 className="w-5 h-5 animate-spin text-gray-300 mx-auto" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 text-sm">
-      {/* Title bar */}
-      <div className="flex items-center gap-2">
-        <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700">
-          Browse marketplace
-        </button>
-        <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900">
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Connect app
-        </button>
+    <div className="space-y-4 text-sm max-w-3xl">
+      <div>
+        <h1 className="text-[16px] font-bold text-gray-900">Integrations</h1>
+        <p className="text-[12px] text-gray-500 mt-0.5">
+          Connect external platforms to sync products, orders, and messages.
+        </p>
       </div>
 
-      {/* Apps grouped by category */}
-      {CATEGORIES.map((cat) => {
-        const items = apps.filter((a) => a.category === cat);
-        if (items.length === 0) return null;
-        return (
-          <div key={cat} className="rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <h3 className="text-sm font-bold text-black">{cat}</h3>
-                <p className="text-[11px] text-gray-500 mt-0.5">{items.length} app{items.length === 1 ? '' : 's'} available in this category.</p>
+      {error && (
+        <div className="rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700 inline-flex items-center gap-2">
+          <AlertCircle className="w-3.5 h-3.5" /> {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-md bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700 inline-flex items-center gap-2">
+          <CheckCircle2 className="w-3.5 h-3.5" /> {success}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {INTEGRATIONS.map((def) => {
+          const Icon = def.icon;
+          const enabled = status(def.key);
+          const item = items.find((i) => i.key === def.key);
+          return (
+            <div key={def.key} className="rounded-lg border border-gray-100 p-4 flex items-start gap-4">
+              <div
+                className={`w-12 h-12 rounded-md bg-gradient-to-br ${def.color} flex items-center justify-center flex-shrink-0`}
+              >
+                <Icon className="w-6 h-6 text-white" />
               </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-[13px] font-bold text-gray-900">{def.name}</h3>
+                  {enabled ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700">
+                      Connected
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide bg-gray-100 text-gray-600">
+                      Disconnected
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-0.5">{def.desc}</p>
+                {def.fieldLabel && (
+                  <input
+                    className="mt-2 w-full max-w-sm px-3 py-1.5 rounded-md text-xs bg-gray-50 border border-gray-100 focus:border-[#00aeff] focus:bg-white focus:outline-none"
+                    placeholder={def.fieldPlaceholder}
+                    value={accounts[def.key] || ""}
+                    onChange={(e) =>
+                      setAccounts({ ...accounts, [def.key]: e.target.value })
+                    }
+                  />
+                )}
+                {item?.connectedAt && (
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Connected {new Date(item.connectedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => handleToggle(def.key, !enabled)}
+                disabled={savingKey === def.key}
+                className={`px-4 py-1.5 rounded-md text-xs font-bold inline-flex items-center disabled:opacity-50 ${
+                  enabled
+                    ? "border border-gray-200 text-gray-700 hover:bg-gray-50"
+                    : "bg-[#00aeff] text-white hover:bg-[#0096db]"
+                }`}
+              >
+                {savingKey === def.key ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : enabled ? (
+                  "Disconnect"
+                ) : (
+                  "Connect"
+                )}
+              </button>
             </div>
-            <table className="w-full text-[12px]">
-              <thead className="text-[11px] text-gray-500 tracking-wide">
-                <tr>
-                  <th className="px-4 py-2 text-left font-semibold">App</th>
-                  <th className="px-4 py-2 text-left font-semibold">Description</th>
-                  <th className="px-4 py-2 text-left font-semibold">Status</th>
-                  <th className="px-4 py-2 text-right font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody className="">
-                {items.map((a) => (
-                  <tr key={a.id} className="">
-                    <td className="px-4 py-2 font-medium text-gray-900">{a.name}</td>
-                    <td className="px-4 py-2 text-gray-600">{a.description}</td>
-                    <td className="px-4 py-2"><StatusBadge status={a.status} /></td>
-                    <td className="px-4 py-2 text-right">
-                      {a.status === 'connected' ? (
-                        <>
-                          <button className="text-[11px] font-semibold text-gray-700 hover:underline mr-3">Manage</button>
-                          <button className="text-[11px] font-semibold text-red-600 hover:underline">Disconnect</button>
-                        </>
-                      ) : a.status === 'error' ? (
-                        <>
-                          <button className="text-[11px] font-semibold text-red-600 hover:underline mr-3">Reconnect</button>
-                          <button className="text-[11px] font-semibold text-gray-700 hover:underline">Logs</button>
-                        </>
-                      ) : (
-                        <button className="text-[11px] font-semibold text-gray-700 hover:underline">Connect</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
-
-      {/* API Keys */}
-      <div className="rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h3 className="text-sm font-bold text-black">API keys</h3>
-            <p className="text-[11px] text-gray-500 mt-0.5">Programmatic access tokens. Treat secrets like passwords — rotate frequently.</p>
-          </div>
-          <button className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900">
-            <Plus className="w-3.5 h-3.5 mr-1.5" /> Create key
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px] tabular-nums">
-            <thead className="text-[11px] text-gray-500 tracking-wide">
-              <tr>
-                <th className="px-4 py-2 text-left font-semibold">Key name</th>
-                <th className="px-4 py-2 text-left font-semibold">Prefix</th>
-                <th className="px-4 py-2 text-left font-semibold">Last used</th>
-                <th className="px-4 py-2 text-left font-semibold">Created</th>
-                <th className="px-4 py-2 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="">
-              {apiKeys.map((k) => (
-                <tr key={k.id} className="">
-                  <td className="px-4 py-2 font-medium text-gray-900">{k.name}</td>
-                  <td className="px-4 py-2 font-mono text-[11px] text-gray-600">
-                    {revealed[k.id] ? k.prefix.replace('…', 'b29f7e1c') : k.prefix}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">{k.lastUsed}</td>
-                  <td className="px-4 py-2 text-gray-600">{k.created}</td>
-                  <td className="px-4 py-2 text-right">
-                    <button
-                      onClick={() => toggleReveal(k.id)}
-                      className="text-[11px] font-semibold text-gray-700 hover:underline mr-3 inline-flex items-center"
-                    >
-                      {revealed[k.id] ? <EyeOff className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
-                      {revealed[k.id] ? 'Hide' : 'Reveal'}
-                    </button>
-                    <button className="text-[11px] font-semibold text-red-600 hover:underline">Revoke</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Webhook endpoint */}
-      <div className="rounded-lg">
-        <div className="px-4 py-3">
-          <h3 className="text-sm font-bold text-black">Webhook endpoint</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Outbound HTTP endpoint that receives store events.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Endpoint URL</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Must be HTTPS. Receives signed POST payloads.</p>
-          </div>
-          <div className="md:col-span-2">
-            <input
-              type="url"
-              defaultValue="https://hooks.lala-premium.com/lalashop/events"
-              className="w-full px-3 py-1.5 rounded-md text-xs font-mono"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-4">
-          <div className="md:col-span-1">
-            <label className="text-xs font-semibold text-gray-900">Events</label>
-            <p className="text-[11px] text-gray-500 mt-0.5">Select which events trigger this webhook.</p>
-          </div>
-          <div className="md:col-span-2 grid grid-cols-2 gap-1.5">
-            {['order.created', 'order.paid', 'order.refunded', 'product.updated', 'inventory.low', 'review.submitted'].map((ev) => (
-              <label key={ev} className="inline-flex items-center text-[11px] text-gray-700">
-                <input type="checkbox" defaultChecked className="accent-black mr-1.5" />
-                <span className="font-mono">{ev}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+      <div className="rounded-lg bg-gray-50 px-4 py-3 text-[11px] text-gray-500">
+        These integrations store the account identifier for now. Full OAuth handshakes
+        (TikTok Login, FB Login, etc.) are planned for a future release.
       </div>
     </div>
   );
 };
 
-export default Integrations;
+export default IntegrationsPage;

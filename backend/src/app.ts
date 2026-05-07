@@ -28,6 +28,9 @@ import inviteRoutes from "./routes/inviteRoutes";
 import marketingRoutes from "./routes/marketingRoutes";
 import messageRoutes from "./routes/messageRoutes";
 import uploadRoutes from "./routes/uploadRoutes";
+import shopSettingRoutes from "./routes/shopSettingRoutes";
+import customerRoutes from "./routes/customerRoutes";
+import financeRoutes from "./routes/financeRoutes";
 import { cookieParser } from "./middlewares/cookieParser";
 import { trackAndRedirect } from "./controllers/affiliateController";
 import { optionalProtect } from "./middlewares/authMiddleware";
@@ -78,6 +81,9 @@ app.use("/api/support", supportRoutes);
 app.use("/api/marketing", marketingRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/shop-settings", shopSettingRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/finance", financeRoutes);
 app.use("/api", inviteRoutes);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
