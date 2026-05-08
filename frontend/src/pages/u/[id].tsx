@@ -393,7 +393,7 @@ export default function UserProfilePage() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold tracking-widest uppercase relative ${
+              className={`flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold tracking-widest relative ${
                 tab === t.id ? "text-slate-900" : "text-slate-400"
               }`}
             >

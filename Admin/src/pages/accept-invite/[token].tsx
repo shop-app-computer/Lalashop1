@@ -187,7 +187,7 @@ const AcceptInvitePage: React.FC = () => {
         </div>
 
         <div className="rounded-md border border-gray-100 px-3 py-2.5 text-[12px]">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+          <p className="text-[10px] font-bold text-gray-500 tracking-wide">
             Your email
           </p>
           <p className="text-gray-900 font-mono">{preview.email}</p>

@@ -1,19 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   ChevronLeft,
-  Clock,
   Info,
   ChevronRight,
   HelpCircle,
-  CheckCircle,
-  Plus,
-  Landmark,
   History,
   Shield,
-  X,
   Scan,
 } from "lucide-react";
-import AddBankAccount from "@/pages/creator/pagescreator/window/addbank";
 import { apiClient } from "@/services/apiClient";
 
 interface WithdrawProps {
@@ -47,11 +41,13 @@ interface WithdrawRules {
   currency: string;
 }
 
-// Subset of the KYC submission we actually render — shop name + shop account
-// (a.k.a. the shop's public handle) come from the seller's onboarding form.
+// Subset of the KYC submission we actually render. shopName here is the
+// account holder name (per Step 2 form), shopAccount is the bank account
+// number (digits-only), and bankName is the new bank-name field.
 interface KycShopInfo {
   shopName?: string;
   shopAccount?: string;
+  bankName?: string;
   shopCategory?: string;
   shopEmail?: string;
 }
@@ -59,9 +55,10 @@ interface KycShopInfo {
 const PENDING_STATUSES = new Set(["pending", "approved"]);
 
 export default function ShopWithdraw({ onBack }: WithdrawProps) {
-  const [view, setView] = useState<"main" | "addAccount" | "selectBank" | "history">("main");
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [selectedBank, setSelectedBank] = useState<BankAccount | null>(null);
+  // Withdraw is shop-bound — sellers can only payout to the bank account
+  // tied to their KYC. Adding ad-hoc accounts here was removed; that lives
+  // in profile settings → Bank Account / Finance instead.
+  const [view, setView] = useState<"main" | "history">("main");
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState(0);
   const [posRevenue, setPosRevenue] = useState(0);
@@ -70,24 +67,9 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
   const [hasWithdrawPin, setHasWithdrawPin] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState("");
-  const [showHelp, setShowHelp] = useState(false);
   const [rules, setRules] = useState<WithdrawRules | null>(null);
   const [historyTab, setHistoryTab] = useState<"pending" | "history">("pending");
   const [shopInfo, setShopInfo] = useState<KycShopInfo | null>(null);
-
-  const fetchBankData = async () => {
-    try {
-      const data = await apiClient("/bank/me");
-      if (data.success) {
-        setBankAccounts(data.data);
-        if (data.data.length > 0 && !selectedBank) {
-          setSelectedBank(data.data[0]);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch bank data:", error);
-    }
-  };
 
   const fetchWithdrawals = async () => {
     try {
@@ -143,7 +125,6 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
   };
 
   useEffect(() => {
-    fetchBankData();
     fetchWithdrawals();
     fetchProfile();
     fetchRules();
@@ -165,8 +146,13 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
       alert("Please set your 6-digit withdrawal PIN in Security Settings before withdrawing.");
       return;
     }
-    if (!selectedBank) {
-      alert("Please select a payment method");
+    // Block only when the bank account number is missing — bankName is
+    // optional (legacy KYCs predate the Bank Name field but still have a
+    // valid account number, and we don't want to lock those out).
+    if (!shopInfo?.shopAccount) {
+      alert(
+        "No shop bank account on file. Open your shop / complete KYC to add a payout account."
+      );
       return;
     }
     const amount = parseFloat(withdrawAmount);
@@ -192,11 +178,12 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
     }
     setLoading(true);
     try {
+      // Backend snapshots bank info from the seller's KYC; we no longer pass
+      // a bankId from the client.
       const response = await apiClient("/withdraw/create", {
         method: "POST",
         body: JSON.stringify({
           amount: parseFloat(withdrawAmount),
-          bankId: selectedBank?._id,
           pin: pinInput,
         }),
       });
@@ -216,11 +203,6 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
     }
   };
 
-  const handleAddSuccess = () => {
-    fetchBankData();
-    setView("main");
-  };
-
   const cancelTransaction = async (id: string) => {
     if (!confirm("Cancel this withdrawal? Funds will be returned to your balance.")) return;
     try {
@@ -231,55 +213,6 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
       alert(message);
     }
   };
-
-  if (view === "addAccount") {
-    return <AddBankAccount onBack={() => setView("selectBank")} onSuccess={handleAddSuccess} />;
-  }
-
-  if (view === "selectBank") {
-    return (
-      <div className="min-h-screen bg-[#F8F8F8]">
-        <div className="sticky top-0 z-50 bg-white flex items-center h-[56px] px-5 border-b border-[#EEEEEE]">
-          <button onClick={() => setView("main")} className="active:opacity-50 transition-opacity -ml-1">
-            <ChevronLeft size={24} strokeWidth={2.5} />
-          </button>
-          <h1 className="ml-3 text-[16px] font-bold tracking-tight">select payment method</h1>
-        </div>
-        <div className="p-5 space-y-4">
-          <button
-            onClick={() => setView("addAccount")}
-            className="w-full bg-white p-5 border-2 border-dashed border-[#EEEEEE] rounded-2xl flex items-center justify-center gap-2 text-[#00aeff] font-bold hover:bg-white/50 transition-colors"
-          >
-            <Plus size={20} /> Add New Bank Account
-          </button>
-
-          <div className="space-y-3">
-            {bankAccounts.map((account) => (
-              <button
-                key={account._id}
-                onClick={() => {
-                  setSelectedBank(account);
-                  setView("main");
-                }}
-                className={`w-full p-5 bg-white border rounded-2xl flex flex-col items-start transition-all ${
-                  selectedBank?._id === account._id
-                    ? "border-[#00aeff] ring-1 ring-[#00aeff]"
-                    : "border-[#EEEEEE]"
-                }`}
-              >
-                <div className="flex justify-between w-full mb-2">
-                  <span className="text-[11px] font-black text-[#00aeff] tracking-widest">{account.bankName}</span>
-                  {selectedBank?._id === account._id && <CheckCircle size={18} className="text-[#00aeff]" />}
-                </div>
-                <p className="text-lg font-black tracking-widest font-mono">**** {account.accountNumber.slice(-4)}</p>
-                <p className="text-[10px] font-bold text-[#86878B]">{account.accountName}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (view === "history") {
     const list = historyTab === "pending" ? pendingTxs : historyTxs;
@@ -369,13 +302,49 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
           </button>
           <h1 className="text-[16px] font-bold tracking-tight">shop withdraw</h1>
         </div>
-        <button
-          onClick={() => setShowHelp(true)}
-          className="text-[#121212] active:opacity-50"
-          aria-label="Help"
-        >
-          <HelpCircle size={20} strokeWidth={2} />
-        </button>
+        {/* Hover-only tooltip — no click. Group exposes the inner panel on
+            hover/focus; keyboard users can still tab to it. */}
+        <div className="relative group">
+          <button
+            type="button"
+            className="text-[#121212] active:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#00aeff] rounded-full"
+            aria-label="Withdrawal rules"
+            aria-describedby="shop-withdraw-rules-tip"
+          >
+            <HelpCircle size={20} strokeWidth={2} />
+          </button>
+          <div
+            id="shop-withdraw-rules-tip"
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full mt-2 w-[300px] bg-white border border-slate-100 rounded-2xl shadow-xl p-4 text-[12px] text-slate-700 leading-relaxed opacity-0 translate-y-1 invisible group-hover:opacity-100 group-hover:translate-y-0 group-hover:visible group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:visible transition-all duration-150 z-50"
+          >
+            <p className="text-[11px] font-black text-slate-900 mb-2 tracking-wide">
+              Withdrawal Rules
+            </p>
+            {rules ? (
+              <>
+                <div className="space-y-1.5 pb-2 border-b border-slate-50">
+                  <RuleRow label="Minimum" value={`฿${rules.minAmount.toLocaleString()}`} />
+                  <RuleRow label="Maximum / request" value={`฿${rules.maxAmount.toLocaleString()}`} />
+                  <RuleRow
+                    label="Fee"
+                    value={`${rules.feePercent}%${rules.flatFee > 0 ? ` + ฿${rules.flatFee}` : ""}`}
+                  />
+                  <RuleRow label="Processing" value={`${rules.processingDays} business days`} />
+                </div>
+                <ul className="text-[10.5px] text-slate-500 list-disc pl-4 space-y-1 pt-2">
+                  <li>Web sales only — POS revenue is non-withdrawable.</li>
+                  <li>Buyer confirms receipt before balance credits.</li>
+                  <li>Verify your bank to avoid delays.</li>
+                  <li>Pending requests can be canceled before approval.</li>
+                  <li>Set a 6-digit PIN before your first withdrawal.</li>
+                </ul>
+              </>
+            ) : (
+              <p className="text-slate-400 text-[11px]">Loading rules…</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <main className="w-full">
@@ -423,9 +392,9 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
 
           <button
             onClick={initiateWithdrawal}
-            disabled={loading || !selectedBank || !withdrawAmount}
+            disabled={loading || !shopInfo?.shopAccount || !withdrawAmount}
             className={`w-full rounded-2xl px-12 font-bold py-4 text-[13px] tracking-[0.1em] transition-all ${
-              loading || !selectedBank || !withdrawAmount
+              loading || !shopInfo?.shopAccount || !withdrawAmount
                 ? "bg-[#EEEEEE] text-[#C8C9CC] cursor-not-allowed"
                 : "bg-[#00aeff] text-white active:opacity-80"
             }`}
@@ -484,77 +453,31 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
           </div>
         )}
 
-        {showHelp && (
-          <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
-              <div className="flex items-center justify-between p-5 border-b border-slate-100">
-                <h3 className="text-base font-black text-slate-900">Withdrawal Rules</h3>
-                <button onClick={() => setShowHelp(false)} className="p-1 active:opacity-50">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-6 space-y-5 text-[13px] text-slate-700 leading-relaxed">
-                {rules ? (
-                  <>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Minimum</span>
-                      <span className="font-bold">฿{rules.minAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Maximum per request</span>
-                      <span className="font-bold">฿{rules.maxAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Fee</span>
-                      <span className="font-bold">
-                        {rules.feePercent}% {rules.flatFee > 0 ? `+ ฿${rules.flatFee}` : ""}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Processing time</span>
-                      <span className="font-bold">{rules.processingDays} business days</span>
-                    </div>
-                    <ul className="text-[12px] text-slate-500 list-disc pl-4 space-y-2 pt-2">
-                      <li>This balance is from <strong>web sales only</strong> — POS revenue stays in-store and is not withdrawable.</li>
-                      <li>Buyer must confirm receipt before web sales credit your balance.</li>
-                      <li>Verify your bank account to avoid delays.</li>
-                      <li>Pending requests can be canceled before approval — funds are returned instantly.</li>
-                      <li>You must set a 6-digit PIN before your first withdrawal.</li>
-                    </ul>
-                  </>
-                ) : (
-                  <p className="text-slate-400">Loading rules…</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="mt-3 bg-white border-y border-[#EEEEEE]">
           <div className="px-6 py-4 border-b border-[#F8F8F8]">
             <h3 className="text-[11px] font-bold text-[#121212] tracking-[0.15em]">withdrawal destination</h3>
           </div>
 
           <div className="divide-y divide-[#F8F8F8]">
-            <button
-              onClick={() => setView("selectBank")}
-              className="w-full px-6 py-6 flex items-center justify-between active:bg-[#F9F9F9] transition-colors"
-            >
-              <div className="flex items-center gap-5">
-                <Landmark size={20} strokeWidth={1.5} className="text-[#121212]" />
-                <div className="text-left">
-                  <span className="text-[14px] font-bold tracking-tight block">payment methods</span>
-                  {selectedBank && (
-                    <span className="text-[11px] font-bold text-[#00aeff] tracking-wider">
-                      {selectedBank.bankName} (****{selectedBank.accountNumber.slice(-4)})
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-[#86878B]">
-                <ChevronRight size={18} strokeWidth={1.5} />
-              </div>
-            </button>
+            {/* Read-only — withdrawals are locked to the shop's KYC bank account.
+                No click target, no navigation; the seller can only see where
+                the payout will land. To change the bank, they must update KYC. */}
+            <div className="w-full px-6 py-6">
+              <span className="text-[14px] font-bold tracking-tight block">payment methods</span>
+              {shopInfo?.bankName && (
+                <span className="text-[10px] font-black tracking-widest text-[#86878B] block mt-1">
+                  {shopInfo.bankName}
+                </span>
+              )}
+              <span className="text-[11px] font-bold text-[#00aeff] tracking-wider block mt-0.5 break-words">
+                {shopInfo?.shopName || "—"}
+              </span>
+              {shopInfo?.shopAccount && (
+                <span className="text-[11px] font-mono text-[#86878B] block mt-0.5 break-all">
+                  {shopInfo.shopAccount}
+                </span>
+              )}
+            </div>
 
             <button
               onClick={() => {
@@ -563,17 +486,14 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
               }}
               className="w-full px-6 py-6 flex items-center justify-between active:bg-[#F9F9F9]"
             >
-              <div className="flex items-center gap-5">
-                <Clock size={20} strokeWidth={1.5} className="text-[#121212]" />
-                <span className="text-[14px] font-bold tracking-tight">
-                  pending & history
-                  {pendingTxs.length > 0 && (
-                    <span className="ml-2 inline-flex items-center justify-center text-[10px] bg-[#FE2C55] text-white px-1.5 rounded-full font-black">
-                      {pendingTxs.length}
-                    </span>
-                  )}
-                </span>
-              </div>
+              <span className="text-[14px] font-bold tracking-tight">
+                pending & history
+                {pendingTxs.length > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center text-[10px] bg-[#FE2C55] text-white px-1.5 rounded-full font-black">
+                    {pendingTxs.length}
+                  </span>
+                )}
+              </span>
               <ChevronRight size={18} strokeWidth={1.5} className="text-[#C8C9CC]" />
             </button>
           </div>
@@ -594,3 +514,12 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
     </div>
   );
 }
+
+// One label-value row inside the rules tooltip. Tight spacing so the
+// hover panel fits on small screens.
+const RuleRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="flex justify-between items-baseline gap-2 text-[11px]">
+    <span className="font-medium text-slate-500">{label}</span>
+    <span className="font-bold text-slate-900 tabular-nums">{value}</span>
+  </div>
+);

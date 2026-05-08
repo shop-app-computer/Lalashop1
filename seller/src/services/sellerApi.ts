@@ -136,6 +136,40 @@ export const fetchMyOrders = async (): Promise<SellerOrderRow[]> => {
   return res.orders ?? res.data ?? [];
 };
 
+// Seller-controlled fulfilment transitions. Backend guards: ship requires
+// isPaid, deliver requires shipped, delivered/canceled is terminal.
+export type SellerOrderStatus =
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "canceled";
+
+interface UpdateOrderStatusResponse {
+  success: boolean;
+  data?: {
+    _id: string;
+    status: SellerOrderStatus;
+    isPaid: boolean;
+    isDelivered: boolean;
+    deliveredAt?: string;
+  };
+  message?: string;
+}
+
+export const updateMyOrderStatus = async (
+  orderId: string,
+  status: SellerOrderStatus,
+): Promise<UpdateOrderStatusResponse["data"] | null> => {
+  const res = await apiClient<UpdateOrderStatusResponse>(
+    `/orders/${orderId}/seller-status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    },
+  );
+  return res.data ?? null;
+};
+
 // ─── Withdrawals (seller-scoped) ───────────────────────────────────────
 
 export type WithdrawStatus = "pending" | "approved" | "completed" | "rejected" | "failed";

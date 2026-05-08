@@ -56,7 +56,7 @@ const BalancePage = () => {
       <h1 className="text-[16px] font-bold text-gray-900">Balance</h1>
 
       <div className="rounded-2xl bg-gradient-to-br from-[#00aeff] to-[#0096db] text-white p-6">
-        <div className="flex items-center gap-2 text-white/80 text-[11px] font-semibold tracking-wide uppercase">
+        <div className="flex items-center gap-2 text-white/80 text-[11px] font-semibold tracking-wide">
           <Wallet className="w-3.5 h-3.5" /> Available Balance
         </div>
         <p className="text-[36px] font-black mt-2 tabular-nums">

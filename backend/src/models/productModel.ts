@@ -212,4 +212,25 @@ const productSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Full-text index for search. Weights bias matches in name highest, then
+// tags (taxonomy), then description (long-tail content). Vendor + category
+// included so brand searches like "Nike" or category names also hit.
+productSchema.index(
+  {
+    name: "text",
+    description: "text",
+    tags: "text",
+    vendor: "text",
+    category: "text",
+  },
+  {
+    weights: { name: 10, tags: 5, vendor: 4, category: 3, description: 1 },
+    name: "ProductTextIndex",
+  },
+);
+
+// Plain B-tree on `name` so the autocomplete endpoint can do fast prefix
+// regex matches (the text index doesn't help with "shi" → "shirt" prefix).
+productSchema.index({ name: 1 });
+
 export default mongoose.model<IProduct>("Product", productSchema);

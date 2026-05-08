@@ -184,7 +184,7 @@ export default function ProfilePage() {
             <div className="flex flex-col md:flex-row md:items-center md:gap-8 mb-6">
               <div className="md:flex-1">
                 <p className="text-sm text-dark whitespace-pre-wrap">
-                  {user?.bio || "Premium wholesale products for your business. 📦✨"}
+                  {user?.bio}
                 </p>
               </div>
 

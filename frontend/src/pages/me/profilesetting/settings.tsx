@@ -2,24 +2,29 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Store, Shield, Bell, CreditCard,
-  Truck, Save, ChevronRight, CheckCircle, ArrowLeft
+  Store, Shield, Bell,
+  Truck, Save, ChevronRight, CheckCircle, ArrowLeft, FileBadge,
 } from "lucide-react";
 
 import { GeneralSection } from "./GeneralSection";
 import { AddressSection } from "./AddressSection";
-import { PaymentSection } from "./PaymentSection";
 import { SecuritySection } from "./SecuritySection";
+import { ShopDetailSection } from "./ShopDetailSection";
 export default function SellerSettings() {
   const [activeSection, setActiveSection] = useState("general");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // All necessary settings menu for store owners
+  // All necessary settings menu for store owners. "Shop details (KYC)" is
+  // a read-only mirror of the seller's KYC submission so they can review the
+  // info they entered when opening the shop without leaving this page.
+  // Bank Account / Finance was removed: shop withdrawals are now locked to
+  // the bank account captured during KYC, so the standalone Bank section
+  // would only confuse sellers (no second source of truth).
   const menuItems = [
     { id: "general", label: "Basic Store Info", icon: Store },
+    { id: "shop_detail", label: "Shop details (KYC)", icon: FileBadge },
     { id: "address", label: "Address & Shipping", icon: Truck },
-    { id: "payment", label: "Bank Account / Finance", icon: CreditCard },
     { id: "security", label: "Account Security", icon: Shield },
   ];
 
@@ -86,9 +91,8 @@ export default function SellerSettings() {
 
           <div className="p-6">
             {activeSection === "general" && <GeneralSection />}
-
+            {activeSection === "shop_detail" && <ShopDetailSection />}
             {activeSection === "address" && <AddressSection />}
-            {activeSection === "payment" && <PaymentSection />}
             {activeSection === "security" && <SecuritySection />}
           </div>
         </div>

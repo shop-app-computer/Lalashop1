@@ -10,7 +10,6 @@ import {
   Landmark,
   History,
   Shield,
-  X,
 } from "lucide-react";
 import AddBankAccount from "./addbank";
 import { apiClient } from "@/services/apiClient";
@@ -59,7 +58,6 @@ export default function Earnings({ onBack }: ToolkitProps) {
   const [hasWithdrawPin, setHasWithdrawPin] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState("");
-  const [showHelp, setShowHelp] = useState(false);
   const [rules, setRules] = useState<WithdrawRules | null>(null);
   const [historyTab, setHistoryTab] = useState<"pending" | "history">("pending");
 
@@ -334,13 +332,48 @@ export default function Earnings({ onBack }: ToolkitProps) {
           </button>
           <h1 className="text-[16px] font-bold tracking-tight">withdraw</h1>
         </div>
-        <button
-          onClick={() => setShowHelp(true)}
-          className="text-[#121212] active:opacity-50"
-          aria-label="Help"
-        >
-          <HelpCircle size={20} strokeWidth={2} />
-        </button>
+        {/* Hover-only tooltip — no click. Group exposes the inner panel on
+            hover/focus; keyboard users can still tab to it. */}
+        <div className="relative group">
+          <button
+            type="button"
+            className="text-[#121212] active:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#00aeff] rounded-full"
+            aria-label="Withdrawal rules"
+            aria-describedby="creator-withdraw-rules-tip"
+          >
+            <HelpCircle size={20} strokeWidth={2} />
+          </button>
+          <div
+            id="creator-withdraw-rules-tip"
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full mt-2 w-[300px] bg-white border border-slate-100 rounded-2xl shadow-xl p-4 text-[12px] text-slate-700 leading-relaxed opacity-0 translate-y-1 invisible group-hover:opacity-100 group-hover:translate-y-0 group-hover:visible group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:visible transition-all duration-150 z-50"
+          >
+            <p className="text-[11px] font-black text-slate-900 mb-2 tracking-wide">
+              Withdrawal Rules
+            </p>
+            {rules ? (
+              <>
+                <div className="space-y-1.5 pb-2 border-b border-slate-50">
+                  <RuleRow label="Minimum" value={`฿${rules.minAmount.toLocaleString()}`} />
+                  <RuleRow label="Maximum / request" value={`฿${rules.maxAmount.toLocaleString()}`} />
+                  <RuleRow
+                    label="Fee"
+                    value={`${rules.feePercent}%${rules.flatFee > 0 ? ` + ฿${rules.flatFee}` : ""}`}
+                  />
+                  <RuleRow label="Processing" value={`${rules.processingDays} business days`} />
+                </div>
+                <ul className="text-[10.5px] text-slate-500 list-disc pl-4 space-y-1 pt-2">
+                  <li>Earnings unlock after buyer confirms receipt.</li>
+                  <li>Verify your bank to avoid delays.</li>
+                  <li>Pending requests can be canceled before approval.</li>
+                  <li>Set a 6-digit PIN before your first withdrawal.</li>
+                </ul>
+              </>
+            ) : (
+              <p className="text-slate-400 text-[11px]">Loading rules…</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <main className="w-full">
@@ -443,51 +476,6 @@ export default function Earnings({ onBack }: ToolkitProps) {
           </div>
         )}
 
-        {showHelp && (
-          <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
-              <div className="flex items-center justify-between p-5 border-b border-slate-100">
-                <h3 className="text-base font-black text-slate-900">Withdrawal Rules</h3>
-                <button onClick={() => setShowHelp(false)} className="p-1 active:opacity-50">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-6 space-y-5 text-[13px] text-slate-700 leading-relaxed">
-                {rules ? (
-                  <>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Minimum</span>
-                      <span className="font-bold">฿{rules.minAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Maximum per request</span>
-                      <span className="font-bold">฿{rules.maxAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Fee</span>
-                      <span className="font-bold">
-                        {rules.feePercent}% {rules.flatFee > 0 ? `+ ฿${rules.flatFee}` : ""}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 pb-3">
-                      <span className="font-medium text-slate-500">Processing time</span>
-                      <span className="font-bold">{rules.processingDays} business days</span>
-                    </div>
-                    <ul className="text-[12px] text-slate-500 list-disc pl-4 space-y-2 pt-2">
-                      <li>Earnings are released only after the buyer confirms receipt of the order.</li>
-                      <li>Verify your bank account to avoid delays.</li>
-                      <li>Pending requests can be canceled before approval — funds are returned instantly.</li>
-                      <li>You must set a 6-digit PIN before your first withdrawal.</li>
-                    </ul>
-                  </>
-                ) : (
-                  <p className="text-slate-400">Loading rules…</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="mt-3 bg-white border-y border-[#EEEEEE]">
           <div className="px-6 py-4 border-b border-[#F8F8F8]">
             <h3 className="text-[11px] font-bold text-[#121212] tracking-[0.15em]">withdrawal destination</h3>
@@ -552,3 +540,12 @@ export default function Earnings({ onBack }: ToolkitProps) {
     </div>
   );
 }
+
+// One label-value row inside the rules tooltip. Tight spacing so the
+// hover panel fits on small screens.
+const RuleRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="flex justify-between items-baseline gap-2 text-[11px]">
+    <span className="font-medium text-slate-500">{label}</span>
+    <span className="font-bold text-slate-900 tabular-nums">{value}</span>
+  </div>
+);

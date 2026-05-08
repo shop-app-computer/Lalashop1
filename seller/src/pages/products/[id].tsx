@@ -337,12 +337,12 @@ const ProductDetailPage: React.FC = () => {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-[16px] font-bold text-gray-900 truncate">{product.name}</h1>
             {isPos && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700">
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide bg-emerald-100 text-emerald-700">
                 POS
               </span>
             )}
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${
+              className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${
                 product.showInStorefront !== false
                   ? "bg-blue-100 text-blue-700"
                   : "bg-gray-100 text-gray-600"
@@ -703,7 +703,7 @@ const ImageGrid: React.FC<ImageGridProps> = ({ slots, max, aspect = "aspect-squa
         className={`${aspect} rounded-md bg-gray-50 border border-dashed border-gray-200 hover:border-[#00aeff] hover:bg-blue-50/30 transition-colors flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-[#00aeff]`}
       >
         <ImagePlus className="w-5 h-5" />
-        <span className="text-[10px] font-bold uppercase tracking-wide">Add image</span>
+        <span className="text-[10px] font-bold tracking-wide">Add image</span>
       </button>
     )}
   </div>

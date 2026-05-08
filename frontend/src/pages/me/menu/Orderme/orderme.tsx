@@ -96,7 +96,7 @@ export default function CreatorOrders({ onBack }: OrderCreatorProps) {
               <div key={order._id} className="bg-white p-4">
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-[11px] font-bold text-gray-400">#{order._id.slice(-8).toUpperCase()}</span>
-                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${order.isPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded ${order.isPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
                     {order.isPaid ? 'Paid' : 'Pending'}
                   </span>
                 </div>

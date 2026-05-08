@@ -173,7 +173,7 @@ const ActivityPage: React.FC = () => {
 
             {summary && (
               <div className="rounded-lg border border-gray-100 p-4 bg-white space-y-2">
-                <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                <h3 className="text-[11px] font-bold text-gray-500 tracking-wide">
                   Lifetime value
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
@@ -195,12 +195,12 @@ const ActivityPage: React.FC = () => {
 
             {data.label && (data.label.tags?.length || data.label.segment || data.label.note) && (
               <div className="rounded-lg border border-gray-100 p-4 bg-white space-y-2">
-                <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                <h3 className="text-[11px] font-bold text-gray-500 tracking-wide">
                   Labels
                 </h3>
                 {data.label.segment && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${SEGMENT_BADGE[data.label.segment]}`}
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${SEGMENT_BADGE[data.label.segment]}`}
                   >
                     {data.label.segment}
                   </span>
@@ -261,7 +261,7 @@ const ActivityPage: React.FC = () => {
                           #{o._id.slice(-8).toUpperCase()}
                         </p>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${
                             o.isPaid
                               ? "bg-emerald-100 text-emerald-700"
                               : "bg-amber-100 text-amber-700"

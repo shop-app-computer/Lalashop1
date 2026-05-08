@@ -148,11 +148,22 @@ const OrderDetailPage = () => {
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className="font-mono text-[12px] text-gray-500">#{order._id.slice(-10).toUpperCase()}</span>
             <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusBadge[statusKey] ?? 'bg-gray-100 text-gray-600'}`}>
               {statusLabel[statusKey] ?? statusKey}
             </span>
+            {/* From-shop tag — clickable to /shops/{sellerId}. Lets the admin */}
+            {/* jump to the shop's full profile (KYC, withdrawals, products). */}
+            {shopId && (
+              <Link
+                href={`/shops/${shopId}`}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
+              >
+                <Store className="w-3 h-3" />
+                From shop: {shopName}
+              </Link>
+            )}
           </div>
           <div className="text-[11px] text-gray-500 mt-1">Placed {formatDate(order.createdAt)}</div>
         </div>
@@ -175,12 +186,12 @@ const OrderDetailPage = () => {
       {/* money, plus Confirm/Reject buttons. Hidden when no slip on file. */}
       {slip && (
         <div
-          className={`rounded-2xl border-2 p-5 ${
+          className={`rounded-2xl  p-5 ${
             slipVerified
-              ? 'bg-emerald-50/40 border-emerald-100'
+              ? ' border-emerald-100'
               : slipRejected
-                ? 'bg-rose-50/40 border-rose-100'
-                : 'bg-amber-50/40 border-amber-100'
+                ? ' border-rose-100'
+                : 'border-amber-100'
           }`}
         >
           <div className="flex items-start gap-2 mb-3">
@@ -198,7 +209,7 @@ const OrderDetailPage = () => {
                 <strong className="tabular-nums">฿{formatMoney(slip.transferAmount)}</strong> to{' '}
                 <strong>{accountLine}</strong>.
                 {!amountMatches && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wide">
+                  <span className="ml-1 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-bold tracking-wide">
                     Amount mismatch! Order ฿{formatMoney(order.totalPrice)}
                   </span>
                 )}

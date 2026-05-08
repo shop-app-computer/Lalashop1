@@ -102,7 +102,7 @@ export default function Step3Identity({ businessType, data, setData, errors }: P
                  ) : (
                    <>
                      <Upload size={24} />
-                     <span className="text-[12px] font-bold mt-2 tracking-tight uppercase">Click to upload document</span>
+                     <span className="text-[12px] font-bold mt-2 tracking-tight">Click to upload document</span>
                    </>
                  )}
               </div>

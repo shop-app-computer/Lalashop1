@@ -92,7 +92,7 @@ const SegmentsPage: React.FC = () => {
         <>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-gradient-to-br from-[#00aeff] to-[#0096db] text-white p-5">
-              <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold uppercase tracking-wide">
+              <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold tracking-wide">
                 <Users className="w-3.5 h-3.5" /> Total customers
               </div>
               <p className="text-[28px] font-black tabular-nums mt-2">
@@ -100,7 +100,7 @@ const SegmentsPage: React.FC = () => {
               </p>
             </div>
             <div className="rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white p-5">
-              <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold uppercase tracking-wide">
+              <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold tracking-wide">
                 <TrendingUp className="w-3.5 h-3.5" /> Lifetime revenue
               </div>
               <p className="text-[28px] font-black tabular-nums mt-2">

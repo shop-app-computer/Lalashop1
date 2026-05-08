@@ -12,6 +12,7 @@ interface SubmitKycBody {
   shopInfo?: {
     shopName?: string;
     shopAccount?: string;
+    bankName?: string;
     shopCategory?: string;
     shopEmail?: string;
     phoneNumber?: string;
@@ -131,6 +132,7 @@ export const submitKyc = async (req: IAuthRequest, res: Response) => {
       shopInfo: {
         shopName: body.shopInfo.shopName,
         shopAccount: body.shopInfo.shopAccount || "",
+        bankName: body.shopInfo.bankName || "",
         shopCategory: body.shopInfo.shopCategory || "",
         shopEmail: body.shopInfo.shopEmail || "",
         phoneNumber: body.shopInfo.phoneNumber || "",

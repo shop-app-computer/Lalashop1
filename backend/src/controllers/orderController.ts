@@ -379,6 +379,94 @@ export const deliverOrder = async (req: IAuthRequest, res: Response) => {
   }
 };
 
+// PATCH /api/orders/:id/seller-status
+// Lets the seller move one of their own orders along the fulfilment timeline.
+// Sellers can ship a paid order, mark a shipped order delivered, or cancel
+// an order that hasn't shipped yet. Admins can still use the admin endpoint
+// for everything else (refunds, disputes, etc.).
+export const updateMyOrderStatus = async (req: IAuthRequest, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+    const { status } = req.body as { status?: string };
+    const allowed = ["processing", "shipped", "delivered", "canceled"];
+    if (!status || !allowed.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `status must be one of: ${allowed.join(", ")}`,
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    // Authorization — must be seller of at least one item, or admin override.
+    const sellerId = req.user._id.toString();
+    const isSellerInOrder = order.orderItems.some(
+      (it: any) => it.seller && it.seller.toString() === sellerId
+    );
+    if (!req.user?.isAdmin && !isSellerInOrder) {
+      return res.status(403).json({ success: false, message: "Not your order" });
+    }
+
+    // Guardrails on transitions so the seller can't ship an unpaid order or
+    // un-deliver a delivered one (which would mess with creator settlements).
+    const current = order.status;
+    if (current === "delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Order is already delivered — cannot change status",
+      });
+    }
+    if (status === "shipped" && !order.isPaid) {
+      return res.status(400).json({
+        success: false,
+        message: "Order isn't paid yet — admin must verify the slip first",
+      });
+    }
+    if (status === "delivered" && current !== "shipped") {
+      return res.status(400).json({
+        success: false,
+        message: "Mark the order as shipped before delivering",
+      });
+    }
+
+    order.status = status as typeof order.status;
+    if (status === "delivered") {
+      order.isDelivered = true;
+      order.deliveredAt = new Date();
+
+      // Settle creator earnings on delivery — same logic as deliverOrder.
+      const pending = await CreatorEarning.find({ order: order._id, status: "pending" });
+      for (const earning of pending) {
+        earning.status = "settled";
+        earning.settledAt = new Date();
+        await earning.save();
+        await User.findByIdAndUpdate(earning.creator, { $inc: { balance: earning.amount } });
+        await CreatorProduct.updateOne(
+          { creator: earning.creator, product: earning.product },
+          { $inc: { totalEarned: earning.amount } }
+        );
+      }
+    }
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: order._id,
+        status: order.status,
+        isPaid: order.isPaid,
+        isDelivered: order.isDelivered,
+        deliveredAt: order.deliveredAt,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const deleteOrder = async (req: IAuthRequest, res: Response) => {
   try {
     const order = await Order.findById(req.params.id);

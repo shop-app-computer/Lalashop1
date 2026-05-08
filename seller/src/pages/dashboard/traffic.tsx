@@ -193,7 +193,7 @@ const TrafficPage: React.FC = () => {
                     >
                       <Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                        <p className="text-[10px] font-bold text-gray-500 tracking-wide">
                           {key}
                         </p>
                         <p className="text-[14px] font-bold tabular-nums text-gray-900">

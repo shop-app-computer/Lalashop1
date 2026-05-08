@@ -53,7 +53,7 @@ const Header = () => {
             className="flex items-center space-x-3 cursor-pointer group"
           >
             <div className="text-right">
-              <p className="text-sm font-bold text-black group-hover:text-[#00aeff] transition-colors uppercase tracking-tight">
+              <p className="text-sm font-bold text-black group-hover:text-[#00aeff] transition-colors tracking-tight">
                 {shopName}
               </p>
               <p className="text-[10px] text-gray-400 font-medium capitalize">{sellerType}</p>

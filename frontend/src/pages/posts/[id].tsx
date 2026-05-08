@@ -285,7 +285,7 @@ export default function PostDetailPage() {
             ) : (
               <>
                 <p className="text-sm text-gray-800 leading-relaxed mb-1 whitespace-pre-wrap">{post.caption}</p>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-gray-400 tracking-wider">
                   {timeAgo(post.createdAt)}
                 </span>
               </>

@@ -5,6 +5,10 @@ export type KycStatus = "pending" | "approved" | "rejected";
 export interface IKycShopInfo {
   shopName: string;
   shopAccount: string;
+  // Bank for the shop's payout account. Captured at shop registration.
+  // shopName + shopAccount + bankName form the full payout reference; older
+  // submissions may have an empty bankName.
+  bankName?: string;
   shopCategory: string;
   shopEmail: string;
   phoneNumber: string;
@@ -73,6 +77,7 @@ const shopInfoSchema = new Schema(
   {
     shopName: { type: String, required: true },
     shopAccount: { type: String, default: "" },
+    bankName: { type: String, default: "" },
     shopCategory: { type: String, default: "" },
     shopEmail: { type: String, default: "" },
     phoneNumber: { type: String, default: "" },

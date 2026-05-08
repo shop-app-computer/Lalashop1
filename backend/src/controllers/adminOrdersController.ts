@@ -3,6 +3,23 @@ import mongoose from "mongoose";
 import Order from "../models/orderModel";
 import PaymentSlip from "../models/paymentSlipModel";
 
+// Helper: pull the latest payment slip per order in one batch query so the
+// admin orders table can render slip thumbnails + Approve/Reject actions
+// without an N+1 round-trip.
+const buildSlipMap = async (orderIds: mongoose.Types.ObjectId[]) => {
+  if (orderIds.length === 0) return new Map<string, any>();
+  const slips = await PaymentSlip.find({ order: { $in: orderIds } })
+    .sort({ createdAt: -1 })
+    .select("order slipImageUrl transferAmount transferRef status rejectionReason createdAt")
+    .lean();
+  const map = new Map<string, any>();
+  for (const s of slips as any[]) {
+    const key = String(s.order);
+    if (!map.has(key)) map.set(key, s);
+  }
+  return map;
+};
+
 interface OrderListQuery {
   page?: string;
   limit?: string;
@@ -98,16 +115,22 @@ export const adminListOrders = async (req: Request, res: Response) => {
       Order.countDocuments(filter),
     ]);
 
+    const slipMap = await buildSlipMap(orders.map((o: any) => o._id));
+
     const data = orders.map((o: any) => {
       const firstSeller = o.orderItems?.[0]?.seller;
       const sellerName = firstSeller?.name || firstSeller?.email || "—";
       const customerName = o.user?.name || o.shippingAddress?.fullName || "Guest";
       const customerId = o.user?.customId || o.user?._id?.toString() || "";
+      const slip = slipMap.get(String(o._id)) || null;
       return {
         _id: o._id,
         id: o._id.toString(),
         customer: customerName,
         customerId,
+        // Customer's user _id (separate from customId display string) so the
+        // table can link Customer column → /users/{userId}.
+        customerUserId: o.user?._id?.toString() || "",
         shop: sellerName,
         shopId: firstSeller?._id?.toString() || "",
         itemCount: o.orderItems?.length || 0,
@@ -119,6 +142,17 @@ export const adminListOrders = async (req: Request, res: Response) => {
         status: toUiStatus(o.status, !!o.isPaid),
         createdAt: o.createdAt,
         updatedAt: o.updatedAt,
+        slip: slip
+          ? {
+              _id: slip._id,
+              slipImageUrl: slip.slipImageUrl,
+              transferAmount: slip.transferAmount,
+              transferRef: slip.transferRef,
+              status: slip.status,
+              rejectionReason: slip.rejectionReason,
+              createdAt: slip.createdAt,
+            }
+          : null,
       };
     });
 

@@ -182,7 +182,7 @@ const ChatAnalyticsPage: React.FC = () => {
                 tone="text-[#00aeff]"
               />
               <div className="rounded-lg border border-gray-100 p-4 bg-white space-y-2">
-                <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                <h4 className="text-[10px] font-bold text-gray-500 tracking-wide">
                   Response time distribution
                 </h4>
                 <div className="flex items-center justify-between text-[12px]">

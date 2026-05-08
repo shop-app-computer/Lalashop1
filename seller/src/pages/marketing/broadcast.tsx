@@ -195,7 +195,7 @@ const BroadcastPage: React.FC = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-[13px] font-bold text-gray-900 truncate">{b.title}</h3>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${STATUS_BADGE[b.status]}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${STATUS_BADGE[b.status]}`}
                     >
                       {b.status}
                     </span>
@@ -387,7 +387,7 @@ const BroadcastPage: React.FC = () => {
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <label className="block">
-    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
+    <span className="text-[10px] font-semibold text-gray-500 tracking-wide block mb-1">
       {label}
     </span>
     {children}

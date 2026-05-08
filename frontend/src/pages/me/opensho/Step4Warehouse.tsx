@@ -153,7 +153,7 @@ export default function Step4FinalReview({
                       ) : (
                         <div className="flex flex-col items-center justify-center text-gray-400 px-2 text-center">
                           <FileImage size={32} strokeWidth={1.5} />
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest">PDF</p>
+                          <p className="mt-1 text-[10px] font-bold tracking-widest">PDF</p>
                           <a
                             href={doc.url}
                             target="_blank"
@@ -166,7 +166,7 @@ export default function Step4FinalReview({
                       )}
                     </div>
                     <div className="px-3 py-2 bg-white border-t border-gray-100">
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide truncate">
+                      <p className="text-[11px] font-bold text-gray-500 tracking-wide truncate">
                         {doc.label}
                       </p>
                     </div>

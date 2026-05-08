@@ -34,6 +34,12 @@ export default function SocialPage() {
   const [showResults, setShowResults] = useState(false);
   const [me, setMe] = useState<MiniUser | null>(null);
 
+  // Build the href for a clicked user — own profile → /me/me (the editable
+  // first-person view), anyone else → /u/{id}. Used by every Avatar/name link
+  // on this page so the redirect is consistent everywhere.
+  const profileHref = (uid: string): string =>
+    me?._id && uid === me._id ? "/me/me" : `/u/${uid}`;
+
   // Resolve current user identity from /auth/me using the JWT in localStorage.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -159,7 +165,7 @@ export default function SocialPage() {
           {showResults && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-border rounded-xl shadow-xl max-h-[400px] overflow-y-auto z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="p-2 border-b border-gray-border flex justify-between items-center bg-gray-light/50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">
+                <span className="text-[10px] font-bold text-gray-400 tracking-widest pl-2">
                   Search Results
                 </span>
                 <button
@@ -177,7 +183,7 @@ export default function SocialPage() {
                 searchResults.map((u) => (
                   <Link
                     key={u._id}
-                    href={`/u/${u._id}`}
+                    href={profileHref(u._id)}
                     onClick={() => setShowResults(false)}
                     className="flex items-center gap-3 p-3 hover:bg-gray-light transition-colors group"
                   >
@@ -274,7 +280,7 @@ export default function SocialPage() {
               {storyAuthors.map((u) => (
                 <Link
                   key={u._id}
-                  href={`/u/${u._id}`}
+                  href={profileHref(u._id)}
                   className="flex flex-col items-center gap-2 min-w-[72px] group"
                 >
                   <div className="w-16 h-16 rounded-full p-[2px] ring-2 ring-primary ring-offset-2 group-hover:ring-accent transition-all duration-300">
@@ -327,7 +333,7 @@ export default function SocialPage() {
               ) : (
                 storyAuthors.slice(0, 5).map((u) => (
                   <div key={u._id} className="flex items-center justify-between group">
-                    <Link href={`/u/${u._id}`} className="flex items-center gap-3 min-w-0">
+                    <Link href={profileHref(u._id)} className="flex items-center gap-3 min-w-0">
                       <Avatar
                         src={u.profileImage}
                         name={u.name}

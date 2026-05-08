@@ -163,7 +163,7 @@ export default function ForgotPasswordPage() {
                       className="space-y-4 pt-4 border-t border-slate-100"
                     >
                       <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-slate-400 tracking-widest ml-1 uppercase">Enter 6-Digit Code</label>
+                        <label className="text-[11px] font-bold text-slate-400 tracking-widest ml-1">Enter 6-Digit Code</label>
                         <input 
                           type="text" 
                           disabled={otpVerified}
@@ -196,7 +196,7 @@ export default function ForgotPasswordPage() {
                       animate={{ height: "auto", opacity: 1 }}
                       className="space-y-4 pt-4 border-t border-slate-100"
                     >
-                      <label className="text-[11px] font-bold text-slate-400 tracking-widest ml-1 uppercase">New Password</label>
+                      <label className="text-[11px] font-bold text-slate-400 tracking-widest ml-1">New Password</label>
                       
                       <div className="space-y-3">
                         <div className="relative">

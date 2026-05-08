@@ -271,7 +271,7 @@ export default function UserProfilePage() {
         <div className="flex justify-center border-t border-gray-100">
           <button
             onClick={() => setActiveTab("posts")}
-            className={`flex items-center gap-2 py-4 px-8 -mt-[1px] text-[10px] font-black uppercase tracking-widest ${
+            className={`flex items-center gap-2 py-4 px-8 -mt-[1px] text-[10px] font-black tracking-widest ${
               activeTab === "posts"
                 ? "border-t-2 border-slate-800 text-slate-800"
                 : "text-gray-400"
@@ -282,7 +282,7 @@ export default function UserProfilePage() {
           {targetUser.isSeller && (
             <button
               onClick={() => setActiveTab("shop")}
-              className={`flex items-center gap-2 py-4 px-8 -mt-[1px] text-[10px] font-black uppercase tracking-widest ${
+              className={`flex items-center gap-2 py-4 px-8 -mt-[1px] text-[10px] font-black tracking-widest ${
                 activeTab === "shop"
                   ? "border-t-2 border-slate-800 text-slate-800"
                   : "text-gray-400"

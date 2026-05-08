@@ -232,7 +232,7 @@ function MetricItem({
 function SmallStat({ title, value, accent }: { title: string; value: string; accent: string }) {
   return (
     <div className="p-4 text-center border-r border-[#EEEEEE] last:border-r-0">
-      <p className="text-[10px] text-[#86878B] font-bold tracking-widest uppercase mb-1">{title}</p>
+      <p className="text-[10px] text-[#86878B] font-bold tracking-widest mb-1">{title}</p>
       <p className={`text-[14px] font-black ${accent}`}>{value}</p>
     </div>
   );

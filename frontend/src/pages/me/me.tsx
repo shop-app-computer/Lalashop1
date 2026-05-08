@@ -364,7 +364,7 @@ const MePage: React.FC = () => {
                               <MapPin size={12} /> {location}
                            </div>
                            <p className="mt-2 text-[12px] text-slate-600 whitespace-pre-wrap leading-relaxed line-clamp-2 md:line-clamp-none">
-                              {user?.bio || "Premium wholesale products for your business. 📦✨"}
+                              {user?.bio}
                            </p>
                         </div>
                      </div>

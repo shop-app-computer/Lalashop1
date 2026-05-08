@@ -1,8 +1,8 @@
 import { Response } from "express";
 import bcrypt from "bcryptjs";
 import Withdraw from "../models/withdrawModel";
-import Bank from "../models/bankModel";
 import User from "../models/userModel";
+import KycSubmission from "../models/kycSubmissionModel";
 import { IAuthRequest } from "../middlewares/authMiddleware";
 
 export const WITHDRAW_RULES = {
@@ -29,10 +29,29 @@ export const listMyWithdrawals = async (req: IAuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: "Not authenticated" });
     }
     const rows = await Withdraw.find({ user: req.user._id })
+      // Legacy records still reference Bank — populate so admins/sellers
+      // viewing old withdrawals see the original bank info. New records use
+      // the snapshot fields directly and the populate is a no-op.
       .populate("bankAccount", "bankName accountNumber accountName")
       .sort({ createdAt: -1 })
-      .limit(100);
-    res.status(200).json({ success: true, data: rows });
+      .limit(100)
+      .lean();
+
+    // Surface a unified shape: prefer snapshot fields, fall back to populated
+    // Bank for legacy rows. The customer's withdraw history reads only the
+    // resolved shape so the UI doesn't need to handle both.
+    const shaped = rows.map((w: any) => {
+      const populated = w.bankAccount && typeof w.bankAccount === "object" ? w.bankAccount : null;
+      return {
+        ...w,
+        bankAccount: {
+          bankName: w.bankNameSnapshot || populated?.bankName || "",
+          accountNumber: w.accountNumberSnapshot || populated?.accountNumber || "",
+          accountName: w.accountNameSnapshot || populated?.accountName || "",
+        },
+      };
+    });
+    res.status(200).json({ success: true, data: shaped });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -44,7 +63,11 @@ export const createWithdrawal = async (req: IAuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: "Not authenticated" });
     }
 
-    const { amount, bankId, pin } = req.body;
+    // bankId is no longer accepted from the client. Withdrawals are locked
+    // to the seller's KYC bank account; we snapshot bankName + accountNumber
+    // + accountName into the Withdraw record so admin views don't depend on
+    // any external Bank document.
+    const { amount, pin } = req.body;
     const numericAmount = Number(amount);
 
     if (!numericAmount || Number.isNaN(numericAmount) || numericAmount <= 0) {
@@ -61,9 +84,6 @@ export const createWithdrawal = async (req: IAuthRequest, res: Response) => {
         success: false,
         message: `Maximum withdrawal is ${WITHDRAW_RULES.maxAmount} ${WITHDRAW_RULES.currency}`,
       });
-    }
-    if (!bankId) {
-      return res.status(400).json({ success: false, message: "bankId is required" });
     }
 
     const user = await User.findById(req.user._id);
@@ -84,9 +104,20 @@ export const createWithdrawal = async (req: IAuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: "Incorrect PIN" });
     }
 
-    const bank = await Bank.findOne({ _id: bankId, user: req.user._id });
-    if (!bank) {
-      return res.status(404).json({ success: false, message: "Bank account not found" });
+    // Resolve the shop's payout bank from KYC. Prefer approved KYC, fall
+    // back to the most recent submission so a seller can still withdraw
+    // while their KYC is under review (the shopInfo is filled either way).
+    const kyc =
+      (await KycSubmission.findOne({ user: req.user._id, status: "approved" }).sort({
+        createdAt: -1,
+      })) ||
+      (await KycSubmission.findOne({ user: req.user._id }).sort({ createdAt: -1 }));
+    if (!kyc || !kyc.shopInfo?.shopAccount) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No shop bank account on file — open your shop / complete KYC first to add a payout account.",
+      });
     }
 
     if ((user.balance || 0) < numericAmount) {
@@ -101,19 +132,16 @@ export const createWithdrawal = async (req: IAuthRequest, res: Response) => {
 
     const created = await Withdraw.create({
       user: req.user._id,
-      bankAccount: bank._id,
+      bankNameSnapshot: kyc.shopInfo.bankName || "",
+      accountNumberSnapshot: kyc.shopInfo.shopAccount || "",
+      accountNameSnapshot: kyc.shopInfo.shopName || "",
       amount: numericAmount,
       fee,
       netAmount,
       status: "pending",
     });
 
-    const populated = await created.populate(
-      "bankAccount",
-      "bankName accountNumber accountName"
-    );
-
-    res.status(201).json({ success: true, data: populated });
+    res.status(201).json({ success: true, data: created });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

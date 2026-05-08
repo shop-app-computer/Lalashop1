@@ -9,6 +9,15 @@ interface UserInfo {
   isAdmin: boolean;
 }
 
+interface AutocompleteItem {
+  _id: string;
+  name: string;
+  price: number;
+  category?: string;
+  image?: string | string[];
+  images?: string[];
+}
+
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -17,7 +26,14 @@ export default function Header() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
+  // Autocomplete state — debounced fetch fires after the user stops typing
+  // for 250ms. Dropdown shows when focused + has results; click-outside
+  // closes it without committing the typed text.
+  const [acItems, setAcItems] = useState<AutocompleteItem[]>([]);
+  const [acOpen, setAcOpen] = useState(false);
+  const [acLoading, setAcLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const acRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -72,6 +88,41 @@ export default function Header() {
     };
   }, []);
 
+  // Debounced autocomplete fetch — only when there's at least 1 char.
+  useEffect(() => {
+    const term = searchQuery.trim();
+    if (!term) {
+      setAcItems([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      setAcLoading(true);
+      try {
+        const res = await apiClient(
+          `/products/autocomplete?q=${encodeURIComponent(term)}`
+        );
+        if (res?.success) setAcItems(res.data || []);
+      } catch {
+        /* silent — header is not critical UI */
+      } finally {
+        setAcLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  // Close the dropdown when clicking outside the input/dropdown.
+  useEffect(() => {
+    if (!acOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (acRef.current && !acRef.current.contains(e.target as Node)) {
+        setAcOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [acOpen]);
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userInfo");
@@ -83,8 +134,18 @@ export default function Header() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+      setAcOpen(false);
+      // Search-driven storefront lives at /products. The Header bar is the
+      // entry point — typing here always lands on /products?q=...
+      router.push(`/products?q=${encodeURIComponent(searchQuery)}`);
     }
+  };
+
+  const acCover = (item: AutocompleteItem): string => {
+    if (Array.isArray(item.images) && item.images.length > 0) return item.images[0];
+    if (typeof item.image === "string") return item.image;
+    if (Array.isArray(item.image) && item.image.length > 0) return item.image[0];
+    return "";
   };
 
   const navItems = [
@@ -123,7 +184,10 @@ export default function Header() {
         </div>
 
         {/* 2. Search Bar (Desktop) */}
-        <div className="hidden sm:block absolute left-1/2 -translate-x-1/2 w-full max-w-lg md:max-w-xl lg:max-w-2xl px-4">
+        <div
+          ref={acRef}
+          className="hidden sm:block absolute left-1/2 -translate-x-1/2 w-full max-w-lg md:max-w-xl lg:max-w-2xl px-4"
+        >
           <form onSubmit={handleSearch} className="relative group">
             <div className="flex items-center bg-gray-100 rounded-full px-6 py-2.5 border border-transparent focus-within:border-primary/30 focus-within:bg-white focus-within:shadow-md transition-all">
               <Search size={18} className="text-gray-400" />
@@ -132,7 +196,11 @@ export default function Header() {
                 placeholder="Find unique goods..."
                 className="flex-1 bg-transparent outline-none text-sm text-slate-700 px-3 placeholder:text-gray-400"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setAcOpen(true);
+                }}
+                onFocus={() => searchQuery.trim() && setAcOpen(true)}
               />
               <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 text-gray-400 hover:text-primary transition-colors">
                 <Camera size={20} />
@@ -143,6 +211,67 @@ export default function Header() {
               </button>
             </div>
           </form>
+
+          {/* Autocomplete dropdown — sits directly under the search bar.
+              Each row navigates straight to the product page; the last row
+              jumps to the full /search page with the typed query. */}
+          {acOpen && searchQuery.trim() && (
+            <div className="absolute left-4 right-4 top-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden z-50">
+              {acLoading && (
+                <div className="px-4 py-6 text-center text-[12px] text-gray-400">
+                  Loading…
+                </div>
+              )}
+              {!acLoading && acItems.length === 0 && (
+                <div className="px-4 py-6 text-center text-[12px] text-gray-400">
+                  No matches — press Enter to search anyway
+                </div>
+              )}
+              {!acLoading &&
+                acItems.map((item) => {
+                  const cover = acCover(item);
+                  return (
+                    <Link
+                      key={item._id}
+                      href={`/product/${item._id}`}
+                      onClick={() => setAcOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-md overflow-hidden bg-slate-100 flex-shrink-0">
+                        {cover && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={cover}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-bold text-slate-800 line-clamp-1">
+                          {item.name}
+                        </p>
+                        {item.category && (
+                          <p className="text-[10px] text-slate-400">{item.category}</p>
+                        )}
+                      </div>
+                      <p className="text-[12px] font-black text-sky-600 tabular-nums flex-shrink-0">
+                        ฿{Number(item.price || 0).toLocaleString()}
+                      </p>
+                    </Link>
+                  );
+                })}
+              {!acLoading && (
+                <Link
+                  href={`/products?q=${encodeURIComponent(searchQuery)}`}
+                  onClick={() => setAcOpen(false)}
+                  className="flex items-center justify-center gap-1 px-3 py-2.5 border-t border-slate-100 bg-slate-50 text-[12px] font-bold text-sky-600 hover:bg-slate-100"
+                >
+                  See all results for &ldquo;{searchQuery}&rdquo;
+                </Link>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 3. Right Icons */}
@@ -183,7 +312,7 @@ export default function Header() {
             <div className="hidden sm:block relative">
               <button onClick={() => setIsLangOpen(!isLangOpen)} className="flex flex-col items-center gap-1 group outline-none">
                 <Globe size={18} className={`${isLangOpen ? 'text-primary' : 'group-hover:text-primary'} transition-colors`} />
-                <span className="text-[10px] group-hover:text-primary transition-colors uppercase font-bold">{selectedLang}</span>
+                <span className="text-[10px] group-hover:text-primary transition-colors font-bold">{selectedLang}</span>
               </button>
               {isLangOpen && (
                 <>
@@ -257,7 +386,7 @@ export default function Header() {
                     className={`flex flex-col items-center p-2 rounded-lg gap-1 ${selectedLang === lang.id ? 'bg-primary/10 border-primary' : 'bg-gray-50 border-transparent'} border`}
                   >
                     <span className="text-lg">{lang.flag}</span>
-                    <span className="text-[8px] font-black uppercase">{lang.id}</span>
+                    <span className="text-[8px] font-black">{lang.id}</span>
                   </button>
                 ))}
               </div>

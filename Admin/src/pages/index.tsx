@@ -146,7 +146,7 @@ const Dashboard: React.FC = () => {
         <>
           {/* Operational queues */}
           <div>
-            <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+            <h2 className="text-[11px] font-bold text-gray-500 tracking-widest mb-2">
               Action queue
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -325,7 +325,7 @@ const Dashboard: React.FC = () => {
                         </p>
                         <p className="text-[10px] text-gray-500">{formatDate(o.createdAt)}</p>
                       </div>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${statusBadge(o.status, o.isPaid)}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${statusBadge(o.status, o.isPaid)}`}>
                         {o.status || (o.isPaid ? "paid" : "pending")}
                       </span>
                       <p className="text-[12px] font-black text-gray-900 tabular-nums w-24 text-right">
@@ -362,7 +362,7 @@ const Dashboard: React.FC = () => {
 
           {/* Quick links */}
           <div>
-            <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+            <h2 className="text-[11px] font-bold text-gray-500 tracking-widest mb-2">
               Quick access
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">

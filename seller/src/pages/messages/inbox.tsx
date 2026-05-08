@@ -601,7 +601,7 @@ const ProductInquiryCard: React.FC<ProductInquiryCardProps> = ({ product, mine, 
         )}
         <div className="flex-1 min-w-0 py-0.5">
           <p
-            className={`text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 ${
+            className={`text-[10px] font-bold tracking-wide flex items-center gap-1 ${
               mine ? "text-white/80" : "text-gray-400"
             }`}
           >

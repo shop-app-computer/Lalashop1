@@ -42,7 +42,7 @@ export default function TopFactoriesPage() {
           <div className="bg-[#111111] rounded-3xl p-10 md:p-20 text-white mb-16 relative overflow-hidden group shadow-2xl flex flex-col md:flex-row items-center justify-between">
              <div className="relative z-10 max-w-xl">
                 <div className="bg-[#00a699]/20 backdrop-blur-md rounded-full px-6 py-2 mb-8 border border-[#00a699]/20 inline-block">
-                   <p className="text-[#00a699] text-[10px] font-extrabold uppercase tracking-[0.2em] flex items-center gap-2">
+                   <p className="text-[#00a699] text-[10px] font-extrabold tracking-[0.2em] flex items-center gap-2">
                       <Trophy size={16} fill="currentColor" />
                       Elite Tier Manufacturers
                    </p>
@@ -114,7 +114,7 @@ export default function TopFactoriesPage() {
                           </div>
                        </div>
                        
-                       <button className="w-full py-3 bg-[#111111] group-hover:bg-[#00a699] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2">
+                       <button className="w-full py-3 bg-[#111111] group-hover:bg-[#00a699] text-white font-extrabold text-[10px] tracking-widest rounded-xl transition-all flex items-center justify-center gap-2">
                           Order Now <ArrowRight size={12} />
                        </button>
                     </div>

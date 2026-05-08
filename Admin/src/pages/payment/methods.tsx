@@ -190,7 +190,7 @@ const PaymentMethodsPage: React.FC = () => {
                       {meta.label}
                     </span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${
                         m.isActive
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-gray-100 text-gray-500"

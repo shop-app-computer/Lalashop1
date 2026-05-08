@@ -4,7 +4,15 @@ export type WithdrawStatus = "pending" | "approved" | "completed" | "rejected" |
 
 export interface IWithdraw extends Document {
   user: mongoose.Types.ObjectId;
-  bankAccount: mongoose.Types.ObjectId;
+  // Legacy: ObjectId reference into the Bank collection from when withdrawals
+  // used user-managed bank accounts. New withdrawals snapshot the destination
+  // directly into bankNameSnapshot/accountNumberSnapshot/accountNameSnapshot
+  // (filled from the seller's KYC at create time) so admin/seller views don't
+  // depend on the Bank collection at all.
+  bankAccount?: mongoose.Types.ObjectId;
+  bankNameSnapshot?: string;
+  accountNumberSnapshot?: string;
+  accountNameSnapshot?: string;
   amount: number;
   fee: number;
   netAmount: number;
@@ -22,7 +30,11 @@ export interface IWithdraw extends Document {
 const withdrawSchema = new Schema<IWithdraw>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    bankAccount: { type: Schema.Types.ObjectId, ref: "Bank", required: true },
+    // Optional now — new withdrawals snapshot directly from KYC instead.
+    bankAccount: { type: Schema.Types.ObjectId, ref: "Bank" },
+    bankNameSnapshot: { type: String, default: "" },
+    accountNumberSnapshot: { type: String, default: "" },
+    accountNameSnapshot: { type: String, default: "" },
     amount: { type: Number, required: true, min: 0 },
     fee: { type: Number, default: 0 },
     netAmount: { type: Number, required: true },

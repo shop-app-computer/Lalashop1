@@ -104,10 +104,23 @@ export const adminListWithdrawals = async (req: Request, res: Response) => {
       }
     }
 
-    const enriched = items.map((w: any) => ({
-      ...w,
-      shopName: w.user?._id ? shopNameById.get(String(w.user._id)) || null : null,
-    }));
+    // Surface bank info from snapshot fields when present; fall back to the
+    // populated Bank doc for legacy rows. Admin renderer reads only
+    // `bankAccount.bankName/accountNumber/accountName` regardless of source.
+    const enriched = items.map((w: any) => {
+      const populated = w.bankAccount && typeof w.bankAccount === "object" ? w.bankAccount : null;
+      return {
+        ...w,
+        shopName: w.user?._id ? shopNameById.get(String(w.user._id)) || null : null,
+        bankAccount: {
+          _id: populated?._id || null,
+          bankName: w.bankNameSnapshot || populated?.bankName || "",
+          accountNumber: w.accountNumberSnapshot || populated?.accountNumber || "",
+          accountName: w.accountNameSnapshot || populated?.accountName || "",
+          isVerified: populated?.isVerified ?? false,
+        },
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -125,12 +138,20 @@ export const adminGetWithdrawal = async (req: Request, res: Response) => {
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({ success: false, message: "Invalid id" });
     }
-    const item = await Withdraw.findById(id)
+    const item: any = await Withdraw.findById(id)
       .populate("user", "name email customId profileImage isSeller seller_type balance")
       .populate("bankAccount", "bankName accountNumber accountName isVerified")
       .populate("processedBy", "name email customId")
       .lean();
     if (!item) return res.status(404).json({ success: false, message: "Not found" });
+    const populated = item.bankAccount && typeof item.bankAccount === "object" ? item.bankAccount : null;
+    item.bankAccount = {
+      _id: populated?._id || null,
+      bankName: item.bankNameSnapshot || populated?.bankName || "",
+      accountNumber: item.accountNumberSnapshot || populated?.accountNumber || "",
+      accountName: item.accountNameSnapshot || populated?.accountName || "",
+      isVerified: populated?.isVerified ?? false,
+    };
     res.status(200).json({ success: true, data: item });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

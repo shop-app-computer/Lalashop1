@@ -96,8 +96,8 @@ export default function CartPage() {
         ) : items.length === 0 ? (
           <div className="py-32 flex flex-col items-center opacity-30 px-10 text-center w-full">
             <ShoppingCart size={48} strokeWidth={1} />
-            <p className="mt-4 text-[13px] font-bold tracking-widest uppercase">your cart is empty</p>
-            <Link href="/" className="mt-6 text-[#0077b6] border-b border-[#0077b6] pb-1 text-sm font-bold uppercase">shop now</Link>
+            <p className="mt-4 text-[13px] font-bold tracking-widest">your cart is empty</p>
+            <Link href="/" className="mt-6 text-[#0077b6] border-b border-[#0077b6] pb-1 text-sm font-bold">shop now</Link>
           </div>
         ) : (
           <div className="w-full">
@@ -166,7 +166,7 @@ export default function CartPage() {
       {items.length > 0 && (
         <div className="fixed bottom-[70px] md:bottom-0 left-0 md:left-[64px] right-0 bg-white border-t border-[#EEEEEE] px-5 py-4 flex items-center justify-between z-[110] shadow-[0_-8px_30px_rgba(0,0,0,0.05)]">
           <div className="flex flex-col">
-            <span className="text-[10px] text-[#86878B] font-bold uppercase tracking-widest">total amount</span>
+            <span className="text-[10px] text-[#86878B] font-bold tracking-widest">total amount</span>
             <span className="text-[22px] font-black text-[#FE2C55] leading-none mt-1">฿{subtotal.toLocaleString()}</span>
           </div>
           <button

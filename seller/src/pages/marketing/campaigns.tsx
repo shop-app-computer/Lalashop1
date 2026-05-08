@@ -233,7 +233,7 @@ const CampaignsPage: React.FC = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-[13px] font-bold text-gray-900 truncate">{r.name}</h3>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${statusBadge(r.status)}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${statusBadge(r.status)}`}
                     >
                       {r.status}
                     </span>

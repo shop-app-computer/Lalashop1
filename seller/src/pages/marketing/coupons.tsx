@@ -183,7 +183,7 @@ const CouponsPage: React.FC = () => {
                       )}
                     </button>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${STATUS_BADGE[c.status]}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${STATUS_BADGE[c.status]}`}
                     >
                       {c.status}
                     </span>
@@ -256,7 +256,7 @@ const CouponsPage: React.FC = () => {
                 <Field label="Code">
                   <input
                     required
-                    className="w-full border rounded px-2 py-1.5 text-xs uppercase font-mono"
+                    className="w-full border rounded px-2 py-1.5 text-xs font-mono"
                     value={form.code}
                     onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   />
@@ -395,7 +395,7 @@ const CouponsPage: React.FC = () => {
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <label className="block">
-    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
+    <span className="text-[10px] font-semibold text-gray-500 tracking-wide block mb-1">
       {label}
     </span>
     {children}

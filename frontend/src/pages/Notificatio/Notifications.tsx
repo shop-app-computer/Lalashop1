@@ -146,7 +146,7 @@ const CredentialsCard: React.FC<CredentialsCardProps> = ({ credentials }) => {
       <div className="space-y-3">
         <div className="rounded-lg bg-white border border-emerald-100 px-4 py-3">
           <div className="flex items-center justify-between gap-3 mb-1">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 tracking-widest">
               <Mail size={11} /> Email
             </span>
             <CopyButton value={credentials.email} label="email" />
@@ -156,7 +156,7 @@ const CredentialsCard: React.FC<CredentialsCardProps> = ({ credentials }) => {
 
         <div className="rounded-lg bg-white border border-emerald-100 px-4 py-3">
           <div className="flex items-center justify-between gap-3 mb-1">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 tracking-widest">
               <Lock size={11} /> Password
             </span>
             <div className="inline-flex items-center gap-3">
@@ -357,12 +357,12 @@ export default function SystemNotifications(): JSX.Element {
                   {n.body}
                 </p>
                 {n.metadata?.credentials && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded tracking-wider">
                     <Store size={10} /> Tap to view shop credentials
                   </span>
                 )}
                 <div className="absolute bottom-0 right-0 bg-white/50 pl-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">
+                  <p className="text-[10px] font-black text-slate-400 tracking-tight">
                     {formatTimeAgo(n.createdAt)}
                   </p>
                 </div>
@@ -374,7 +374,7 @@ export default function SystemNotifications(): JSX.Element {
             <div className="w-24 h-24 bg-slate-50 rounded-[40px] flex items-center justify-center mb-6">
               <Bell size={48} strokeWidth={1.2} className="text-slate-300" />
             </div>
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400">
+            <p className="text-[11px] font-black tracking-[0.3em] text-slate-400">
               System is quiet
             </p>
           </div>
@@ -399,7 +399,7 @@ export default function SystemNotifications(): JSX.Element {
                   <h2 className="text-lg font-black text-slate-900 leading-tight">
                     {active.title}
                   </h2>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-1">
+                  <p className="text-[11px] font-bold text-slate-400 tracking-wider mt-1">
                     {formatFullDate(active.createdAt)}
                   </p>
                 </div>

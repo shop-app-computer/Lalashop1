@@ -154,7 +154,7 @@ const RefundsPage: React.FC = () => {
                       {r.customer?.name || r.customer?.username || "Customer"}
                     </span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${STATUS_BADGE[r.status]}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${STATUS_BADGE[r.status]}`}
                     >
                       {r.status}
                     </span>

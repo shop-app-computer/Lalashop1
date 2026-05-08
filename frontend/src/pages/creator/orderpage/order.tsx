@@ -112,15 +112,15 @@ export default function CreatorOrders({ onBack }: OrderCreatorProps) {
       <main className="w-full">
         <div className="bg-white p-4 mb-2 grid grid-cols-3 border-b border-[#EBEBEB] divide-x divide-[#F1F1F2]">
           <div className="pr-3">
-            <p className="text-[10px] font-bold text-[#8A8B91] mb-0.5 tracking-wider uppercase">Earned</p>
+            <p className="text-[10px] font-bold text-[#8A8B91] mb-0.5 tracking-wider">Earned</p>
             <p className="text-lg font-black text-[#00B67A]">฿{summary.earned.toFixed(2)}</p>
           </div>
           <div className="px-3">
-            <p className="text-[10px] font-bold text-[#8A8B91] mb-0.5 tracking-wider uppercase">Pending</p>
+            <p className="text-[10px] font-bold text-[#8A8B91] mb-0.5 tracking-wider">Pending</p>
             <p className="text-lg font-black text-amber-600">฿{summary.pending.toFixed(2)}</p>
           </div>
           <div className="pl-3">
-            <p className="text-[10px] font-bold text-[#8A8B91] mb-0.5 tracking-wider uppercase">Orders</p>
+            <p className="text-[10px] font-bold text-[#8A8B91] mb-0.5 tracking-wider">Orders</p>
             <p className="text-lg font-black text-[#161823]">{summary.count}</p>
           </div>
         </div>
@@ -160,7 +160,7 @@ export default function CreatorOrders({ onBack }: OrderCreatorProps) {
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-[10px] font-mono text-[#8A8B91]">#{order._id.slice(-8).toUpperCase()}</span>
                   <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${statusBadge(
+                    className={`text-[10px] font-bold tracking-wider px-2 py-1 rounded-full ${statusBadge(
                       order.status
                     )}`}
                   >
@@ -203,7 +203,7 @@ export default function CreatorOrders({ onBack }: OrderCreatorProps) {
                     <p className="text-[11px] font-bold">{new Date(order.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-black text-[#00B67A] tracking-tighter leading-none mb-1 uppercase">
+                    <p className="text-[10px] font-black text-[#00B67A] tracking-tighter leading-none mb-1">
                       Commission
                     </p>
                     <p className="text-[18px] font-black text-[#00B67A]">

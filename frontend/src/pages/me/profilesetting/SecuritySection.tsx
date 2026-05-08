@@ -240,7 +240,7 @@ export function SecuritySection() {
         {showPasswordForm && (
           <form onSubmit={handlePasswordChange} className="p-4 space-y-4 border-t border-gray-50 bg-white">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase">Current Password</label>
+              <label className="text-[10px] font-bold text-gray-400">Current Password</label>
               <div className="relative">
                 <input
                   type={showCurrent ? "text" : "password"}
@@ -256,7 +256,7 @@ export function SecuritySection() {
             </div>
             
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase">New Password</label>
+              <label className="text-[10px] font-bold text-gray-400">New Password</label>
               <div className="relative">
                 <input
                   type={showNew ? "text" : "password"}
@@ -271,7 +271,7 @@ export function SecuritySection() {
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase">Confirm New Password</label>
+              <label className="text-[10px] font-bold text-gray-400">Confirm New Password</label>
               <div className="relative">
                 <input
                   type={showConfirm ? "text" : "password"}
@@ -321,7 +321,7 @@ export function SecuritySection() {
           ) : (
             <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
               <CheckCircle size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
+              <span className="text-[10px] font-black tracking-widest">Active</span>
             </div>
           )}
         </div>
@@ -329,7 +329,7 @@ export function SecuritySection() {
         {showPinForm && !hasWithdrawPin && (
           <form onSubmit={handleSetWithdrawPin} className="p-5 space-y-4 border-t border-gray-50 bg-white animate-in slide-in-from-top-2">
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center block">Set 6-Digit PIN</label>
+              <label className="text-[10px] font-black text-slate-400 tracking-widest text-center block">Set 6-Digit PIN</label>
               <div className="flex justify-center gap-2">
                  <input
                     type="password"
@@ -352,7 +352,7 @@ export function SecuritySection() {
             <button
               type="submit"
               disabled={saving || withdrawPin.length !== 6}
-              className="w-full bg-[#00aeff] text-white py-3 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-[#00aeff]/20 active:scale-95 transition-all disabled:opacity-30"
+              className="w-full bg-[#00aeff] text-white py-3 rounded-xl text-sm font-black tracking-widest shadow-lg shadow-[#00aeff]/20 active:scale-95 transition-all disabled:opacity-30"
             >
               {saving ? "Setting PIN..." : "Confirm PIN"}
             </button>
@@ -393,7 +393,7 @@ export function SecuritySection() {
             {activeSetup === 'email' && !twoFactor.enabled && (
               <div className="p-4 pt-0 space-y-4 border-t border-gray-50 bg-white/50 animate-in slide-in-from-top-2 duration-300">
                 <div className="space-y-1 pt-3">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase">Email Address</label>
+                  <label className="text-[10px] font-bold text-gray-400">Email Address</label>
                   <input
                     type="email"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-[#00aeff] outline-none bg-gray-50"
@@ -412,7 +412,7 @@ export function SecuritySection() {
                   </button>
                 ) : (
                   <div className="space-y-3 animate-in fade-in">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Enter 6-digit Code</p>
+                    <p className="text-[10px] font-bold text-gray-400">Enter 6-digit Code</p>
                     <input
                       type="text"
                       maxLength={6}
@@ -471,7 +471,7 @@ export function SecuritySection() {
                     <img src={totpSetup.qrCode} alt="QR Code" className="w-40 h-40" />
                   </div>
                   <div className="w-full space-y-2">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase text-center">Secret Key</p>
+                    <p className="text-[10px] font-bold text-gray-400 text-center">Secret Key</p>
                     <div className="flex items-center gap-2 p-2 bg-gray-50 border border-dashed border-gray-200 rounded-lg">
                       <code className="flex-1 text-xs font-mono font-bold text-gray-600 truncate">{totpSetup.secret}</code>
                       <button onClick={() => { navigator.clipboard.writeText(totpSetup.secret); alert("Copied!") }} className="p-1 text-[#00aeff]">
@@ -482,7 +482,7 @@ export function SecuritySection() {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase">Enter 6-digit App Code</p>
+                  <p className="text-[10px] font-bold text-gray-400">Enter 6-digit App Code</p>
                   <input
                     type="text"
                     maxLength={6}

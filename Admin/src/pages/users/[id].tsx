@@ -387,7 +387,7 @@ const UserDetailsPage = () => {
         <div className="rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Store className="w-4 h-4 text-emerald-600" />
-            <h3 className="text-[12px] font-black text-emerald-900 tracking-wide uppercase">
+            <h3 className="text-[12px] font-black text-emerald-900 tracking-wide">
               Seller credentials issued
             </h3>
           </div>
@@ -619,9 +619,9 @@ const UserDetailsPage = () => {
                 <>
                   <Row label="KYC status" value={
                     <span className={
-                      kyc.status === "approved" ? "text-emerald-600 font-bold uppercase" :
-                      kyc.status === "rejected" ? "text-rose-600 font-bold uppercase" :
-                      "text-amber-600 font-bold uppercase"
+                      kyc.status === "approved" ? "text-emerald-600 font-bold" :
+                      kyc.status === "rejected" ? "text-rose-600 font-bold" :
+                      "text-amber-600 font-bold"
                     }>{kyc.status}</span>
                   } />
                   <Row label="KYC submitted" value={formatDateTime(kyc.submittedAt)} mono />
@@ -709,7 +709,7 @@ const UserDetailsPage = () => {
             />
 
             <div className="border-t border-gray-100 pt-3 space-y-3">
-              <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+              <p className="text-[11px] tracking-wider text-gray-500 font-bold">
                 Bank account
               </p>
               <Field
@@ -730,7 +730,7 @@ const UserDetailsPage = () => {
             </div>
 
             <div className="border-t border-gray-100 pt-3 space-y-3">
-              <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+              <p className="text-[11px] tracking-wider text-gray-500 font-bold">
                 Reset credentials (leave blank to keep current)
               </p>
               <Field
@@ -1053,7 +1053,7 @@ const WithdrawalBreakdown: React.FC<WithdrawalBreakdownProps> = ({ finance, user
 
       {/* Status breakdown */}
       <div>
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-[10px] font-bold text-gray-500 tracking-wide mb-2">
           By status
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -1066,7 +1066,7 @@ const WithdrawalBreakdown: React.FC<WithdrawalBreakdownProps> = ({ finance, user
                 className="rounded-md border border-gray-100 px-3 py-2 flex items-center justify-between gap-2"
               >
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${WITHDRAW_STATUS_TONE[s]}`}
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${WITHDRAW_STATUS_TONE[s]}`}
                 >
                   {s}
                 </span>
@@ -1096,7 +1096,7 @@ const WithdrawalBreakdown: React.FC<WithdrawalBreakdownProps> = ({ finance, user
             <strong className="text-gray-700">Last withdrawal:</strong>{" "}
             ฿{formatNumber(w.last.amount)} (net ฿{formatNumber(w.last.netAmount)} · fee ฿
             {formatNumber(w.last.fee)}) · status{" "}
-            <strong className="uppercase">{w.last.status}</strong>
+            <strong className="">{w.last.status}</strong>
           </p>
           <p className="text-gray-500">
             {formatDateTime(w.last.createdAt)}
@@ -1292,7 +1292,7 @@ interface CredCardProps {
 const CredCard: React.FC<CredCardProps> = ({ label, value, copied, onCopy }) => (
   <div className="rounded-lg bg-white border border-emerald-100 px-3 py-2">
     <div className="flex items-center justify-between">
-      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
+      <span className="text-[10px] font-bold text-slate-500 tracking-widest">{label}</span>
       <button
         onClick={onCopy}
         className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900"
@@ -1347,7 +1347,7 @@ interface FieldProps {
 
 const Field: React.FC<FieldProps> = ({ label, value, onChange, type = "text", placeholder }) => (
   <label className="block">
-    <span className="block text-[11px] text-gray-500 mb-1 font-bold uppercase tracking-wide">
+    <span className="block text-[11px] text-gray-500 mb-1 font-bold tracking-wide">
       {label}
     </span>
     <input

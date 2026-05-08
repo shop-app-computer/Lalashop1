@@ -133,7 +133,7 @@ const LabelsPage: React.FC = () => {
         </div>
         {allTags.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+            <span className="text-[10px] font-bold text-gray-500 tracking-wide">
               All tags:
             </span>
             {allTags.map((t) => (

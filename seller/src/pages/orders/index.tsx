@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, ChevronDown } from 'lucide-react';
-import { fetchMyOrders, type SellerOrderRow } from '@/services/sellerApi';
+import { Search, ChevronDown, Loader2, Check } from 'lucide-react';
+import {
+  fetchMyOrders,
+  updateMyOrderStatus,
+  type SellerOrderRow,
+  type SellerOrderStatus,
+} from '@/services/sellerApi';
 
 // All seller order views in one page. The dropdown switches the active
 // filter (formerly: pending, processing, shipping, delivered, cancelled,
@@ -74,6 +79,30 @@ const statusBadge: Record<string, string> = {
   shipped: 'bg-purple-50 text-purple-700',
   delivered: 'bg-green-50 text-green-700',
   canceled: 'bg-red-50 text-red-700',
+};
+
+// What status can a seller move this order TO from its current state?
+// Backend has the same guards — frontend just hides options the API would
+// reject (so the dropdown doesn't surface dead-end choices).
+const allowedTransitions = (o: SellerOrderRow): SellerOrderStatus[] => {
+  if (o.status === 'delivered' || o.status === 'canceled') return [];
+  if (!o.isPaid) return []; // payment must be verified by admin first
+  switch (o.status) {
+    case 'pending':
+    case 'processing':
+      return ['shipped', 'canceled'];
+    case 'shipped':
+      return ['delivered', 'canceled'];
+    default:
+      return [];
+  }
+};
+
+const transitionLabel: Record<SellerOrderStatus, string> = {
+  processing: 'Processing',
+  shipped: 'Mark Shipped',
+  delivered: 'Mark Delivered',
+  canceled: 'Cancel order',
 };
 
 const formatMoney = (n: number): string =>
@@ -274,13 +303,21 @@ const OrdersPage: React.FC = () => {
                     <td className="px-4 py-2 text-gray-700">{o.paymentMethod || '—'}</td>
                     <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(o.createdAt)}</td>
                     <td className="px-4 py-2">
-                      <span
-                        className={`text-[11px] font-medium px-2 py-0.5 rounded capitalize ${
-                          statusBadge[o.status] || 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {o.status}
-                      </span>
+                      <StatusCell
+                        order={o}
+                        onChanged={(updated) => {
+                          // Optimistic refresh — splice the updated order into
+                          // the local array so the dropdown closes on the new
+                          // state without a full refetch.
+                          setAllOrders((prev) =>
+                            prev.map((row) =>
+                              row._id === updated._id
+                                ? { ...row, status: updated.status, isDelivered: updated.isDelivered }
+                                : row,
+                            ),
+                          );
+                        }}
+                      />
                     </td>
                   </tr>
                 );
@@ -296,6 +333,118 @@ const OrdersPage: React.FC = () => {
           </table>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Inline status editor — clicking the badge opens a list of allowed
+// transitions. Disabled when the order is in a terminal state (delivered /
+// canceled) or unpaid (admin needs to verify the slip first).
+interface StatusCellProps {
+  order: SellerOrderRow;
+  onChanged: (updated: { _id: string; status: SellerOrderStatus; isDelivered: boolean }) => void;
+}
+
+const StatusCell: React.FC<StatusCellProps> = ({ order, onChanged }) => {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<SellerOrderStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const transitions = allowedTransitions(order);
+  const editable = transitions.length > 0;
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setError(null);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const apply = async (next: SellerOrderStatus) => {
+    if (next === 'canceled') {
+      const ok = window.confirm(
+        'Cancel this order? The buyer will be notified. This may need a manual refund if already paid.',
+      );
+      if (!ok) return;
+    }
+    setBusy(next);
+    setError(null);
+    try {
+      const updated = await updateMyOrderStatus(order._id, next);
+      if (!updated) throw new Error('No response');
+      onChanged({
+        _id: updated._id,
+        status: updated.status,
+        isDelivered: updated.isDelivered,
+      });
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update status');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const badge = (
+    <span
+      className={`text-[11px] font-medium px-2 py-0.5 rounded capitalize ${
+        statusBadge[order.status] || 'bg-gray-100 text-gray-600'
+      }`}
+    >
+      {order.status}
+    </span>
+  );
+
+  if (!editable) {
+    return badge;
+  }
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
+        title="Change status"
+      >
+        {badge}
+        <ChevronDown
+          className={`w-3 h-3 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-100 rounded-md shadow-lg py-1 z-20 min-w-[160px]">
+          {transitions.map((t) => {
+            const isThisBusy = busy === t;
+            const tone =
+              t === 'canceled'
+                ? 'text-rose-700 hover:bg-rose-50'
+                : 'text-gray-700 hover:bg-gray-50';
+            return (
+              <button
+                key={t}
+                onClick={() => apply(t)}
+                disabled={busy !== null}
+                className={`w-full text-left px-3 py-2 text-[11px] font-bold transition-colors flex items-center justify-between disabled:opacity-50 ${tone}`}
+              >
+                <span>{transitionLabel[t]}</span>
+                {isThisBusy ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Check className="w-3 h-3 opacity-0" />
+                )}
+              </button>
+            );
+          })}
+          {error && (
+            <p className="px-3 py-2 text-[10px] text-rose-700 bg-rose-50">{error}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

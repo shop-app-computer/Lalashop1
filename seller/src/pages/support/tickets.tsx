@@ -301,7 +301,7 @@ const TicketsPage: React.FC = () => {
             </div>
             <div className="overflow-y-auto px-5 py-4 flex-1 space-y-3">
               <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+                <p className="text-[10px] font-bold text-gray-500 tracking-wide mb-1">
                   You · {formatDate(active.createdAt)}
                 </p>
                 <p className="text-[13px] text-gray-700 whitespace-pre-wrap">{active.description}</p>
@@ -311,7 +311,7 @@ const TicketsPage: React.FC = () => {
                   key={r._id || idx}
                   className={`rounded-lg p-3 ${r.authorRole === "admin" ? "bg-blue-50" : "bg-gray-50"}`}
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-wide mb-1 text-gray-500">
+                  <p className="text-[10px] font-bold tracking-wide mb-1 text-gray-500">
                     {r.authorRole === "admin" ? "Support team" : "You"} · {formatDate(r.createdAt)}
                   </p>
                   <p className="text-[13px] text-gray-700 whitespace-pre-wrap">{r.message}</p>

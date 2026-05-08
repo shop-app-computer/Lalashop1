@@ -105,7 +105,7 @@ export default function Home() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
                       <div className="absolute bottom-3 left-4 sm:bottom-6 sm:left-8 text-white">
-                        <p className="text-[10px] sm:text-xs font-bold tracking-widest uppercase opacity-80">
+                        <p className="text-[10px] sm:text-xs font-bold tracking-widest opacity-80">
                           Featured
                         </p>
                         <p className="text-sm sm:text-xl font-black drop-shadow-lg line-clamp-1 max-w-md">

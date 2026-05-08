@@ -53,6 +53,10 @@ export default function ShopOnboarding({ onBack, onComplete }: OnboardingProps) 
   const [shopName, setShopName] = useState("");
   const [shopEmail, setShopEmail] = useState("");
   const [shopAccount, setShopAccount] = useState("");
+  // Bank name for the shop's payout account (free text — supports any local
+  // bank). Stored in KycSubmission.shopInfo.bankName and snapshotted into
+  // every Withdraw record at create time.
+  const [bankName, setBankName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -122,6 +126,7 @@ export default function ShopOnboarding({ onBack, onComplete }: OnboardingProps) 
         shopInfo: {
           shopName,
           shopAccount,
+          bankName,
           shopCategory,
           shopEmail,
           phoneNumber,
@@ -193,9 +198,11 @@ export default function ShopOnboarding({ onBack, onComplete }: OnboardingProps) 
     if (step === 2) {
       if (!shopName.trim()) newErrors.shopName = true;
       if (!shopAccount.trim()) newErrors.shopAccount = true;
+      if (!bankName.trim()) newErrors.bankName = true;
       if (!shopCategory) newErrors.shopCategory = true;
-      if (!phoneNumber.trim()) newErrors.phoneNumber = true;
-      if (!verificationCode.trim()) newErrors.verificationCode = true;
+      // phoneNumber + verificationCode were removed from the Step 2 form,
+      // so we no longer require them here. Phone is now optional and is
+      // captured at registration / from the user's account profile.
     }
 
     if (step === 3) {
@@ -292,10 +299,9 @@ export default function ShopOnboarding({ onBack, onComplete }: OnboardingProps) 
             selectedCountry={selectedCountry} setSelectedCountry={setSelectedCountry}
             shopName={shopName} setShopName={setShopName}
             shopAccount={shopAccount} setShopAccount={setShopAccount}
+            bankName={bankName} setBankName={setBankName}
             shopEmail={shopEmail} setShopEmail={setShopEmail}
             accountEmail={accountEmail}
-            phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
-            verificationCode={verificationCode} setVerificationCode={setVerificationCode}
             errors={errors}
           />
         )}

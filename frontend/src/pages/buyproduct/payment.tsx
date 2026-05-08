@@ -132,7 +132,7 @@ export default function PaymentPage() {
                       <div className="flex-1 min-w-0">
                         {/* เพิ่ม Link ครอบชื่อสินค้า */}
                         <Link href={`/product/${query.id || query._id}`} className="hover:text-blue-600 transition-colors">
-                          <p className="text-sm font-bold text-gray-900 uppercase truncate">{query.name}</p>
+                          <p className="text-sm font-bold text-gray-900 truncate">{query.name}</p>
                         </Link>
                         <p className="text-xs text-gray-400 mt-0.5">
                           Option: {query.color} · Size: {query.size}
@@ -157,7 +157,7 @@ export default function PaymentPage() {
                         <div className="flex-1 min-w-0">
                           {/* เพิ่ม Link ครอบชื่อสินค้า */}
                           <Link href={`/product/${item.productId}`} className="hover:text-blue-600 transition-colors">
-                            <p className="text-sm font-bold text-gray-900 uppercase truncate">{item.product.name}</p>
+                            <p className="text-sm font-bold text-gray-900 truncate">{item.product.name}</p>
                           </Link>
                           <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">{item.product.description}</p>
                         </div>

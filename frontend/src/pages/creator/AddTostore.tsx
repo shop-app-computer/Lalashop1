@@ -131,7 +131,7 @@ export default function AddToStore({ onBack: _onBack }: AddToStoreProps) {
                   </div>
                   <div className="p-1 space-y-1 flex-1 flex flex-col justify-between">
                     <div>
-                      <p className="text-[9px] font-black text-slate-900 line-clamp-1 leading-tight tracking-tighter mb-1 uppercase">
+                      <p className="text-[9px] font-black text-slate-900 line-clamp-1 leading-tight tracking-tighter mb-1">
                         {p.name}
                       </p>
 
@@ -171,7 +171,7 @@ export default function AddToStore({ onBack: _onBack }: AddToStoreProps) {
                     <button
                       onClick={() => handleAdd(p._id)}
                       disabled={isAdding || isAdded}
-                      className={`w-[95%] mx-auto py-1.5 text-white text-[8px] font-black rounded-xl mt-1 active:scale-95 transition-all uppercase tracking-widest shadow-lg flex items-center justify-center gap-1 ${
+                      className={`w-[95%] mx-auto py-1.5 text-white text-[8px] font-black rounded-xl mt-1 active:scale-95 transition-all tracking-widest shadow-lg flex items-center justify-center gap-1 ${
                         isAdded
                           ? "bg-emerald-500 shadow-emerald-500/20"
                           : "bg-primary shadow-primary/20"

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { ShieldCheck, ChevronDown, Info, Plus, X } from "lucide-react";
-import { countries, productCategories } from "./constants";
+import { countries, productCategories, laoBanks } from "./constants";
 
 interface Props {
     businessType: string | null;
@@ -13,13 +13,11 @@ interface Props {
     setShopAccount: (val: string) => void;
     shopName: string;
     setShopName: (val: string) => void;
+    bankName: string;
+    setBankName: (val: string) => void;
     shopEmail: string;
     setShopEmail: (val: string) => void;
     accountEmail?: string;
-    phoneNumber: string;
-    setPhoneNumber: (val: string) => void;
-    verificationCode: string;
-    setVerificationCode: (val: string) => void;
     errors: Record<string, boolean>;
 }
 
@@ -29,10 +27,9 @@ export default function Step2ShopInfo({
     selectedCountry, setSelectedCountry,
     shopAccount, setShopAccount,
     shopName, setShopName,
+    bankName, setBankName,
     shopEmail, setShopEmail,
     accountEmail,
-    phoneNumber, setPhoneNumber,
-    verificationCode, setVerificationCode,
     errors,
 }: Props) {
     const isIndividual = businessType === 'individual';
@@ -77,7 +74,7 @@ export default function Step2ShopInfo({
                     <div className="space-y-6 pb-6 border-b border-gray-50">
                         <div className="flex items-center gap-2 text-primary">
                             <Info size={20} />
-                            <h2 className="text-[18px] font-bold uppercase tracking-tight">Business Entity Details</h2>
+                            <h2 className="text-[18px] font-bold tracking-tight">Business Entity Details</h2>
                         </div>
                         <div className="space-y-3">
                             <label className="text-[14px] font-bold text-gray-700">
@@ -99,21 +96,54 @@ export default function Step2ShopInfo({
 
                 <div className="flex flex-col md:flex-row gap-10">
                     <div className="flex-1 space-y-6">
-                        <h2 className="text-[20px] font-bold">Store Name</h2>
+                        <h2 className="text-[20px] font-bold">Shop Bank Account</h2>
+
                         <div className="space-y-3">
                             <p className="text-[13px] text-gray-500 leading-relaxed font-medium">
-                                You can change the name after starting.<br />
-                                Name Requirements:<br />
-                                1 Avoid using "Flagship" or "Official".<br />
-                                2 Avoid store names consisting only of alphanumeric characters or special characters.
+                                Enter your shop’s bank account information to receive payments.<br />
+                                Please make sure the account name and account number are correct.<br />
+                                This information will be used for withdrawals and settlements.
                             </p>
+
                             <input
                                 type="text"
                                 value={shopName}
                                 onChange={(e) => setShopName(e.target.value)}
-                                placeholder="Enter Store Name"
-                                className={`w-full border rounded-lg px-4 py-3 text-[15px] focus:border-primary outline-none bg-white transition-all ${errors.shopName ? 'border-red-500 bg-red-50/10' : 'border-gray-border'}`}
+                                placeholder="Account Holder Name"
+                                className={`w-full border rounded-lg px-4 py-3 text-[15px] focus:border-primary outline-none bg-white transition-all ${errors.shopName
+                                        ? "border-red-500 bg-red-50/10"
+                                        : "border-gray-border"
+                                    }`}
                             />
+
+                            {/* Bank name — pick from Lao commercial banks. The */}
+                            {/* "Other" entry exists for branch banks not in the */}
+                            {/* canonical list. Required so admin payout sheets */}
+                            {/* get a clean, normalised bank value. */}
+                            <div className="relative">
+                                <select
+                                    value={bankName}
+                                    onChange={(e) => setBankName(e.target.value)}
+                                    className={`w-full border rounded-lg px-4 py-3 text-[15px] focus:border-primary outline-none appearance-none bg-white pr-10 transition-all cursor-pointer ${errors.bankName
+                                            ? "border-red-500 bg-red-50/10"
+                                            : "border-gray-border"
+                                        } ${bankName ? "" : "text-gray-400"}`}
+                                >
+                                    <option value="" disabled>
+                                        Select Bank
+                                    </option>
+                                    {laoBanks.map((b) => (
+                                        <option key={b} value={b} className="text-dark">
+                                            {b}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown
+                                    size={18}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                                />
+                            </div>
+
                             <input
                                 type="text"
                                 value={shopAccount}
@@ -123,8 +153,11 @@ export default function Step2ShopInfo({
                                         setShopAccount(val);
                                     }
                                 }}
-                                placeholder="Store Account"
-                                className={`w-full border rounded-lg px-4 py-3 text-[15px] focus:border-primary outline-none bg-white transition-all ${errors.shopAccount ? 'border-red-500 bg-red-50/10' : 'border-gray-border'}`}
+                                placeholder="Bank Account Number"
+                                className={`w-full border rounded-lg px-4 py-3 text-[15px] focus:border-primary outline-none bg-white transition-all ${errors.shopAccount
+                                        ? "border-red-500 bg-red-50/10"
+                                        : "border-gray-border"
+                                    }`}
                             />
                         </div>
                     </div>
@@ -211,7 +244,7 @@ export default function Step2ShopInfo({
                                 <button
                                     type="button"
                                     onClick={applyOtherEmail}
-                                    className="px-4 bg-primary text-white text-[12px] font-bold tracking-widest uppercase flex items-center gap-1 hover:bg-primary-hover transition-colors"
+                                    className="px-4 bg-primary text-white text-[12px] font-bold tracking-widest flex items-center gap-1 hover:bg-primary-hover transition-colors"
                                 >
                                     <Plus size={14} /> Add
                                 </button>

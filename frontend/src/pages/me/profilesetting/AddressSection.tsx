@@ -72,13 +72,13 @@ export function AddressSection() {
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
                   {addr.isDefault ? (
-                    <span className="bg-[#00aeff] text-white text-[10px] px-2 py-0.5 rounded uppercase font-bold flex items-center gap-1">
+                    <span className="bg-[#00aeff] text-white text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1">
                       <CheckCircle2 size={10} /> Primary
                     </span>
                   ) : (
                     <button 
                       onClick={() => handleSetDefault(addr._id)}
-                      className="text-gray-400 text-[10px] px-2 py-0.5 rounded border border-gray-200 hover:border-[#00aeff] hover:text-[#00aeff] transition-colors uppercase font-bold"
+                      className="text-gray-400 text-[10px] px-2 py-0.5 rounded border border-gray-200 hover:border-[#00aeff] hover:text-[#00aeff] transition-colors font-bold"
                     >
                       Set as Primary
                     </button>

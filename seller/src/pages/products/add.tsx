@@ -113,7 +113,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ images, setImages, max = 
             className="aspect-square rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-emerald-500 hover:text-emerald-600 transition-colors"
           >
             <ImagePlus className="w-5 h-5" />
-            <span className="text-[10px] font-bold uppercase tracking-wide">Add image</span>
+            <span className="text-[10px] font-bold tracking-wide">Add image</span>
           </button>
         )}
       </div>

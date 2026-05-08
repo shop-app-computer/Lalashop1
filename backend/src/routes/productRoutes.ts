@@ -8,6 +8,9 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  searchProducts,
+  autocompleteProducts,
+  getTrendingSearches,
 } from "../controllers/productController";
 import {
   getProductReviews,
@@ -21,6 +24,16 @@ const router = express.Router();
 
 // List all products
 router.get("/", getProducts);
+
+// Full-text search with filters/sort/facets/pagination. Must come before
+// dynamic /:id routes so "/search" isn't interpreted as an id.
+router.get("/search", searchProducts);
+
+// Top-N name suggestions for the header autocomplete dropdown.
+router.get("/autocomplete", autocompleteProducts);
+
+// Trending terms over the last 30 days.
+router.get("/trending-searches", getTrendingSearches);
 
 // Adverts (banner images sourced from active products)
 router.get("/adverts", getProductAdverts);

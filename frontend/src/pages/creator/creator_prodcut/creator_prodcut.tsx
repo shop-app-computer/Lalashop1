@@ -255,7 +255,7 @@ export default function CreatorProduct({ onBack }: CreatorProductProps) {
                         </button>
                       </div>
                       {viewMode === "grid" && (
-                        <div className="absolute bottom-1 left-1 bg-slate-900/80 backdrop-blur-sm text-white text-[7px] md:text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tight">
+                        <div className="absolute bottom-1 left-1 bg-slate-900/80 backdrop-blur-sm text-white text-[7px] md:text-[9px] font-black px-1.5 py-0.5 rounded-md tracking-tight">
                           {p.category}
                         </div>
                       )}
@@ -267,13 +267,13 @@ export default function CreatorProduct({ onBack }: CreatorProductProps) {
                       }`}
                     >
                       <div>
-                        <h3 className="text-[9px] md:text-[11px] font-black text-slate-900 line-clamp-1 leading-tight mb-1 uppercase tracking-tighter">
+                        <h3 className="text-[9px] md:text-[11px] font-black text-slate-900 line-clamp-1 leading-tight mb-1 tracking-tighter">
                           {p.name}
                         </h3>
 
                         <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-3 mb-1.5 md:mb-3">
                           <div className="flex flex-col">
-                            <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                            <span className="text-[7px] md:text-[9px] font-bold text-slate-400 tracking-widest leading-none">
                               Price
                             </span>
                             <span className="text-[9px] md:text-[12px] font-black text-slate-900">
@@ -282,7 +282,7 @@ export default function CreatorProduct({ onBack }: CreatorProductProps) {
                           </div>
                           <div className="hidden md:block w-px h-6 bg-slate-100" />
                           <div className="flex flex-col">
-                            <span className="text-[7px] md:text-[9px] font-bold text-rose-400 uppercase tracking-widest leading-none">
+                            <span className="text-[7px] md:text-[9px] font-bold text-rose-400 tracking-widest leading-none">
                               Earn
                             </span>
                             <span className="text-[9px] md:text-[12px] font-black text-rose-500">
@@ -311,7 +311,7 @@ export default function CreatorProduct({ onBack }: CreatorProductProps) {
                       <div className="mt-2 md:mt-3 pt-2 border-t border-slate-50 flex gap-1 md:gap-2">
                         <button
                           onClick={() => copyToClipboard(row)}
-                          className="flex-1 bg-slate-900 text-white text-[7px] md:text-[9px] font-black py-1.5 md:py-2 rounded-lg md:rounded-xl uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-1"
+                          className="flex-1 bg-slate-900 text-white text-[7px] md:text-[9px] font-black py-1.5 md:py-2 rounded-lg md:rounded-xl tracking-widest active:scale-95 transition-all flex items-center justify-center gap-1"
                         >
                           <Copy size={10} className="md:w-3 md:h-3" />{" "}
                           {copiedId === row._id ? "Done" : "Link"}

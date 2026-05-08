@@ -250,9 +250,9 @@ export default function CreatePostPage() {
         {showUserSelector && (
           <div className="fixed inset-0 z-[250] bg-white flex flex-col animate-in slide-in-from-bottom duration-300">
             <nav className="h-14 flex items-center justify-between px-4 border-b">
-              <button onClick={() => setShowUserSelector(false)} className="p-2 font-bold text-xs uppercase">Back</button>
-              <h3 className="font-black text-sm uppercase tracking-widest">Select Friends</h3>
-              <button onClick={() => { setShowUserSelector(false); setShowVisibilityMenu(false); }} className="p-2 font-bold text-xs text-primary uppercase">Done</button>
+              <button onClick={() => setShowUserSelector(false)} className="p-2 font-bold text-xs">Back</button>
+              <h3 className="font-black text-sm tracking-widest">Select Friends</h3>
+              <button onClick={() => { setShowUserSelector(false); setShowVisibilityMenu(false); }} className="p-2 font-bold text-xs text-primary">Done</button>
             </nav>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {connections.length > 0 ? connections.map(friend => (
@@ -275,7 +275,7 @@ export default function CreatePostPage() {
                   </div>
                 </div>
               )) : (
-                <div className="py-20 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No friends found</div>
+                <div className="py-20 text-center text-slate-400 text-xs font-bold tracking-widest">No friends found</div>
               )}
             </div>
           </div>

@@ -331,7 +331,7 @@ export default function TransferPage() {
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         {/* Order header */}
         <div className="rounded-xl border border-gray-100 bg-white p-5">
-          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+          <p className="text-[11px] font-bold text-gray-500 tracking-widest">
             Total to pay
           </p>
           <p className="text-3xl font-black tabular-nums text-[#00aeff] mt-1">
@@ -364,7 +364,7 @@ export default function TransferPage() {
         ) : (
           <>
             <div>
-              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+              <h3 className="text-[11px] font-bold text-gray-500 tracking-widest mb-2">
                 Choose payment method
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -637,7 +637,7 @@ const CopyRow: React.FC<{
 }> = ({ label, value, keyName, onCopy, copied, mono }) => (
   <div className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2">
     <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-[10px] font-bold text-gray-500 tracking-wide">{label}</p>
       <p className={`text-[13px] text-gray-900 truncate ${mono ? "font-mono font-bold" : "font-bold"}`}>
         {value || "—"}
       </p>

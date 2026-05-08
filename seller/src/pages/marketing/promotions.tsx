@@ -195,7 +195,7 @@ const PromotionsPage: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-[13px] font-bold text-gray-900 truncate">{p.name}</h3>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${STATUS_BADGE[p.status]}`}
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${STATUS_BADGE[p.status]}`}
                   >
                     {p.status}
                   </span>
@@ -372,7 +372,7 @@ const PromotionsPage: React.FC = () => {
               </Field>
 
               <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                <p className="text-[10px] font-semibold text-gray-500 tracking-wide mb-1">
                   Products ({form.productIds?.length || 0} selected)
                 </p>
                 <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-1">
@@ -423,7 +423,7 @@ const PromotionsPage: React.FC = () => {
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <label className="block">
-    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
+    <span className="text-[10px] font-semibold text-gray-500 tracking-wide block mb-1">
       {label}
     </span>
     {children}

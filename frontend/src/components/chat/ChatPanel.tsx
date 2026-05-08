@@ -627,7 +627,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, mine, extraText }) =
         )}
         <div className="flex-1 min-w-0 py-0.5">
           <p
-            className={`text-[10px] font-bold uppercase tracking-wide ${
+            className={`text-[10px] font-bold tracking-wide ${
               mine ? "text-white/80" : "text-slate-400"
             }`}
           >

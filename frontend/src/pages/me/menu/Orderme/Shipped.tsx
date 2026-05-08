@@ -66,7 +66,7 @@ export default function Shipped() {
                   )}
                 </div>
                 <div className="flex-1 flex flex-col justify-between">
-                  <h4 className="text-[14px] font-medium text-[#111111] line-clamp-1 uppercase">
+                  <h4 className="text-[14px] font-medium text-[#111111] line-clamp-1">
                     {first.name}
                   </h4>
                   <div className="flex justify-between items-end">

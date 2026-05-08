@@ -90,7 +90,7 @@ export default function FollowersPage() {
           </button>
           <div className="flex flex-col">
             <h1 className="text-base font-bold text-dark">Followers</h1>
-            <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">@{username}</span>
+            <span className="text-[10px] text-gray-500 font-medium tracking-wider">@{username}</span>
           </div>
         </div>
         <button className="p-1 hover:bg-gray-light rounded-full transition-colors">

@@ -289,7 +289,7 @@ export default function ReceiptPage() {
               <p className="text-[12px] text-slate-400 font-medium">Customer Receipt</p>
             </div>
             <div className="text-right space-y-1">
-              <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">
+              <p className="text-[10px] text-slate-400 font-bold tracking-widest">
                 Order Date
               </p>
               <p className="text-[13px] font-bold">{formatDateTime(order.createdAt)}</p>
@@ -299,7 +299,7 @@ export default function ReceiptPage() {
           <div className="p-8 space-y-8">
             {/* ── Items ── */}
             <div className="space-y-3">
-              <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 tracking-widest">
                 <span>Item Description</span>
                 <span>Amount</span>
               </div>
@@ -363,11 +363,11 @@ export default function ReceiptPage() {
             {slip && (
               <div className="pt-8 border-t border-slate-100 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">
+                  <p className="text-[10px] text-slate-400 font-bold tracking-widest">
                     Transfer Proof
                   </p>
                   <span
-                    className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full ${
                       slip.status === "verified"
                         ? "bg-emerald-50 text-emerald-600"
                         : slip.status === "rejected"
@@ -414,7 +414,7 @@ export default function ReceiptPage() {
             {/* ── Shipping address + payment method ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 border-t border-slate-100">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 tracking-widest">
                   <MapPin size={12} className="text-primary" /> Shipping Address
                 </div>
                 <div className="text-[13px] text-slate-600 leading-relaxed">
@@ -426,7 +426,7 @@ export default function ReceiptPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 tracking-widest">
                   <CreditCard size={12} className="text-primary" /> Payment Method
                 </div>
                 <div className="text-[13px] text-slate-600 font-medium">

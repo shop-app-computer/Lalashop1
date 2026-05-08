@@ -66,13 +66,11 @@ const Sidebar = () => {
       ],
     },
     {
+      // Slip verification moved into the Orders table — admins approve/reject
+      // inline next to the order. Methods (bank accounts / QR) live here.
       name: 'Payment',
-      href: '/payment',
+      href: '/payment/methods',
       icon: Banknote,
-      subItems: [
-        { name: 'Methods (banks/QR)', href: '/payment/methods' },
-        { name: 'Verify slips', href: '/payment/slips' },
-      ],
     },
     { name: 'Categories', href: '/categories', icon: Layers },
     { name: 'History', href: '/history/history', icon: ArrowLeftRight },

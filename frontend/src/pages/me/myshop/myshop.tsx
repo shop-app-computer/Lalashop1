@@ -52,7 +52,7 @@ export default function TikTokStyleProducts({ isSeller = false }: MyShopProps) {
           <Store size={32} />
         </div>
         <div className="space-y-1">
-          <h3 className="font-black text-slate-800 uppercase tracking-tight">Your Shop is not open</h3>
+          <h3 className="font-black text-slate-800 tracking-tight">Your Shop is not open</h3>
           <p className="text-xs text-slate-400 font-medium">Open your shop today to start listing and selling products.</p>
         </div>
         <button
@@ -139,7 +139,7 @@ export default function TikTokStyleProducts({ isSeller = false }: MyShopProps) {
       {products.length === 0 && (
         <div className="py-20 flex flex-col items-center justify-center text-slate-300">
           <ShoppingBag size={48} strokeWidth={1} />
-          <p className="mt-4 text-[11px] font-bold uppercase tracking-widest">No products yet</p>
+          <p className="mt-4 text-[11px] font-bold tracking-widest">No products yet</p>
         </div>
       )}
 

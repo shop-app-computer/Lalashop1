@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import {
-  ChevronLeft, Info, Landmark,
-  CreditCard, User, ChevronDown, Check
+  ChevronLeft, Info, ChevronDown, Check,
 } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
+import { laoBanks } from "@/pages/me/opensho/constants";
 
 // 1. เพิ่ม onSuccess ใน Interface
 interface AddAccountProps {
@@ -20,13 +20,11 @@ export default function AddBankAccount({ onBack, onSuccess }: AddAccountProps) {
   const [accountNumber, setAccountNumber] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const banks = [
-    { id: "BCEL", name: "BCEL ທະນາຄານການຄ້າຕ່າງປະເທດລາວ ມະຫາຊົນ" },
-    { id: "LDB", name: "LDB ທະນາຄານພັດທະນາລາວ" },
-    { id: "JDB", name: "JDB ທະນາຄານຮ່ວມພັດທະນາ" },
-  ];
+  // Same canonical Lao bank list used by the shop opening Step 2 form so
+  // creator and seller flows produce consistent bankName values across the
+  // platform.
+  const banks = laoBanks;
 
-  // 3. ฟังก์ชันสำหรับส่งข้อมูลไปยัง Backend
   const handleSubmit = async () => {
     if (!selectedBank || !accountName || !accountNumber) {
       alert("Please fill in all information");
@@ -94,33 +92,32 @@ export default function AddBankAccount({ onBack, onSuccess }: AddAccountProps) {
             className="w-full px-5 py-5 flex items-center justify-between active:bg-[#FAFAFA] border-b border-[#F8F8F8]"
           >
             <div className="flex items-center gap-3">
-              
               <div className="flex flex-col items-start text-left">
                 <span className="text-[12px] font-bold text-[#86878B] tracking-wider ">bank</span>
-                <span className={`text-[15px] font-medium ${selectedBank ? "text-[#121212]" : "text-[#C8C9CC]"}`}>
-                  {selectedBank ? banks.find(b => b.id === selectedBank)?.name : "select bank"}
+                <span className={`text-[15px] font-medium text-left ${selectedBank ? "text-[#121212]" : "text-[#C8C9CC]"}`}>
+                  {selectedBank || "select bank"}
                 </span>
               </div>
             </div>
             <ChevronDown size={20} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
           </button>
 
-          {/* Bank List */}
+          {/* Bank List — scrollable since the canonical list has 25 entries */}
           {isOpen && (
-            <div className="bg-[#FBFBFB] border-b border-[#F8F8F8] animate-in slide-in-from-top-2 duration-200">
+            <div className="bg-[#FBFBFB] border-b border-[#F8F8F8] animate-in slide-in-from-top-2 duration-200 max-h-[320px] overflow-y-auto">
               {banks.map((bank) => (
                 <div
-                  key={bank.id}
+                  key={bank}
                   onClick={() => {
-                    setSelectedBank(bank.id);
+                    setSelectedBank(bank);
                     setIsOpen(false);
                   }}
                   className="px-14 py-4 flex items-center justify-between active:bg-[#F0F7FF] cursor-pointer border-b border-[#F5F5F5] last:border-none"
                 >
-                  <span className={`text-[14px] font-medium ${selectedBank === bank.id ? "text-[#0077b6]" : "text-[#555555]"}`}>
-                    {bank.name}
+                  <span className={`text-[14px] font-medium ${selectedBank === bank ? "text-[#0077b6]" : "text-[#555555]"}`}>
+                    {bank}
                   </span>
-                  {selectedBank === bank.id && <Check size={18} className="text-[#0077b6]" />}
+                  {selectedBank === bank && <Check size={18} className="text-[#0077b6]" />}
                 </div>
               ))}
             </div>

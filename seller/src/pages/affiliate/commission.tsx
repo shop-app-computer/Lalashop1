@@ -53,7 +53,7 @@ const CommissionPage: React.FC = () => {
       </div>
 
       <div className="rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white p-6">
-        <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold tracking-wide uppercase">
+        <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold tracking-wide">
           <DollarSign className="w-3.5 h-3.5" /> Total commission paid
         </div>
         <p className="text-[36px] font-black tabular-nums mt-2">

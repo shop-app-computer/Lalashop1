@@ -22,6 +22,38 @@ export const countries = [
   { code: "+971", name: "UAE", flag: "🇦🇪" },
 ];
 
+// Commercial banks operating in Laos. Used by the shop opening flow's
+// Bank Name dropdown so seller-entered bank names stay consistent and
+// the admin's payout sheet doesn't have to deal with free-text typos.
+// "OTHER" is intentional — covers regional / branch banks not in this list.
+export const laoBanks = [
+  "BCEL — Banque pour le Commerce Extérieur Lao",
+  "LDB — Lao Development Bank",
+  "APB — Agricultural Promotion Bank",
+  "Nayoby Bank",
+  "JDB — Joint Development Bank",
+  "Phongsavanh Bank",
+  "Indochina Bank",
+  "ST Bank (Sacombank Lao)",
+  "Maruhan Japan Bank Lao",
+  "Lao Construction Bank (LCB)",
+  "BIC Bank Lao",
+  "BFL — Banque Franco-Lao",
+  "LVB — Lao-Viet Bank",
+  "Vietinbank Lao",
+  "Acleda Bank Lao",
+  "SBI Lao",
+  "Public Bank Lao",
+  "RHB Bank Lao",
+  "First Commercial Bank Vientiane Branch",
+  "Bangkok Bank Vientiane Branch",
+  "Krung Thai Bank Vientiane Branch",
+  "Vietcombank Vientiane Branch",
+  "ICBC Vientiane Branch",
+  "Bank of China Vientiane Branch",
+  "Other",
+];
+
 export const productCategories = [
   { value: "fashion", label: "Fashion & Accessories" },
   { value: "electronics", label: "Electronics & Gadgets" },

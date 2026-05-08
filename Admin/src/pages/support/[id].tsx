@@ -131,7 +131,7 @@ const SupportDetailPage: React.FC = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-[16px] font-bold text-gray-900">{ticket.subject}</h1>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${STATUS_BADGE[ticket.status]}`}
+                className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${STATUS_BADGE[ticket.status]}`}
               >
                 {ticket.status.replace("_", " ")}
               </span>
@@ -176,7 +176,7 @@ const SupportDetailPage: React.FC = () => {
 
       {/* User panel */}
       <div className="rounded-lg border border-gray-100 p-4 bg-white">
-        <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-3">
+        <h3 className="text-[11px] font-bold text-gray-500 tracking-wide mb-3">
           Submitted by
         </h3>
         <div className="flex items-center gap-3">
@@ -316,7 +316,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ authorRole, authorName, m
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div>
-    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">
+    <label className="text-[10px] font-bold text-gray-500 tracking-wide block mb-1">
       {label}
     </label>
     {children}

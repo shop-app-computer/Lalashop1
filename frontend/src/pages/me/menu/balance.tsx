@@ -178,13 +178,31 @@ export default function AttrView({ onBack }: { onBack: () => void }) {
     return buckets.map(({ name, value }) => ({ name, value }));
   }, [inRangeOrders, timeRange]);
 
-  const bestSellers = useMemo(
-    () =>
-      [...products]
-        .sort((a, b) => (b.soldCount ?? 0) - (a.soldCount ?? 0))
-        .slice(0, 3),
-    [products]
-  );
+  // Best sellers — derived from actual order items in the selected range so
+  // the list reflects real sales, not the stale `soldCount` counter that
+  // historically wasn't always written.
+  const bestSellers = useMemo(() => {
+    const units = new Map<string, number>();
+    const revenue = new Map<string, number>();
+    for (const o of inRangeOrders) {
+      if (!o.isPaid) continue;
+      for (const it of o.orderItems || []) {
+        const pid = String(it.product || "");
+        if (!pid) continue;
+        units.set(pid, (units.get(pid) || 0) + (it.qty || 0));
+        revenue.set(pid, (revenue.get(pid) || 0) + (it.qty || 0) * (it.price || 0));
+      }
+    }
+    return [...products]
+      .map((p) => ({
+        ...p,
+        unitsSold: units.get(p._id) || 0,
+        revenue: revenue.get(p._id) || 0,
+      }))
+      .filter((p) => p.unitsSold > 0)
+      .sort((a, b) => b.unitsSold - a.unitsSold)
+      .slice(0, 3);
+  }, [products, inRangeOrders]);
 
   return (
     <div className="min-h-screen bg-[#F8F8F8] text-[#121212] antialiased">
@@ -310,12 +328,15 @@ export default function AttrView({ onBack }: { onBack: () => void }) {
                       <div className="space-y-1 min-w-0">
                         <p className="text-[14px] font-bold line-clamp-1">{p.name}</p>
                         <p className="text-[12px] text-[#86878B]">
-                          {(p.soldCount ?? 0).toLocaleString()} items sold
+                          {p.unitsSold.toLocaleString()} sold · ฿{formatCurrency(p.price)} ea
                         </p>
                       </div>
                     </div>
-                    <div className="text-right text-[13px] font-bold">
-                      ฿{formatCurrency(p.price)}
+                    <div className="text-right">
+                      <p className="text-[13px] font-bold tabular-nums">
+                        ฿{formatCurrency(p.revenue)}
+                      </p>
+                      <p className="text-[10px] text-[#86878B]">revenue</p>
                     </div>
                   </div>
                 );

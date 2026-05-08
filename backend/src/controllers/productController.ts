@@ -3,6 +3,7 @@ import path from "path";
 import Product from "../models/productModel";
 import Address from "../models/addressModel";
 import Order from "../models/orderModel";
+import SearchLog from "../models/searchLogModel";
 import { IAuthRequest } from "../middlewares/authMiddleware";
 
 const fileToUrl = (file?: Express.Multer.File): string => {
@@ -16,6 +17,231 @@ const safeJsonParse = <T,>(value: unknown, fallback: T): T => {
     return JSON.parse(value) as T;
   } catch {
     return fallback;
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// Search + autocomplete (public — used by /search and the header bar)
+// ─────────────────────────────────────────────────────────────────────
+
+// Reusable query fragment that hides POS-only and storefront-disabled
+// products from any public listing. Mirrors the rule in getProducts().
+const PUBLIC_VISIBLE = {
+  $and: [
+    { $or: [{ showInStorefront: { $ne: false } }, { showInStorefront: { $exists: false } }] },
+    { $or: [{ salesChannel: { $ne: "pos" } }, { salesChannel: { $exists: false } }] },
+    { status: { $ne: "Archived" } },
+  ],
+};
+
+interface SearchQuery {
+  q?: string;
+  category?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  // relevance | newest | priceAsc | priceDesc | popular
+  sort?: string;
+  page?: string;
+  limit?: string;
+}
+
+// @route GET /api/products/search
+// Public search endpoint backed by the Mongo text index. Returns scored
+// results with category facets so the client can render dynamic filters.
+export const searchProducts = async (req: Request, res: Response) => {
+  try {
+    const { q, category, minPrice, maxPrice, sort, page, limit } =
+      req.query as SearchQuery;
+
+    const pageNum = Math.max(parseInt(page || "1", 10) || 1, 1);
+    const lim = Math.min(Math.max(parseInt(limit || "24", 10) || 24, 1), 100);
+    const skip = (pageNum - 1) * lim;
+
+    const filter: Record<string, unknown> = { ...PUBLIC_VISIBLE };
+    const trimmedQ = String(q || "").trim();
+    if (trimmedQ) {
+      filter.$text = { $search: trimmedQ };
+    }
+    if (category) filter.category = category;
+    if (minPrice || maxPrice) {
+      const range: Record<string, number> = {};
+      const lo = Number(minPrice);
+      const hi = Number(maxPrice);
+      if (Number.isFinite(lo) && lo >= 0) range.$gte = lo;
+      if (Number.isFinite(hi) && hi > 0) range.$lte = hi;
+      if (Object.keys(range).length > 0) filter.price = range;
+    }
+
+    // Pick the sort order. Stock-aware: out-of-stock products always sink
+    // to the bottom regardless of which user-chosen sort is active.
+    const projection: Record<string, unknown> = {};
+    let sortSpec: Record<string, unknown> = {};
+    switch (sort) {
+      case "newest":
+        sortSpec = { outOfStock: 1, createdAt: -1 };
+        break;
+      case "priceAsc":
+        sortSpec = { outOfStock: 1, price: 1, createdAt: -1 };
+        break;
+      case "priceDesc":
+        sortSpec = { outOfStock: 1, price: -1, createdAt: -1 };
+        break;
+      case "popular":
+        sortSpec = { outOfStock: 1, soldCount: -1, createdAt: -1 };
+        break;
+      case "relevance":
+      default:
+        if (trimmedQ) {
+          projection.score = { $meta: "textScore" };
+          sortSpec = { outOfStock: 1, score: { $meta: "textScore" }, createdAt: -1 };
+        } else {
+          // No query → fall back to "popular" so the storefront still ranks
+          // sensibly when search is opened cold.
+          sortSpec = { outOfStock: 1, soldCount: -1, createdAt: -1 };
+        }
+    }
+
+    // Out-of-stock flag is computed via a tiny projection step in the
+    // aggregation pipeline so we can sort by it without writing it to the
+    // document. Aggregation also gives us the category facet in one round.
+    const aggMatch: Record<string, unknown> = filter;
+    const pipeline: any[] = [
+      { $match: aggMatch },
+      { $addFields: { outOfStock: { $cond: [{ $lte: ["$countInStock", 0] }, 1, 0] } } },
+    ];
+    if (trimmedQ) {
+      pipeline.push({ $addFields: { score: { $meta: "textScore" } } });
+    }
+    pipeline.push(
+      {
+        $facet: {
+          items: [
+            { $sort: sortSpec },
+            { $skip: skip },
+            { $limit: lim },
+            {
+              $project: {
+                outOfStock: 0,
+                score: 0,
+              },
+            },
+          ],
+          totalCount: [{ $count: "total" }],
+          categoryFacet: [
+            { $group: { _id: "$category", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 20 },
+          ],
+          priceBounds: [
+            {
+              $group: {
+                _id: null,
+                minPrice: { $min: "$price" },
+                maxPrice: { $max: "$price" },
+              },
+            },
+          ],
+        },
+      },
+    );
+
+    const [agg] = await Product.aggregate(pipeline);
+    const items = agg?.items ?? [];
+    const total = agg?.totalCount?.[0]?.total ?? 0;
+
+    // No-result fallback — if a query was provided but nothing matched, try
+    // a relaxed search ignoring text but matching the same category, so the
+    // client can show "did you mean / similar in {category}".
+    let suggestions: any[] = [];
+    if (trimmedQ && total === 0) {
+      const relaxed: Record<string, unknown> = { ...PUBLIC_VISIBLE };
+      if (category) relaxed.category = category;
+      suggestions = await Product.find(relaxed)
+        .sort({ soldCount: -1, createdAt: -1 })
+        .limit(8)
+        .lean();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        items,
+        total,
+        page: pageNum,
+        pages: Math.ceil(total / lim),
+        hasMore: skip + items.length < total,
+        facets: {
+          categories: agg?.categoryFacet ?? [],
+          priceBounds: agg?.priceBounds?.[0] ?? { minPrice: 0, maxPrice: 0 },
+        },
+        suggestions,
+        // Echo back the query so trending/log analytics can attribute it.
+        query: trimmedQ,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || "Search failed" });
+  } finally {
+    // Fire-and-forget: log the term to the analytics collection if non-empty
+    // so /trending-searches can rank popular terms. Failures here must not
+    // affect the response.
+    void (async () => {
+      try {
+        const term = String(req.query.q || "").trim().toLowerCase();
+        if (!term || term.length < 2) return;
+        await SearchLog.updateOne(
+          { term },
+          { $inc: { hits: 1 }, $set: { lastSearchedAt: new Date() } },
+          { upsert: true },
+        );
+      } catch {
+        /* analytics best-effort */
+      }
+    })();
+  }
+};
+
+// @route GET /api/products/autocomplete?q=...
+// Returns up to 8 product names whose name contains the query (case-
+// insensitive). Uses regex against the name index so even partial typing
+// like "shi" matches "Cotton Shirt".
+export const autocompleteProducts = async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (!q || q.length < 1) {
+      return res.json({ success: true, data: [] });
+    }
+    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(safe, "i");
+    const items = await Product.find(
+      { ...PUBLIC_VISIBLE, name: re },
+      { name: 1, image: 1, images: 1, price: 1, category: 1 },
+    )
+      .sort({ soldCount: -1, createdAt: -1 })
+      .limit(8)
+      .lean();
+    res.json({ success: true, data: items });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @route GET /api/products/trending-searches
+// Top 10 search terms by hit count over the last 30 days. Used by the
+// search page's empty state to show "what others are looking for".
+export const getTrendingSearches = async (_req: Request, res: Response) => {
+  try {
+    const since = new Date(Date.now() - 30 * 86400_000);
+    const items = await SearchLog.find({ lastSearchedAt: { $gte: since } })
+      .sort({ hits: -1, lastSearchedAt: -1 })
+      .limit(10)
+      .lean();
+    res.json({
+      success: true,
+      data: items.map((i: any) => ({ term: i.term, hits: i.hits })),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -183,6 +409,13 @@ export const getProductsBySeller = async (req: Request, res: Response) => {
     const products = await Product.find({
       seller: req.params.sellerId,
       status: { $ne: "Archived" },
+      // Public storefront — hide products the seller marked "store only".
+      // Mirrors the rule used by the global GET /api/products listing so
+      // /u/{sellerId} shows the same set as visitors see browsing the site.
+      $and: [
+        { $or: [{ showInStorefront: { $ne: false } }, { showInStorefront: { $exists: false } }] },
+        { $or: [{ salesChannel: { $ne: "pos" } }, { salesChannel: { $exists: false } }] },
+      ],
     }).sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: products });
   } catch (error: any) {

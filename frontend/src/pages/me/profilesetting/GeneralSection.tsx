@@ -184,7 +184,7 @@ export const GeneralSection: React.FC = () => {
           <p className="text-[10px] text-gray-400 italic">Example: @member_shop (Can be changed once every 7 days)</p>
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-bold text-gray-500 uppercase"> Phone</label>
+          <label className="text-xs font-bold text-gray-500"> Phone</label>
           {originalPhone ? (
             /* Phone already set — locked */
             <input
@@ -209,7 +209,7 @@ export const GeneralSection: React.FC = () => {
         </div>
         <div className="space-y-1 md:col-span-2">
           <div className="flex justify-between items-center">
-            <label className="text-xs font-bold text-gray-500 uppercase">
+            <label className="text-xs font-bold text-gray-500">
               Store Description (Bio)
             </label>
 
@@ -245,7 +245,7 @@ export const GeneralSection: React.FC = () => {
           </div>
 
           {length > maxLength && (
-            <p className="text-[10px] text-red-500 font-bold uppercase animate-pulse">
+            <p className="text-[10px] text-red-500 font-bold animate-pulse">
               Bio is too long! Please shorten it.
             </p>
           )}

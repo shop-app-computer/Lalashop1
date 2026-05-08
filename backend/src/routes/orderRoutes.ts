@@ -8,6 +8,7 @@ import {
   payOrder,
   deliverOrder,
   deleteOrder,
+  updateMyOrderStatus,
 } from "../controllers/orderController";
 import { protect, optionalProtect } from "../middlewares/authMiddleware";
 
@@ -20,6 +21,7 @@ router.get("/creator", protect, getMyCreatorOrders);
 router.get("/:id", getOrderById);
 router.put("/:id/pay", optionalProtect, payOrder);
 router.put("/:id/deliver", protect, deliverOrder);
+router.patch("/:id/seller-status", protect, updateMyOrderStatus);
 router.delete("/:id", optionalProtect, deleteOrder);
 
 export default router;

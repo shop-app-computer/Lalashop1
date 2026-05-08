@@ -68,7 +68,7 @@ const ReviewsPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-lg border border-gray-100 px-5 py-4 text-center">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Average rating</p>
+          <p className="text-[10px] font-bold text-gray-400 tracking-widest">Average rating</p>
           <p className="text-[36px] font-black text-amber-500 tabular-nums leading-none mt-1">
             {stats.total > 0 ? stats.avg.toFixed(1) : "—"}
           </p>
@@ -85,7 +85,7 @@ const ReviewsPage: React.FC = () => {
         </div>
 
         <div className="md:col-span-2 rounded-lg border border-gray-100 px-5 py-4 space-y-1">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+          <p className="text-[10px] font-bold text-gray-400 tracking-widest mb-2">
             Distribution
           </p>
           {stats.dist.map((d) => {

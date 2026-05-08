@@ -175,7 +175,7 @@ const SupportListPage: React.FC = () => {
       ) : (
         <div className="rounded-lg border border-gray-100 overflow-hidden bg-white">
           <table className="w-full text-xs">
-            <thead className="bg-gray-50 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+            <thead className="bg-gray-50 text-[10px] font-bold text-gray-500 tracking-wider">
               <tr>
                 <th className="px-4 py-2 text-left">Subject</th>
                 <th className="px-4 py-2 text-left">User</th>
@@ -206,14 +206,14 @@ const SupportListPage: React.FC = () => {
                   <td className="px-4 py-3 capitalize">{t.category}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${PRIORITY_BADGE[t.priority]}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${PRIORITY_BADGE[t.priority]}`}
                     >
                       {t.priority}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${STATUS_BADGE[t.status]}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${STATUS_BADGE[t.status]}`}
                     >
                       {t.status.replace("_", " ")}
                     </span>

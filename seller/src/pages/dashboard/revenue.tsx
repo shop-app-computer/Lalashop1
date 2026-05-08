@@ -50,7 +50,7 @@ const RevenueDashboardPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="rounded-2xl bg-gradient-to-br from-[#00aeff] to-[#0096db] text-white p-5">
-          <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold uppercase tracking-wide">
+          <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold tracking-wide">
             <Globe className="w-3.5 h-3.5" /> Web revenue · withdrawable
           </div>
           <p className="text-[28px] font-black tabular-nums mt-2">
@@ -62,7 +62,7 @@ const RevenueDashboardPage: React.FC = () => {
         </div>
 
         <div className="rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white p-5">
-          <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold uppercase tracking-wide">
+          <div className="flex items-center gap-2 text-white/80 text-[11px] font-bold tracking-wide">
             <Scan className="w-3.5 h-3.5" /> POS revenue · in-store
           </div>
           <p className="text-[28px] font-black tabular-nums mt-2">
@@ -75,7 +75,7 @@ const RevenueDashboardPage: React.FC = () => {
       </div>
 
       <div className="rounded-lg border border-gray-100 p-4 space-y-3">
-        <h3 className="text-[12px] font-bold text-gray-700 uppercase tracking-wide">Distribution</h3>
+        <h3 className="text-[12px] font-bold text-gray-700 tracking-wide">Distribution</h3>
         <div className="flex h-3 rounded overflow-hidden">
           <div className="bg-[#00aeff]" style={{ width: `${webShare}%` }} />
           <div className="bg-emerald-600" style={{ width: `${posShare}%` }} />

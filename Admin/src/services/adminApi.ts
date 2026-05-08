@@ -367,11 +367,22 @@ export type AdminOrderStatus =
   | "disputed"
   | "pending_payment";
 
+export interface AdminOrderRowSlip {
+  _id: string;
+  slipImageUrl: string;
+  transferAmount: number;
+  transferRef?: string;
+  status: "pending" | "verified" | "rejected";
+  rejectionReason?: string;
+  createdAt: string;
+}
+
 export interface AdminOrderRow {
   _id: string;
   id: string;
   customer: string;
   customerId: string;
+  customerUserId?: string;
   username: string;
   shop: string;
   shopId: string;
@@ -384,6 +395,9 @@ export interface AdminOrderRow {
   status: AdminOrderStatus;
   createdAt: string;
   updatedAt: string;
+  // The latest payment slip submitted for this order. Surfaced on the Orders
+  // table so admins can view + approve/reject slips inline.
+  slip?: AdminOrderRowSlip | null;
 }
 
 export interface AdminOrderItem {

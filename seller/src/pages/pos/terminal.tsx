@@ -228,7 +228,7 @@ const PosTerminal: React.FC = () => {
       </div>
 
       <form onSubmit={onScanSubmit} className="rounded-lg border-2 border-emerald-200 bg-emerald-50 px-4 py-3">
-        <label className="text-[10px] font-black text-emerald-800 tracking-widest uppercase block mb-1">
+        <label className="text-[10px] font-black text-emerald-800 tracking-widest block mb-1">
           Scanner input — barcode or manual entry
         </label>
         <div className="flex items-center gap-3">

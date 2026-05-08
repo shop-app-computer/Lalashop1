@@ -518,7 +518,7 @@ interface SectionProps {
 const Section = ({ title, children }: SectionProps) => (
   <div className="rounded-lg p-5 bg-white border border-gray-100">
     {title && (
-      <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-4 uppercase">
+      <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-4">
         {title}
       </h3>
     )}
@@ -677,7 +677,7 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-[12px]">
               <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
                   <th className="py-2 pr-3">Product</th>
                   <th className="py-2 pr-3">Category</th>
                   <th className="py-2 pr-3 text-right">Price</th>
@@ -725,7 +725,7 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
                       </td>
                       <td className="py-2 pr-3">
                         <span
-                          className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                          className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded ${
                             p.status === 'Active'
                               ? 'bg-emerald-50 text-emerald-700'
                               : p.status === 'Draft'
@@ -822,7 +822,7 @@ const OrdersTab = ({ sellerId }: OrdersTabProps) => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-[12px]">
               <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
                   <th className="py-2 pr-3">Order</th>
                   <th className="py-2 pr-3">Customer</th>
                   <th className="py-2 pr-3 text-right">Items</th>
@@ -851,7 +851,7 @@ const OrdersTab = ({ sellerId }: OrdersTabProps) => {
                     <td className="py-2 pr-3 text-gray-600">{o.paymentMethod}</td>
                     <td className="py-2 pr-3">
                       <span
-                        className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                        className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded ${
                           o.status === 'delivered'
                             ? 'bg-emerald-50 text-emerald-700'
                             : o.status === 'paid' || o.status === 'shipping'
@@ -949,7 +949,7 @@ const ViolationsTab = ({ sellerId }: ViolationsTabProps) => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-[12px]">
               <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
                   <th className="py-2 pr-3">Reason</th>
                   <th className="py-2 pr-3">Description</th>
                   <th className="py-2 pr-3">Reported by</th>
@@ -961,7 +961,7 @@ const ViolationsTab = ({ sellerId }: ViolationsTabProps) => {
               <tbody>
                 {reports.map((r) => (
                   <tr key={r._id} className="border-t border-gray-50">
-                    <td className="py-2 pr-3 font-bold uppercase tracking-wide text-gray-700">
+                    <td className="py-2 pr-3 font-bold tracking-wide text-gray-700">
                       {r.reason}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 max-w-md">
@@ -973,7 +973,7 @@ const ViolationsTab = ({ sellerId }: ViolationsTabProps) => {
                     <td className="py-2 pr-3 text-gray-600">{r.actionTaken}</td>
                     <td className="py-2 pr-3">
                       <span
-                        className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                        className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded ${
                           r.status === 'open'
                             ? 'bg-rose-50 text-rose-700'
                             : r.status === 'reviewing'
@@ -1002,7 +1002,7 @@ const ViolationsTab = ({ sellerId }: ViolationsTabProps) => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-[12px]">
               <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
                   <th className="py-2 pr-3">Product</th>
                   <th className="py-2 pr-3">Category</th>
                   <th className="py-2 pr-3 text-right">Price</th>
@@ -1044,7 +1044,7 @@ const ViolationsTab = ({ sellerId }: ViolationsTabProps) => {
                             .map((t) => (
                               <span
                                 key={t}
-                                className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-50 text-rose-700"
+                                className="text-[9px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-rose-50 text-rose-700"
                               >
                                 {t}
                               </span>

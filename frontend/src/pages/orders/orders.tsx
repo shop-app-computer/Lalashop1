@@ -234,7 +234,7 @@ export default function OrdersPage() {
                            )}
                            <div className="flex items-center gap-3 flex-shrink-0">
                               <span
-                                 className={`text-[11px] font-black uppercase tracking-wider ${status.tone}`}
+                                 className={`text-[11px] font-black tracking-wider ${status.tone}`}
                               >
                                  {status.label}
                               </span>
@@ -263,7 +263,7 @@ export default function OrdersPage() {
                                     </Link>
                                     <div className="flex-1 space-y-1 min-w-0">
                                        <Link href={`/product/${productId}`} className="hover:text-blue-600 transition-colors">
-                                          <h4 className="text-[14px] font-bold leading-tight line-clamp-2 uppercase">
+                                          <h4 className="text-[14px] font-bold leading-tight line-clamp-2">
                                              {item.name}
                                           </h4>
                                        </Link>

@@ -162,11 +162,11 @@ const IntegrationsPage: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-[13px] font-bold text-gray-900">{def.name}</h3>
                   {enabled ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide bg-emerald-100 text-emerald-700">
                       Connected
                     </span>
                   ) : (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide bg-gray-100 text-gray-600">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide bg-gray-100 text-gray-600">
                       Disconnected
                     </span>
                   )}

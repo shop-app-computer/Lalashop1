@@ -12,7 +12,7 @@ export default function Sidebar() {
   return (
     <aside className="w-60 flex-shrink-0 bg-white border border-gray-100 rounded-xl overflow-hidden self-start shadow-sm hidden lg:block">
       <div className="bg-slate-50 px-4 py-3 border-b border-gray-100 mb-2">
-        <h3 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">Market Categories</h3>
+        <h3 className="text-[11px] font-extrabold text-slate-500  tracking-widest">Market Categories</h3>
       </div>
       <div className="flex flex-col">
         {categories.map((cat) => {

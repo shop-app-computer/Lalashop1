@@ -145,7 +145,7 @@ const TransactionsPage: React.FC = () => {
                   </p>
                 </div>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide bg-gray-100 text-gray-600`}
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide bg-gray-100 text-gray-600`}
                 >
                   {t.status}
                 </span>

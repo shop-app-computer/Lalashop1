@@ -386,7 +386,7 @@ export default function ProductPage() {
       <main className="flex-1 max-w-[1280px] mx-auto w-full px-4 py-6 pb-32 md:pb-16">
 
         {/* ── Breadcrumb ── */}
-        <nav className="flex items-center gap-2.5 mb-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+        <nav className="flex items-center gap-2.5 mb-6 text-[11px] font-bold text-gray-400 tracking-widest">
           <Link
             href="/"
             className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-sky-500 hover:text-white hover:border-sky-500 transition-all duration-200"
@@ -507,7 +507,7 @@ export default function ProductPage() {
                       .filter((opt) => opt?.name && Array.isArray(opt.values) && opt.values.length > 0)
                       .map((opt) => (
                         <div key={opt.name}>
-                          <p className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-2">
+                          <p className="text-[11px] font-black tracking-widest text-gray-500 mb-2">
                             {opt.name}
                             {selectedVariants[opt.name] && (
                               <span className="ml-2 text-slate-700 font-bold normal-case tracking-normal">
@@ -579,7 +579,7 @@ export default function ProductPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-1.5">
+                    <p className="text-[11px] font-black tracking-widest text-gray-500 mb-1.5">
                       Total
                     </p>
                     <p className="text-2xl font-black text-slate-900 tabular-nums">
