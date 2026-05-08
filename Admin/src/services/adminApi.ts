@@ -372,6 +372,7 @@ export interface AdminOrderRow {
   id: string;
   customer: string;
   customerId: string;
+  username: string;
   shop: string;
   shopId: string;
   itemCount: number;
@@ -397,6 +398,29 @@ export interface AdminOrderItem {
   commission?: number;
 }
 
+export interface AdminOrderSlip {
+  _id: string;
+  slipImageUrl: string;
+  transferAmount: number;
+  transferRef?: string;
+  transferredAt?: string;
+  buyerNote?: string;
+  status: "pending" | "verified" | "rejected";
+  rejectionReason?: string;
+  reviewedAt?: string;
+  reviewedBy?: { _id: string; name?: string; email?: string } | null;
+  paymentMethod?: {
+    _id: string;
+    label?: string;
+    kind?: "bank" | "promptpay" | "static_qr";
+    bankName?: string;
+    accountNumber?: string;
+    accountName?: string;
+    promptpayId?: string;
+  } | null;
+  createdAt: string;
+}
+
 export interface AdminOrderDetail {
   _id: string;
   user?: { _id: string; name?: string; email?: string; phone?: string; customId?: string } | null;
@@ -412,6 +436,7 @@ export interface AdminOrderDetail {
   rawStatus: string;
   createdAt: string;
   updatedAt: string;
+  slip?: AdminOrderSlip | null;
 }
 
 export interface AdminOrderStats {
@@ -430,6 +455,7 @@ export interface ListOrdersParams {
   status?: AdminOrderStatus | "all";
   startDate?: string;
   endDate?: string;
+  seller?: string;
 }
 
 export const fetchAdminOrders = (params: ListOrdersParams = {}) =>
@@ -490,6 +516,7 @@ export interface ListProductsParams {
   status?: "active" | "pending" | "archived" | "all";
   flag?: "banned" | "featured" | "violations";
   category?: string;
+  seller?: string;
 }
 
 export const fetchAdminProducts = (params: ListProductsParams = {}) =>
@@ -540,6 +567,9 @@ export interface AdminWithdrawRow {
     isSeller?: boolean;
     seller_type?: string;
   };
+  // Resolved server-side from the user's KYC submission so the table can
+  // surface a clickable Shop column.
+  shopName?: string | null;
   bankAccount?: {
     _id: string;
     bankName: string;
@@ -547,6 +577,14 @@ export interface AdminWithdrawRow {
     accountName: string;
     isVerified?: boolean;
   };
+  // The admin who last took action on this withdrawal (approve / reject /
+  // complete / fail). Null while still pending.
+  processedBy?: {
+    _id: string;
+    name?: string;
+    email?: string;
+    customId?: string;
+  } | null;
 }
 
 export interface AdminWithdrawStats {

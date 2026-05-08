@@ -12,6 +12,9 @@ export interface IWithdraw extends Document {
   reference?: string;
   adminNote?: string;
   processedAt?: Date;
+  // Audit trail — which admin took the last action on this request. Useful
+  // when reviewing why a payout was approved/rejected and for finance reports.
+  processedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +35,7 @@ const withdrawSchema = new Schema<IWithdraw>(
     reference: { type: String },
     adminNote: { type: String },
     processedAt: { type: Date },
+    processedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );

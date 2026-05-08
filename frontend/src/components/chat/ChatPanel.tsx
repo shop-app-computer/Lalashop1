@@ -97,10 +97,20 @@ const ChatPanel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Resolve current user id from /auth/me — relying on localStorage misfires
-  // when the user lands on the panel before visiting /me/me (cache empty).
+  // Resolve current user id. Try cached userInfo first so the first render
+  // already knows who "me" is — otherwise messages briefly render on the
+  // wrong side while /auth/me is in flight.
   const { user: currentUser } = useCurrentUser();
-  const meId = currentUser?._id ?? null;
+  const cachedMeId = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = JSON.parse(window.localStorage.getItem("userInfo") || "null");
+      return cached?._id ? String(cached._id) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const meId = currentUser?._id ?? cachedMeId;
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c._id === activeConversationId) || null,
@@ -426,29 +436,40 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   inputRef,
   messagesEndRef,
 }) => {
+  // Always compare ids as strings — Mongoose returns ObjectId-shaped values
+  // from populate() that look like strings after JSON but trip strict ===.
+  const meIdStr = meId ? String(meId) : "";
+
+  const senderIdOf = (m: ChatMessage): string => {
+    const s = m.sender;
+    if (!s) return "";
+    if (typeof s === "string") return s;
+    return String(s._id || "");
+  };
+
   // Find the index of the LAST message I sent that the peer has read — used
   // to show a single "Seen" indicator at the bottom of my latest read run.
   const lastReadIndex = useMemo(() => {
-    if (!meId || !peerId) return -1;
+    if (!meIdStr || !peerId) return -1;
+    const peerIdStr = String(peerId);
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
-      const senderId = typeof m.sender === "string" ? m.sender : m.sender?._id;
-      if (senderId !== meId) continue;
-      if ((m.readBy || []).some((r) => String(r) === peerId)) return i;
+      if (senderIdOf(m) !== meIdStr) continue;
+      if ((m.readBy || []).some((r) => String(r) === peerIdStr)) return i;
     }
     return -1;
-  }, [messages, meId, peerId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, meIdStr, peerId]);
 
   // Find the LAST message I sent overall — used to show "Sent" when peer hasn't read yet.
   const lastMineIndex = useMemo(() => {
-    if (!meId) return -1;
+    if (!meIdStr) return -1;
     for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      const senderId = typeof m.sender === "string" ? m.sender : m.sender?._id;
-      if (senderId === meId) return i;
+      if (senderIdOf(messages[i]) === meIdStr) return i;
     }
     return -1;
-  }, [messages, meId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, meIdStr]);
 
   return (
   <>
@@ -492,8 +513,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
         </div>
       ) : (
         messages.map((m, i) => {
-          const senderId = typeof m.sender === "string" ? m.sender : m.sender?._id;
-          const mine = meId && senderId === meId;
+          const mine = !!meIdStr && senderIdOf(m) === meIdStr;
           const prev = messages[i - 1];
           const showDayBreak = !isSameDay(prev?.createdAt, m.createdAt);
           return (

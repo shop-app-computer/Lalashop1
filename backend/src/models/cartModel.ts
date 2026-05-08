@@ -6,6 +6,10 @@ export interface ICartItem {
   qty: number;
   unitPrice: number;
   total: number;
+  // Buyer's chosen variant values (e.g. { Size: "L", Color: "Red" }). Free-form
+  // map keyed by the variantOption.name from the product so the seller can see
+  // exactly what the buyer picked when fulfilling the order.
+  variants?: Record<string, string>;
 }
 
 export interface ICart extends Document {
@@ -23,6 +27,7 @@ const cartItemSchema = new Schema({
   qty: { type: Number, required: true, default: 1 },
   unitPrice: { type: Number, required: true },
   total: { type: Number, required: true },
+  variants: { type: Schema.Types.Mixed, default: {} },
 });
 
 const cartSchema = new Schema(

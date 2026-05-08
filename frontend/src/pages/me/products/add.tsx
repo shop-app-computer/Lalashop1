@@ -12,6 +12,7 @@ import {
   getCategoryConfig,
   type CategoryConfig,
 } from "./categoryFields";
+import { uploadImage } from "@/services/uploadImage";
 
 type ProductStatus = "Active" | "Draft" | "Archived";
 type CommissionType = "percent" | "fixed";
@@ -324,27 +325,6 @@ export default function AddProductPage() {
   const updateSpecification = (id: string, patch: Partial<SpecificationRow>) =>
     setSpecifications((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
 
-  // Cloudinary upload
-  const uploadToCloudinary = async (file: File): Promise<string> => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName || !uploadPreset) {
-      throw new Error("Cloudinary is not configured.");
-    }
-    const data = new FormData();
-    data.append("file", file);
-    data.append("upload_preset", uploadPreset);
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      { method: "POST", body: data }
-    );
-    const json = await res.json();
-    if (!res.ok || !json.secure_url) {
-      throw new Error(json?.error?.message || "Image upload failed");
-    }
-    return json.secure_url;
-  };
-
   // Tier helpers
   const addTier = () => {
     const last = tiers[tiers.length - 1];
@@ -402,17 +382,17 @@ export default function AddProductPage() {
 
     setSubmitting(true);
     try {
-      // Upload product gallery images to Cloudinary (skip ones already uploaded)
+      // Upload product gallery images to R2 via backend presign (skip ones
+      // already uploaded). Backend stores only the resulting public URLs.
       const imageUrls = await Promise.all(
         images.map(async (img) =>
-          img.uploadedUrl ? img.uploadedUrl : await uploadToCloudinary(img.file)
+          img.uploadedUrl ? img.uploadedUrl : await uploadImage(img.file, "products")
         )
       );
 
-      // Upload advert images
       const advertUrls = await Promise.all(
         advertImages.map(async (img) =>
-          img.uploadedUrl ? img.uploadedUrl : await uploadToCloudinary(img.file)
+          img.uploadedUrl ? img.uploadedUrl : await uploadImage(img.file, "banners")
         )
       );
 

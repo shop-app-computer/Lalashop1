@@ -7,6 +7,7 @@ import {
 import { compressImage, formatSize } from "../utils/media";
 import { apiClient } from "@/services/apiClient";
 import { useCurrentUser } from "@/services/useCurrentUser";
+import { uploadImage } from "@/services/uploadImage";
 
 type Visibility = "public" | "friends" | "friends_except" | "specific_friends";
 
@@ -71,36 +72,21 @@ export default function MediaUpload({ onUpload, onCancel }: MediaUploadProps) {
     }
   };
 
-  const handleUploadToCloudinary = async (file: File) => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-    const data = new FormData();
-    data.append("file", file);
-    data.append("upload_preset", uploadPreset || "");
-    data.append("cloud_name", cloudName || "");
-
-    const type = file.type.startsWith("video") ? "video" : "image";
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${type}/upload`, {
-      method: "POST",
-      body: data
-    });
-    const resData = await res.json();
-    return resData.secure_url;
-  };
+  // R2 upload via backend presign — supports both image and video.
+  const handleUploadMedia = (file: File): Promise<string> => uploadImage(file, "posts");
 
   const handleShare = async () => {
     if (!file) return;
     setUploading(true);
     try {
-      // 1. Upload to Cloudinary
+      // 1. Upload to R2
       let mediaUrl = "";
       if (fileType === "image") {
         const compressedBlob = await compressImage(file);
         const compressedFile = new File([compressedBlob], file.name, { type: file.type });
-        mediaUrl = await handleUploadToCloudinary(compressedFile);
+        mediaUrl = await handleUploadMedia(compressedFile);
       } else {
-        mediaUrl = await handleUploadToCloudinary(file);
+        mediaUrl = await handleUploadMedia(file);
       }
 
       if (!mediaUrl) throw new Error("Upload failed");

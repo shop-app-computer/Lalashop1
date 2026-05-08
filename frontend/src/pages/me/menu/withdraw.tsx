@@ -47,6 +47,15 @@ interface WithdrawRules {
   currency: string;
 }
 
+// Subset of the KYC submission we actually render — shop name + shop account
+// (a.k.a. the shop's public handle) come from the seller's onboarding form.
+interface KycShopInfo {
+  shopName?: string;
+  shopAccount?: string;
+  shopCategory?: string;
+  shopEmail?: string;
+}
+
 const PENDING_STATUSES = new Set(["pending", "approved"]);
 
 export default function ShopWithdraw({ onBack }: WithdrawProps) {
@@ -64,6 +73,7 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
   const [showHelp, setShowHelp] = useState(false);
   const [rules, setRules] = useState<WithdrawRules | null>(null);
   const [historyTab, setHistoryTab] = useState<"pending" | "history">("pending");
+  const [shopInfo, setShopInfo] = useState<KycShopInfo | null>(null);
 
   const fetchBankData = async () => {
     try {
@@ -93,10 +103,14 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
   const fetchProfile = async () => {
     try {
       const data = await apiClient("/auth/me");
-      const profileData = data?.data || data?.user || (data?.success ? data.data : data);
-      if (profileData) {
-        setBalance(profileData.balance || 0);
-        setPosRevenue(profileData.posRevenue || 0);
+      // /auth/me returns a flat envelope: { success, _id, name, balance, ... }
+      // The previous resolver chain (`data?.data || data?.user || ...`) returned
+      // undefined because none of those keys exist at the top level, so balance
+      // stayed at 0. Pick the user fields directly from `data` if present.
+      const profileData = data?.data || data?.user || data;
+      if (profileData && (profileData._id || profileData.email)) {
+        setBalance(Number(profileData.balance) || 0);
+        setPosRevenue(Number(profileData.posRevenue) || 0);
         setHasWithdrawPin(!!profileData.hasWithdrawPin);
       }
     } catch (error) {
@@ -113,11 +127,27 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
     }
   };
 
+  const fetchKyc = async () => {
+    // Pull the seller's KYC submission so we can show the registered shop
+    // name + shop account on the withdrawal screens. If the user hasn't
+    // completed KYC yet, the response is `{ data: null }` and we leave
+    // shopInfo unset (the UI hides the shop card in that case).
+    try {
+      const data = await apiClient("/kyc/me");
+      if (data?.success && data.data?.shopInfo) {
+        setShopInfo(data.data.shopInfo);
+      }
+    } catch (error) {
+      console.error("Failed to fetch KYC:", error);
+    }
+  };
+
   useEffect(() => {
     fetchBankData();
     fetchWithdrawals();
     fetchProfile();
     fetchRules();
+    fetchKyc();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -300,7 +330,7 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
                       tx.status === "completed"
                         ? "bg-emerald-50 text-emerald-600"
                         : tx.status === "pending" || tx.status === "approved"
-                        ? "bg-amber-50 text-amber-600"
+                        ? "text-green-600"
                         : "bg-rose-50 text-rose-600"
                     }`}
                   >
@@ -350,10 +380,6 @@ export default function ShopWithdraw({ onBack }: WithdrawProps) {
 
       <main className="w-full">
         <div className="bg-white px-6 py-10 border-b border-[#EEEEEE]">
-          <div className="flex items-center gap-1.5 mb-4">
-            <span className="text-[11px] text-[#86878B] font-bold tracking-wider">Web sales balance</span>
-          </div>
-
           <div className="flex justify-between items-baseline mb-3">
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-bold">฿</span>

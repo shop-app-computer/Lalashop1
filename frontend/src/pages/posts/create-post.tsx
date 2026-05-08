@@ -6,6 +6,7 @@ import {
   MoreHorizontal, MessageCircle, AlertCircle, ShoppingBag, Trash2
 } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
+import { uploadImage } from "@/services/uploadImage";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Visibility = "public" | "friends" | "friends_except" | "specific_friends";
@@ -42,27 +43,24 @@ export default function CreatePostPage() {
   };
 
   const uploadMedia = async (file: File) => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-    const url = `https://api.cloudinary.com/v1_1/${cloudName}/${file.type.startsWith("video") ? "video" : "image"}/upload`;
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", uploadPreset || "");
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
-    xhr.upload.onprogress = (e) => e.lengthComputable && setUploadProgress(Math.round((e.loaded / e.total) * 100));
-
-    xhr.onload = () => {
-      if (xhr.status === 200) {
-        const res = JSON.parse(xhr.responseText);
-        setMedia({ url: res.secure_url, type: file.type.startsWith("video") ? "video" : "image" });
-        setPostStage("idle");
-      }
-    };
     setPostStage("uploading");
-    xhr.send(formData);
+    setUploadProgress(0);
+    try {
+      // Animate progress while the presign+PUT round-trip runs. We don't get
+      // real byte-level progress from fetch, so we fake a smooth ramp.
+      const progressTimer = setInterval(() => {
+        setUploadProgress((p) => (p < 90 ? p + 5 : p));
+      }, 200);
+      const url = await uploadImage(file, "posts");
+      clearInterval(progressTimer);
+      setUploadProgress(100);
+      setMedia({ url, type: file.type.startsWith("video") ? "video" : "image" });
+      setPostStage("idle");
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setPostStage("idle");
+      setUploadProgress(0);
+    }
   };
 
   const insertSymbol = (sym: string) => {

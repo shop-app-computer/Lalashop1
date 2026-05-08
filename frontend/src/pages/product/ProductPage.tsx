@@ -6,15 +6,14 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ChevronLeft, ChevronRight, ShieldCheck, Truck,
-  RefreshCw, Zap, ArrowRight, MessageCircle, ShoppingCart, CreditCard,
-  Store, Flag,
+  RefreshCw, MessageCircle, ShoppingCart, CreditCard,
+  Store, Flag, Minus, Plus, CheckCircle2, AlertCircle, XCircle,
 } from "lucide-react";
 
 import Header from "@/components/layout/Header";
 import BuyPopup from "../buyproduct/buy";
 import ReportModal from "@/components/ReportModal";
 import { ImageGallery } from "./ImageGallery";
-import { PriceTierCard, QuantityStepper } from "./ProductControls";
 import { SpecRow, TrustPill, Stars } from "./ProductUIPrimitives";
 import { ProductTabs } from "./ProductTabs";
 import { PriceTier, ProductData } from "./types";
@@ -85,6 +84,9 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [activeTier, setActiveTier] = useState(0);
   const [qty, setQty] = useState(1);
+  // Selected variant value per option name (e.g. { Size: "L", Color: "Red" }).
+  // Initialised when the product loads — defaults to the first value of each option.
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [tab, setTab] = useState("specs");
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [showBuyPopup, setShowBuyPopup] = useState(false);
@@ -114,6 +116,18 @@ export default function ProductPage() {
             setProduct(response.data);
             const productData = response.data;
 
+            // Hydrate qty + variant selection from the loaded product.
+            const minQty = Number(productData.moq) > 1 ? Number(productData.moq) : 1;
+            setQty(minQty);
+            const opts = Array.isArray(productData.variantOptions) ? productData.variantOptions : [];
+            const initialVariants: Record<string, string> = {};
+            opts.forEach((opt: { name?: string; values?: string[] }) => {
+              if (opt?.name && Array.isArray(opt.values) && opt.values.length > 0) {
+                initialVariants[opt.name] = opt.values[0];
+              }
+            });
+            setSelectedVariants(initialVariants);
+
             // Fetch recommended products
             const recResponse = await apiClient("/products");
             if (recResponse.success && Array.isArray(recResponse.data)) {
@@ -142,20 +156,57 @@ export default function ProductPage() {
     setTimeout(() => setToast({ visible: false, message: "" }), 2500);
   }, []);
 
-  // Calculate prices early so they can be used in handleAddToCart
+  // Calculate prices early so they can be used in handleAddToCart.
+  // Falls back to product.price when `prices` is missing or empty (Mongoose
+  // defaults `prices` to `[]`, which used to short-circuit selectedPrice to 0
+  // and break the live "Total" rendering).
   const displayPrices: PriceTier[] = useMemo(() => {
     if (!product) return [];
-    return Array.isArray(product.prices)
+    const basePrice = typeof product.price === "number" ? product.price : 0;
+    return Array.isArray(product.prices) && product.prices.length > 0
       ? product.prices
-      : [{ range: "1+", price: typeof product.price === "number" ? product.price : 0 }];
+      : [{ range: "1+", price: basePrice }];
   }, [product]);
 
+  // Bulk pricing: if the seller defined `tiers`, the unit price drops as qty
+  // crosses each `minQty` threshold. We pick the highest tier whose minQty
+  // ≤ current qty; otherwise fall back to the active price tier or base price.
   const selectedPrice = useMemo(() => {
-    return displayPrices[activeTier]?.price ?? 0;
-  }, [displayPrices, activeTier]);
+    const basePrice = displayPrices[activeTier]?.price ?? 0;
+    const tiers: Array<{ minQty?: number; price?: number }> = Array.isArray(
+      (product as any)?.tiers,
+    )
+      ? (product as any).tiers
+      : [];
+    const matched = tiers
+      .filter((t) => Number(t.minQty) <= qty)
+      .sort((a, b) => Number(b.minQty) - Number(a.minQty))[0];
+    if (matched && Number(matched.price) > 0) return Number(matched.price);
+    return basePrice;
+  }, [displayPrices, activeTier, product, qty]);
+
+  // Block Buy / Add to Cart until the buyer has picked every variant
+  // option the seller defined. Returns true if all options have a value.
+  const variantsComplete = useMemo(() => {
+    const opts = Array.isArray((product as any)?.variantOptions)
+      ? ((product as any).variantOptions as Array<{ name?: string; values?: string[] }>)
+      : [];
+    return opts.every((o) => !o?.name || Boolean(selectedVariants[o.name]));
+  }, [product, selectedVariants]);
+
+  const stockLeft = Number((product as any)?.countInStock ?? 0);
+  const moqValue = Number((product as any)?.moq) > 1 ? Number((product as any).moq) : 1;
 
   const handleAddToCart = useCallback(async () => {
     if (cartLoading || !product) return;
+    if (!variantsComplete) {
+      showToast("Pick every option first");
+      return;
+    }
+    if (stockLeft <= 0) {
+      showToast("Out of stock");
+      return;
+    }
     setCartLoading(true);
     try {
       const response = await apiClient("/cart/items", {
@@ -163,7 +214,8 @@ export default function ProductPage() {
         body: JSON.stringify({
           productId: product._id || product.id,
           qty: qty,
-          unitPrice: selectedPrice
+          unitPrice: selectedPrice,
+          variants: selectedVariants,
         }),
       });
 
@@ -178,7 +230,7 @@ export default function ProductPage() {
     } finally {
       setCartLoading(false);
     }
-  }, [cartLoading, product, qty, selectedPrice, showToast]);
+  }, [cartLoading, product, qty, selectedPrice, showToast, selectedVariants, variantsComplete, stockLeft]);
 
   const handleBuy = useCallback(async () => {
     setShowBuyPopup(true);
@@ -402,18 +454,140 @@ export default function ProductPage() {
 
 
 
-              {/* Total preview */}
-              {qty > 1 && (
-                <div className="flex   px-4 py-3  mb-5">
-                  <span className="text-sm font-bold text-white">
-                    <Zap size={13} className="inline mr-1.5 align-middle" />
-                    {qty} pcs × ฿{selectedPrice.toLocaleString()}
-                  </span>
-                  <span className="font-black text-white text-base">
-                    = ฿{(qty * selectedPrice).toLocaleString()}
-                  </span>
+              {/* ── Price + discount + stock ── */}
+              {(() => {
+                const basePrice = Number(product.price) || selectedPrice || 0;
+                const compareAt = Number((product as any).compareAt) || 0;
+                const discountPct =
+                  compareAt > basePrice
+                    ? Math.round(((compareAt - basePrice) / compareAt) * 100)
+                    : 0;
+                let stockTone = "text-emerald-600";
+                let stockIcon = <CheckCircle2 size={13} />;
+                let stockLabel = `In stock — ${stockLeft.toLocaleString()} available`;
+                if (stockLeft <= 0) {
+                  stockTone = "text-rose-600";
+                  stockIcon = <XCircle size={13} />;
+                  stockLabel = "Out of stock";
+                } else if (stockLeft <= 10) {
+                  stockTone = "text-amber-600";
+                  stockIcon = <AlertCircle size={13} />;
+                  stockLabel = `Only ${stockLeft} left`;
+                }
+                return (
+                  <div className="mb-5">
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <span className="text-3xl font-black text-sky-600 tabular-nums">
+                        ฿{basePrice.toLocaleString()}
+                      </span>
+                      {compareAt > basePrice && (
+                        <>
+                          <span className="text-base text-gray-400 font-bold line-through tabular-nums">
+                            ฿{compareAt.toLocaleString()}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-rose-500 text-white text-[11px] font-black tracking-wide">
+                            -{discountPct}%
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className={`mt-2 inline-flex items-center gap-1.5 text-xs font-bold ${stockTone}`}>
+                      {stockIcon}
+                      {stockLabel}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Variant options ── */}
+              {Array.isArray((product as any).variantOptions) &&
+                (product as any).variantOptions.length > 0 && (
+                  <div className="mb-5 space-y-3">
+                    {((product as any).variantOptions as Array<{ name: string; values: string[] }>)
+                      .filter((opt) => opt?.name && Array.isArray(opt.values) && opt.values.length > 0)
+                      .map((opt) => (
+                        <div key={opt.name}>
+                          <p className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-2">
+                            {opt.name}
+                            {selectedVariants[opt.name] && (
+                              <span className="ml-2 text-slate-700 font-bold normal-case tracking-normal">
+                                {selectedVariants[opt.name]}
+                              </span>
+                            )}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {opt.values.map((value) => {
+                              const active = selectedVariants[opt.name] === value;
+                              return (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedVariants((prev) => ({ ...prev, [opt.name]: value }))
+                                  }
+                                  className={`px-3 py-1.5 rounded-lg border-2 text-xs font-bold transition-all ${
+                                    active
+                                      ? "border-sky-500 bg-sky-50 text-sky-700"
+                                      : "border-gray-200 bg-white text-slate-700 hover:border-gray-300"
+                                  }`}
+                                >
+                                  {value}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+              {/* ── Quantity stepper + MOQ + line total ── */}
+              <div className="mb-5">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-[11px] font-black tracking-widest text-gray-500  mb-1.5">
+                      Quantity
+                      {moqValue > 1 && (
+                        <span className="ml-2 text-amber-600 normal-case tracking-normal">
+                          Min order: {moqValue} pcs
+                        </span>
+                      )}
+                    </p>
+                    <div className="inline-flex items-center bg-white rounded-lg  border-gray-200 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setQty(Math.max(moqValue, qty - 1))}
+                        disabled={qty <= moqValue}
+                        className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="min-w-[44px] text-center font-black text-base text-slate-900 tabular-nums">
+                        {qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const max = stockLeft > 0 ? stockLeft : qty + 1;
+                          setQty(Math.min(max, qty + 1));
+                        }}
+                        disabled={stockLeft > 0 && qty >= stockLeft}
+                        className="w-10 h-10 flex items-center justify-center text-slate-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-1.5">
+                      Total
+                    </p>
+                    <p className="text-2xl font-black text-slate-900 tabular-nums">
+                      ฿{(qty * selectedPrice).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-              )}
+              </div>
 
               {/* Meta rows */}
               <div className="mb-6">
@@ -468,7 +642,7 @@ export default function ProductPage() {
 
               <button
                 onClick={handleBuy}
-                disabled={buyLoading}
+                disabled={buyLoading || stockLeft <= 0 || !variantsComplete}
                 className="btn-hover w-full bg-slate-900 text-white font-bold text-sm rounded-2xl py-3.5 mb-3 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {buyLoading ? (
@@ -476,13 +650,17 @@ export default function ProductPage() {
                 ) : (
                   <CreditCard size={15} />
                 )}
-                {buyLoading ? "Processing..." : "Buy"}
+                {buyLoading
+                  ? "Processing..."
+                  : stockLeft <= 0
+                    ? "Out of stock"
+                    : "Buy"}
               </button>
 
               {/* Secondary: Add to Cart */}
               <button
                 onClick={handleAddToCart}
-                disabled={cartLoading}
+                disabled={cartLoading || stockLeft <= 0 || !variantsComplete}
                 className="btn-hover w-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm rounded-2xl py-3.5 mb-3 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {cartLoading ? (
@@ -490,7 +668,11 @@ export default function ProductPage() {
                 ) : (
                   <ShoppingCart size={15} />
                 )}
-                {cartLoading ? "Adding..." : "Add to Cart"}
+                {cartLoading
+                  ? "Adding..."
+                  : stockLeft <= 0
+                    ? "Out of stock"
+                    : "Add to Cart"}
               </button>
 
               {/* Ghost: Message */}
@@ -502,20 +684,43 @@ export default function ProductPage() {
                 Chat with seller
               </button>
 
-              {/* Trust Pills */}
+              {/* Trust Pills — values pulled from real product fields */}
               <div className="flex gap-2.5 flex-wrap">
-                <TrustPill icon={ShieldCheck} label="Guaranteed" value="100% Secure" color="#3b82f6" />
-                <TrustPill icon={Truck} label="Logistics" value="Fast Shipping" color="#0077b6" />
+                <TrustPill
+                  icon={Truck}
+                  label="Shipping"
+                  value={(product as any).freeShipping ? "Free" : `Ships from ${shipsFromText}`}
+                  color={(product as any).freeShipping ? "#22c55e" : "#0077b6"}
+                />
                 <TrustPill
                   icon={RefreshCw}
                   label="Returns"
                   value={returnsValue}
                   color={returnPolicy?.accepts === false ? "#ef4444" : "#22c55e"}
                 />
+                <TrustPill icon={ShieldCheck} label="Lead Time" value={leadTimeText} color="#3b82f6" />
               </div>
             </div>
           </div>
         </div>
+
+        {/* ── Advert images strip ── seller-uploaded promo banners */}
+        {Array.isArray((product as any).advertImages) &&
+          ((product as any).advertImages as string[]).filter(Boolean).length > 0 && (
+            <div className="page-enter mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+              {((product as any).advertImages as string[])
+                .filter(Boolean)
+                .map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={`${src}-${i}`}
+                    src={src}
+                    alt={`${product.name} promo ${i + 1}`}
+                    className="w-full rounded-2xl object-cover bg-slate-100"
+                  />
+                ))}
+            </div>
+          )}
 
         {/* ── Shop Section ── */}
         <div className="page-enter bg-white rounded-3xl p-2 md:p-1 mb-1 t-1  shadow-sm shadow-blue-900/[0.02]">
@@ -524,7 +729,7 @@ export default function ProductPage() {
               <Link href={viewShopHref} className="flex items-center gap-4 group">
                 <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-2xl overflow-hidden  bg-gray-50 flex-shrink-0">
                   <img
-                    src={(product.seller as any)?.profileImage || "/assets/default-avatar.png"}
+                    src={(product.seller as any)?.profileImage}
                     alt={(product.seller as any)?.name}
                     className="w-full h-full object-cover"
                   />

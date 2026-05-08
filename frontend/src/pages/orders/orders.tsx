@@ -13,23 +13,99 @@ import { apiClient } from "@/services/apiClient";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
+interface OrderSeller {
+   _id: string;
+   name?: string;
+   username?: string;
+   profileImage?: string;
+   customId?: string;
+}
+
 interface OrderItem {
    name: string;
    qty: number;
    image: string;
    price: number;
    product: any; // Can be ID string or populated object
+   seller?: string | OrderSeller;
    description?: string;
+}
+
+interface OrderSlip {
+   status: "pending" | "verified" | "rejected";
+   rejectionReason?: string;
+   transferAmount?: number;
 }
 
 interface Order {
    _id: string;
    status: "pending" | "processing" | "shipped" | "delivered" | "canceled";
+   isPaid?: boolean;
    totalPrice: number;
    createdAt: string;
    orderItems: OrderItem[];
    paymentMethod: string;
+   slip?: OrderSlip | null;
 }
+
+// Compute the user-facing status — slip state takes priority over the
+// underlying order.status because customers care about "did admin approve
+// my transfer yet" before they care about the seller's fulfilment progress.
+const resolveOrderStatus = (
+   order: Order,
+): { label: string; tone: string } => {
+   if (order.slip?.status === "pending" && !order.isPaid) {
+      return { label: "Awaiting verification", tone: "text-amber-600" };
+   }
+   if (order.slip?.status === "rejected" && !order.isPaid) {
+      return { label: "Slip rejected", tone: "text-rose-600" };
+   }
+   const labels: Record<Order["status"], string> = {
+      pending: "To Pay",
+      processing: "To Ship",
+      shipped: "To Receive",
+      delivered: "Completed",
+      canceled: "Canceled",
+   };
+   const tones: Record<Order["status"], string> = {
+      pending: "text-[#FE2C55]",
+      processing: "text-[#0077b6]",
+      shipped: "text-[#0077b6]",
+      delivered: "text-emerald-500",
+      canceled: "text-rose-500",
+   };
+   return { label: labels[order.status], tone: tones[order.status] };
+};
+
+// Resolve the order's primary shop. We assume one order = one seller (the
+// cart UX groups items per shop) but defensively pull from the first item
+// and detect if multiple sellers slipped through.
+const resolveOrderShop = (order: Order): {
+   id: string | null;
+   name: string;
+   profileImage?: string;
+   multiple: boolean;
+} => {
+   const sellers = order.orderItems
+      .map((it) => it.seller)
+      .filter(Boolean) as Array<string | OrderSeller>;
+   const ids = Array.from(
+      new Set(
+         sellers.map((s) => (typeof s === "string" ? s : String(s?._id || ""))).filter(Boolean),
+      ),
+   );
+   if (ids.length === 0) {
+      return { id: null, name: "Unknown shop", multiple: false };
+   }
+   const first = sellers[0];
+   const populated = typeof first === "object" ? first : null;
+   return {
+      id: ids[0],
+      name: populated?.name || populated?.username || "Shop",
+      profileImage: populated?.profileImage,
+      multiple: ids.length > 1,
+   };
+};
 
 export default function OrdersPage() {
    const tabs = ["all", "to pay", "to ship", "to receive", "completed", "canceled"];
@@ -41,15 +117,6 @@ export default function OrdersPage() {
       "to receive": "shipped",
       "completed": "delivered",
       "canceled": "canceled"
-   };
-
-   // Map Backend status to UI labels
-   const labelMap: Record<string, string> = {
-      "pending": "To Pay",
-      "processing": "To Ship",
-      "shipped": "To Receive",
-      "delivered": "Completed",
-      "canceled": "Canceled"
    };
 
    const router = useRouter();
@@ -81,15 +148,6 @@ export default function OrdersPage() {
       const targetStatus = statusMap[selectedTab];
       return orders.filter((o) => o.status === targetStatus);
    }, [orders, selectedTab]);
-
-   const getStatusColor = (status: string) => {
-      switch (status) {
-         case "delivered": return "text-emerald-500";
-         case "canceled": return "text-rose-500";
-         case "pending": return "text-[#FE2C55]";
-         default: return "text-[#0077b6]";
-      }
-   };
 
    const handleDeleteOrder = async (orderId: string) => {
       if (!confirm("Are you sure you want to cancel this order?")) return;
@@ -141,21 +199,50 @@ export default function OrdersPage() {
                </div>
             ) : (
                <div className="space-y-4 mt-2 w-full px-0">
-                  {filteredOrders.map((order) => (
+                  {filteredOrders.map((order) => {
+                     const shop = resolveOrderShop(order);
+                     const status = resolveOrderStatus(order);
+                     return (
                      <div key={order._id} className="bg-white border-y border-gray-border overflow-hidden shadow-sm shadow-black/[0.02]">
-                        {/* Store Header */}
-                        <div className="px-4 py-3 flex items-center justify-between border-b border-[#F8F8F8]">
-                           <div className="flex items-center gap-2">
-                              <Store size={16} strokeWidth={2.5} />
-                              <span className="text-[13px] font-bold tracking-tight">Main Factory</span>
-                              <ChevronRight size={14} className="text-[#BBBBBB]" />
-                           </div>
-                           <div className="flex items-center gap-3">
-                              
+                        {/* Store Header — real shop, clickable to /u/{sellerId} */}
+                        <div className="px-4 py-3 flex items-center justify-between border-b border-[#F8F8F8] gap-3">
+                           {shop.id ? (
+                              <Link
+                                 href={`/u/${shop.id}`}
+                                 className="flex items-center gap-2 min-w-0 hover:text-[#0077b6] transition-colors"
+                              >
+                                 {shop.profileImage ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                       src={shop.profileImage}
+                                       alt={shop.name}
+                                       className="w-6 h-6 rounded-full object-cover bg-gray-100 flex-shrink-0"
+                                    />
+                                 ) : (
+                                    <Store size={16} strokeWidth={2.5} />
+                                 )}
+                                 <span className="text-[13px] font-bold tracking-tight truncate">
+                                    {shop.multiple ? `${shop.name} +${order.orderItems.length - 1} more` : shop.name}
+                                 </span>
+                                 <ChevronRight size={14} className="text-[#BBBBBB] flex-shrink-0" />
+                              </Link>
+                           ) : (
+                              <div className="flex items-center gap-2 min-w-0 text-gray-400">
+                                 <Store size={16} strokeWidth={2.5} />
+                                 <span className="text-[13px] font-bold tracking-tight truncate">{shop.name}</span>
+                              </div>
+                           )}
+                           <div className="flex items-center gap-3 flex-shrink-0">
+                              <span
+                                 className={`text-[11px] font-black uppercase tracking-wider ${status.tone}`}
+                              >
+                                 {status.label}
+                              </span>
                               {order.status === 'pending' && (
-                                 <button 
+                                 <button
                                     onClick={() => handleDeleteOrder(order._id)}
                                     className="text-gray-300 hover:text-rose-500 transition-colors p-1"
+                                    aria-label="Cancel order"
                                  >
                                     <Trash2 size={16} />
                                  </button>
@@ -192,36 +279,9 @@ export default function OrdersPage() {
                               );
                            })}
                         </div>
-
-                        {/* Order Summary & Actions */}
-                        <div className="px-4 py-4 border-t border-gray-border flex flex-col sm:flex-row justify-between items-center gap-4">
-                           <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-gray-500 font-bold tracking-wider">
-                                 total {order.orderItems.reduce((acc, item) => acc + item.qty, 0)} items:
-                              </span>
-                              <span className="text-[20px] font-black text-primary-hover">฿{order.totalPrice.toLocaleString()}</span>
-                           </div>
-
-                           <div className="flex gap-2 w-full sm:w-auto">
-                              <button className="flex-1 sm:flex-none px-6 py-2.5 border border-gray-border text-[11px] font-bold tracking-wider  active:bg-gray-light transition-all rounded-lg text-dark">
-                                 contact shop
-                              </button>
-                              <button 
-                                 onClick={() => {
-                                    if (order.status === 'pending') {
-                                       router.push(`/buyproduct/transfer?orderId=${order._id}&total=${order.totalPrice}&method=${order.paymentMethod}`);
-                                    } else {
-                                       router.push(`/buyproduct/receipt?orderId=${order._id}`);
-                                    }
-                                 }}
-                                 className="flex-1 sm:flex-none px-8 py-2.5 bg-dark text-white text-[11px] font-bold tracking-wider  active:opacity-80 transition-all shadow-lg shadow-dark/10 rounded-lg"
-                              >
-                                 {order.status === 'pending' ? 'continue payment' : 'details'}
-                              </button>
-                           </div>
-                        </div>
                      </div>
-                  ))}
+                     );
+                  })}
                </div>
             )}
          </main>

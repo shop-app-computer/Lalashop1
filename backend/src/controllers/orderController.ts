@@ -6,6 +6,7 @@ import Product from "../models/productModel";
 import CreatorProduct from "../models/creatorProductModel";
 import CreatorEarning from "../models/creatorEarningModel";
 import AffiliateClick from "../models/affiliateClickModel";
+import PaymentSlip from "../models/paymentSlipModel";
 import { IAuthRequest } from "../middlewares/authMiddleware";
 
 const computeCommission = (
@@ -220,8 +221,29 @@ export const getMyOrders = async (req: IAuthRequest, res: Response) => {
 
     const orders = await Order.find(identifier)
       .populate("orderItems.product", "description")
-      .sort({ createdAt: -1 });
-    res.status(200).json({ success: true, orders });
+      .populate("orderItems.seller", "name username profileImage customId")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Attach the latest payment slip per order so the UI can surface
+    // "Awaiting verification" / "Slip rejected" states without an extra
+    // round-trip per order.
+    const orderIds = orders.map((o: any) => o._id);
+    const slips = await PaymentSlip.find({ order: { $in: orderIds } })
+      .sort({ createdAt: -1 })
+      .select("order status rejectionReason transferAmount createdAt")
+      .lean();
+    const latestSlipByOrder = new Map<string, any>();
+    for (const s of slips) {
+      const key = String(s.order);
+      if (!latestSlipByOrder.has(key)) latestSlipByOrder.set(key, s);
+    }
+    const enriched = orders.map((o: any) => ({
+      ...o,
+      slip: latestSlipByOrder.get(String(o._id)) || null,
+    }));
+
+    res.status(200).json({ success: true, orders: enriched });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

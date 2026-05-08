@@ -113,6 +113,16 @@ export default function BuyPopup({ product, isOpen, onClose, initialQty = 1 }: B
             .map(([k, v]) => `${k}:${v}`)
             .join("|");
 
+        // The /products/:id endpoint populates `seller` into a full user object
+        // ({ _id, name, username, profileImage, ... }). Strip down to the raw
+        // ObjectId string before stuffing into the URL — otherwise the order
+        // POST receives "[object Object]" and Mongoose ObjectId cast fails.
+        const sellerRaw: any = (product as any).seller;
+        const sellerId =
+            typeof sellerRaw === "string"
+                ? sellerRaw
+                : String(sellerRaw?._id || sellerRaw?.id || "");
+
         const params = new URLSearchParams({
             id: String(product._id || product.id || ""),
             qty: qty.toString(),
@@ -124,7 +134,7 @@ export default function BuyPopup({ product, isOpen, onClose, initialQty = 1 }: B
             description: String(product.description || ""),
             image: String(productImage || ""),
             category: String(product.category || ""),
-            seller: String(product.seller || ""),
+            seller: sellerId,
         });
         window.location.href = `/buyproduct/payment?${params.toString()}`;
     };

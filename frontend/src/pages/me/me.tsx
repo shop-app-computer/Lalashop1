@@ -25,6 +25,7 @@ import Withdraw from "./menu/withdraw";
 import MyShopPage from "./myshop/myshop";
 import UserListModal from "@/pages/Social/components/UserListModal";
 import { apiClient } from "@/services/apiClient";
+import { uploadImage } from "@/services/uploadImage";
 
 type SubView = "none" | "balance" | "points" | "coupons" | "creditLimit" | "withdraw";
 
@@ -172,15 +173,7 @@ const MePage: React.FC = () => {
    };
 
    const handleUploadProfileImage = async (file: File) => {
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-      const data = new FormData();
-      data.append("file", file);
-      data.append("upload_preset", uploadPreset || "");
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: data });
-      const img = await res.json();
-      const url = img.secure_url;
+      const url = await uploadImage(file, "profile");
       await apiClient("/users/profile", { method: "PUT", body: JSON.stringify({ profileImage: url }) });
       setUser((p: any) => ({ ...p, profileImage: url }));
       localStorage.setItem("userInfo", JSON.stringify({ ...user, profileImage: url }));
@@ -214,7 +207,7 @@ const MePage: React.FC = () => {
       { id: "points", icon: Package, label: "Orders", val: `${user?.orderCount || 0} ` },
       { id: "coupons", icon: Gift, label: "Coupons", val: "0" },
       { id: "creditLimit", icon: TrendingUp, label: "Promotions", val: "0" },
-      { id: "withdraw", icon: Banknote, label: "Withdraw", val: "→" },
+      { id: "withdraw", icon: Banknote, label: "Withdraw", val: `฿${user?.balance?.toLocaleString() || 0}` },
    ];
 
    return (

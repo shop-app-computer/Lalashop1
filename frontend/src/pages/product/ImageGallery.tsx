@@ -124,7 +124,7 @@ export function ImageGallery({ image, images, name }: ImageGalleryProps) {
           </>
         )}
 
-        {/* Dots */}
+        {/* Position dots — kept compact since thumbnails carry the heavy lifting */}
         {gallery.length > 1 && (
           <div
             style={{
@@ -135,28 +135,75 @@ export function ImageGallery({ image, images, name }: ImageGalleryProps) {
               display: "flex",
               justifyContent: "center",
               gap: 6,
+              pointerEvents: "none",
             }}
           >
             {gallery.map((_, i) => (
-              <button
+              <span
                 key={i}
-                onClick={() => scrollTo(i)}
-                aria-label={`Go to image ${i + 1}`}
                 style={{
                   width: i === activeIdx ? 18 : 6,
                   height: 6,
                   borderRadius: 999,
-                  border: "none",
                   background: i === activeIdx ? "#fff" : "rgba(255,255,255,0.55)",
                   transition: "all 0.2s",
-                  cursor: "pointer",
-                  padding: 0,
                 }}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Thumbnail strip — clickable previews of every gallery image. */}
+      {/* Active thumb gets a sky border + slight lift; row scrolls horizontally */}
+      {/* on overflow so 12+ images stay reachable on small screens. */}
+      {gallery.length > 1 && (
+        <div
+          className="hide-scrollbar"
+          style={{
+            display: "flex",
+            gap: 10,
+            overflowX: "auto",
+            marginTop: 16,
+            paddingBottom: 4,
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+        >
+          {gallery.map((src, i) => {
+            const active = i === activeIdx;
+            return (
+              <button
+                key={`thumb-${src}-${i}`}
+                onClick={() => scrollTo(i)}
+                aria-label={`Show image ${i + 1}`}
+                aria-current={active}
+                style={{
+                  flex: "0 0 auto",
+                  width: 64,
+                  height: 64,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  padding: 0,
+                  cursor: "pointer",
+                  background: "#f8fafc",
+                  border: active ? "2px solid #0077b6" : "2px solid #e2e8f0",
+                  transform: active ? "translateY(-2px)" : "none",
+                  boxShadow: active ? "0 6px 16px rgba(0,119,182,0.18)" : "none",
+                  transition: "all 0.15s ease",
+                  opacity: active ? 1 : 0.75,
+                }}
+              >
+                <img
+                  src={src}
+                  alt={`${name} thumbnail ${i + 1}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Withdraw from "../models/withdrawModel";
 import User from "../models/userModel";
+import KycSubmission from "../models/kycSubmissionModel";
 
 interface WithdrawListQuery {
   page?: string;
@@ -61,13 +62,56 @@ export const adminListWithdrawals = async (req: Request, res: Response) => {
         .limit(limit)
         .populate("user", "name email customId profileImage isSeller seller_type")
         .populate("bankAccount", "bankName accountNumber accountName isVerified")
+        .populate("processedBy", "name email customId")
         .lean(),
       Withdraw.countDocuments(filter),
     ]);
 
+    // Batch-fetch shop names (from KYC submissions) for every seller in this
+    // page. Cheaper than one KYC lookup per row, and the admin Withdrawals
+    // table renders a clickable Shop column from this map.
+    const sellerIds = Array.from(
+      new Set(
+        items
+          .map((w: any) => w.user?._id?.toString())
+          .filter(Boolean) as string[],
+      ),
+    );
+    const shopNameById = new Map<string, string>();
+    if (sellerIds.length > 0) {
+      const kycs = await KycSubmission.find({
+        user: { $in: sellerIds },
+        status: "approved",
+      })
+        .select("user shopInfo.shopName shopInfo.shopAccount")
+        .lean();
+      // Approved KYC takes priority. Fall back to the most recent submission
+      // (any status) for users who haven't been approved yet.
+      const fallbackKycs = await KycSubmission.find({
+        user: { $in: sellerIds },
+      })
+        .sort({ createdAt: -1 })
+        .select("user shopInfo.shopName")
+        .lean();
+      for (const k of fallbackKycs) {
+        const key = String(k.user);
+        if (!shopNameById.has(key) && k.shopInfo?.shopName) {
+          shopNameById.set(key, k.shopInfo.shopName);
+        }
+      }
+      for (const k of kycs) {
+        if (k.shopInfo?.shopName) shopNameById.set(String(k.user), k.shopInfo.shopName);
+      }
+    }
+
+    const enriched = items.map((w: any) => ({
+      ...w,
+      shopName: w.user?._id ? shopNameById.get(String(w.user._id)) || null : null,
+    }));
+
     res.status(200).json({
       success: true,
-      data: items,
+      data: enriched,
       meta: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error: any) {
@@ -84,6 +128,7 @@ export const adminGetWithdrawal = async (req: Request, res: Response) => {
     const item = await Withdraw.findById(id)
       .populate("user", "name email customId profileImage isSeller seller_type balance")
       .populate("bankAccount", "bankName accountNumber accountName isVerified")
+      .populate("processedBy", "name email customId")
       .lean();
     if (!item) return res.status(404).json({ success: false, message: "Not found" });
     res.status(200).json({ success: true, data: item });
@@ -132,6 +177,11 @@ export const adminProcessWithdrawal = async (req: Request, res: Response) => {
 
     if (adminNote) item.adminNote = adminNote;
 
+    // Audit trail: stamp the admin who took this action so the Withdrawals
+    // table can show "Processed by" for finance review.
+    const adminId = (req as any).user?._id;
+    if (adminId) item.processedBy = adminId;
+
     await item.save();
 
     res.status(200).json({
@@ -142,6 +192,7 @@ export const adminProcessWithdrawal = async (req: Request, res: Response) => {
         reference: item.reference,
         adminNote: item.adminNote,
         processedAt: item.processedAt,
+        processedBy: item.processedBy,
       },
     });
   } catch (error: any) {

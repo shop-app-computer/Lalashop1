@@ -24,7 +24,9 @@ export default function TikTokStyleProducts({ isSeller = false }: MyShopProps) {
       }
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("/api/products/my", {
+        // storefrontOnly hides products the seller marked "store only" so this
+        // tab matches what public visitors see on the shop page.
+        const res = await fetch("/api/products/my?storefrontOnly=true", {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -187,6 +189,16 @@ export default function TikTokStyleProducts({ isSeller = false }: MyShopProps) {
                   <h3 className="text-[10px] lg:text-[12px] text-slate-800 line-clamp-2 leading-tight mb-1">
                     {product.name}
                   </h3>
+
+                  {product.description && (
+                    <p
+                      className={`text-[9px] lg:text-[10px] text-slate-500 leading-snug mb-1 ${
+                        viewMode === "grid" ? "line-clamp-2" : "line-clamp-3"
+                      }`}
+                    >
+                      {product.description}
+                    </p>
+                  )}
 
                   <div className="flex items-center gap-1 mb-1">
                     <div className="flex items-center text-[#ffab00]">

@@ -234,59 +234,6 @@ export default function Step2ShopInfo({
                         </div>
                     )}
                 </div>
-
-                {/* Phone Number & OTP */}
-                <div className="space-y-4 pt-4">
-                    <h3 className="text-[15px] font-bold">Phone Number</h3>
-                    <div className="max-w-xl space-y-3">
-                        <div className={`flex border rounded-lg overflow-hidden focus-within:border-primary transition-all relative ${errors.phoneNumber ? 'border-red-500' : 'border-gray-border'}`}>
-                            <div className="relative flex bg-gray-50 border-r border-gray-200">
-                                <select
-                                    value={countries.indexOf(selectedCountry)}
-                                    onChange={(e) => {
-                                        setSelectedCountry(countries[Number(e.target.value)]);
-                                    }}
-                                    className="px-4 py-3 bg-transparent text-[14px] font-medium text-gray-600 outline-none appearance-none cursor-pointer pr-8"
-                                >
-                                    {countries.map((c, index) => (
-                                        <option key={c.code + c.name} value={index}>
-                                            {c.flag} {c.code}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                            </div>
-
-                            <input
-                                type="tel"
-                                value={phoneNumber}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === "" || /^\d+$/.test(val)) {
-                                        setPhoneNumber(val);
-                                    }
-                                }}
-                                placeholder="Please enter phone number"
-                                className={`flex-1 px-4 py-3 outline-none text-[15px] font-medium ${errors.phoneNumber ? 'bg-red-50/30' : ''}`}
-                            />
-                            <button className="px-6 py-3 text-[14px] font-bold text-gray-400 hover:text-primary transition-colors border-l border-gray-100">
-                                Send Code
-                            </button>
-                        </div>
-                        <input
-                            type="text"
-                            value={verificationCode}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === "" || /^\d+$/.test(val)) {
-                                    setVerificationCode(val);
-                                }
-                            }}
-                            placeholder="Enter verification code"
-                            className={`w-full border rounded-lg px-4 py-3 text-[15px] focus:border-primary outline-none ${errors.verificationCode ? 'border-red-500 bg-red-50/10' : 'border-gray-border'}`}
-                        />
-                    </div>
-                </div>
             </section>
         </div>
     );

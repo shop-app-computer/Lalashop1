@@ -56,7 +56,7 @@ export default function SellerSettings() {
               key={item.id}
               onClick={() => setActiveSection(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${activeSection === item.id
-                ? "bg-[#00aeff]/5 text-[#00aeff]"
+                ? "text-[#00aeff]"
                 : "text-gray-500 hover:bg-gray-50"
                 }`}
             >

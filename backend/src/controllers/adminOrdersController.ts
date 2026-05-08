@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Order from "../models/orderModel";
+import PaymentSlip from "../models/paymentSlipModel";
 
 interface OrderListQuery {
   page?: string;
@@ -9,6 +10,7 @@ interface OrderListQuery {
   status?: string;
   startDate?: string;
   endDate?: string;
+  seller?: string;
 }
 
 const parsePagination = (query: OrderListQuery) => {
@@ -56,7 +58,7 @@ const toUiStatus = (status: string, isPaid: boolean): string => {
 export const adminListOrders = async (req: Request, res: Response) => {
   try {
     const { page, limit, skip } = parsePagination(req.query as OrderListQuery);
-    const { search, status, startDate, endDate } = req.query as OrderListQuery;
+    const { search, status, startDate, endDate, seller } = req.query as OrderListQuery;
 
     const filter: Record<string, unknown> = { ...buildStatusFilter(status) };
 
@@ -65,6 +67,10 @@ export const adminListOrders = async (req: Request, res: Response) => {
       if (startDate) range.$gte = new Date(startDate);
       if (endDate) range.$lte = new Date(endDate);
       filter.createdAt = range;
+    }
+
+    if (seller && mongoose.isValidObjectId(seller)) {
+      filter["orderItems.seller"] = new mongoose.Types.ObjectId(seller);
     }
 
     if (search) {
@@ -144,10 +150,20 @@ export const adminGetOrder = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
+    // Surface the latest payment slip + the bank/PromptPay account it was
+    // paid into. The admin order page uses this to show "User X paid into
+    // account Y" header and a Confirm/Reject button.
+    const slip = await PaymentSlip.findOne({ order: order._id })
+      .sort({ createdAt: -1 })
+      .populate("paymentMethod", "label kind bankName accountNumber accountName promptpayId")
+      .populate("reviewedBy", "name email")
+      .lean();
+
     const ui = {
       ...order,
       status: toUiStatus((order as any).status, !!(order as any).isPaid),
       rawStatus: (order as any).status,
+      slip: slip || null,
     };
 
     res.status(200).json({ success: true, data: ui });

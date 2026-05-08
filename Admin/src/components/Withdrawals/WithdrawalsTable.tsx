@@ -10,11 +10,11 @@ import {
 } from '@/services/adminApi';
 
 const statusBadge: Record<WithdrawStatus, string> = {
-  pending: 'bg-orange-50 text-orange-700',
-  approved: 'bg-blue-50 text-blue-700',
-  completed: 'bg-green-50 text-green-700',
-  rejected: 'bg-red-50 text-red-700',
-  failed: 'bg-red-50 text-red-700',
+  pending: 'text-yellow-700',
+  approved: 'text-blue-700',
+  completed: 'text-green-700',
+  rejected: 'text-red-700',
+  failed: 'text-rose-700',
 };
 
 const statusLabel: Record<WithdrawStatus, string> = {
@@ -135,11 +135,10 @@ const WithdrawalsTable: React.FC<WithdrawalsTableProps> = ({
                 <button
                   key={t}
                   onClick={() => { setFilter(t); setOpen(false); }}
-                  className={`w-full text-left px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                    filter === t
+                  className={`w-full text-left px-3 py-1.5 text-[11px] font-semibold transition-colors ${filter === t
                       ? 'bg-gray-50 text-black'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-black'
-                  }`}
+                    }`}
                 >
                   {t === 'all' ? 'All' : statusLabel[t as WithdrawStatus]}
                 </button>
@@ -170,25 +169,27 @@ const WithdrawalsTable: React.FC<WithdrawalsTableProps> = ({
                 <th className="px-4 py-2 text-left font-semibold">Requested</th>
                 <th className="px-4 py-2 text-left font-semibold">Transaction ID</th>
                 <th className="px-4 py-2 text-left font-semibold">User</th>
+                <th className="px-4 py-2 text-left font-semibold">Shop</th>
                 <th className="px-4 py-2 text-left font-semibold">Bank</th>
                 <th className="px-4 py-2 text-left font-semibold">Account</th>
                 <th className="px-4 py-2 text-right font-semibold">Amount (₭)</th>
                 <th className="px-4 py-2 text-right font-semibold">Net (₭)</th>
                 <th className="px-4 py-2 text-left font-semibold">Status</th>
+                <th className="px-4 py-2 text-left font-semibold">Processed by</th>
                 <th className="px-4 py-2 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-[12px]">
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-400 text-[12px]">
                     Loading withdrawals...
                   </td>
                 </tr>
               )}
               {!loading && error && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td>
+                  <td colSpan={11} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td>
                 </tr>
               )}
               {!loading && !error && items.map((w) => (
@@ -211,6 +212,20 @@ const WithdrawalsTable: React.FC<WithdrawalsTableProps> = ({
                       <span className="text-gray-400 text-[11px] ml-1">{w.user.customId}</span>
                     )}
                   </td>
+                  <td className="px-4 py-2">
+                    {/* Shop column — clickable to /shops/{userId}. Falls back */}
+                    {/* to the user's display name when KYC shop name isn't set. */}
+                    {w.user?._id && (w.user?.isSeller || w.shopName) ? (
+                      <Link
+                        href={`/shops/${w.user._id}`}
+                        className="text-gray-700 hover:text-primary transition-colors inline-flex items-center gap-1.5"
+                      >
+                        {w.shopName || w.user?.name || 'Shop'}
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-gray-700">{w.bankAccount?.bankName || '—'}</td>
                   <td className="px-4 py-2 text-gray-700">{w.bankAccount?.accountNumber || '—'}</td>
                   <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatMoney(w.amount)}</td>
@@ -219,6 +234,25 @@ const WithdrawalsTable: React.FC<WithdrawalsTableProps> = ({
                     <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusBadge[w.status]}`}>
                       {statusLabel[w.status]}
                     </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    {/* Processed-by column — clickable to /users/{adminId} so */}
+                    {/* finance can audit which admin took the action. */}
+                    {w.processedBy?._id ? (
+                      <Link
+                        href={`/users/${w.processedBy._id}`}
+                        className="text-gray-700 hover:text-primary transition-colors text-[11px]"
+                      >
+                        {w.processedBy.name || w.processedBy.email || w.processedBy.customId || 'Admin'}
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400 text-[11px]">—</span>
+                    )}
+                    {w.processedAt && (
+                      <p className="text-gray-400 text-[10px] tabular-nums">
+                        {formatDate(w.processedAt)}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="inline-flex items-center justify-end gap-0.5">
@@ -275,7 +309,7 @@ const WithdrawalsTable: React.FC<WithdrawalsTableProps> = ({
               ))}
               {!loading && !error && items.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-[12px]">
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-400 text-[12px]">
                     No withdrawals match your filter
                   </td>
                 </tr>

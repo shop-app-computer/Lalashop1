@@ -48,7 +48,7 @@ export const getProductById = async (req: Request, res: Response) => {
   try {
     const product = await Product.findById(req.params.id).populate(
       "seller",
-      "name username profileImage bio followers following isSeller"
+      "name username profileImage bio followers following isSeller createdAt"
     );
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
@@ -87,10 +87,49 @@ export const getProductById = async (req: Request, res: Response) => {
       // keep stored soldCount
     }
 
+    // Real seller stats — replaces the marketing-copy "Supplier Profile"
+    // (98%/12y/25K+/42 countries) we used to render with hardcoded values.
+    let sellerStats: {
+      productsCount: number;
+      ordersCount: number;
+      followersCount: number;
+      joinedAt: string | null;
+    } = {
+      productsCount: 0,
+      ordersCount: 0,
+      followersCount: 0,
+      joinedAt: null,
+    };
+    try {
+      const sellerObj = product.seller as any;
+      const sellerId = sellerObj?._id || product.seller;
+      if (sellerId) {
+        const [productsCount, ordersAgg] = await Promise.all([
+          Product.countDocuments({ seller: sellerId }),
+          Order.aggregate([
+            { $match: { isPaid: true } },
+            { $unwind: "$orderItems" },
+            { $match: { "orderItems.seller": sellerId } },
+            { $group: { _id: "$_id" } },
+            { $count: "total" },
+          ]),
+        ]);
+        sellerStats = {
+          productsCount,
+          ordersCount: ordersAgg[0]?.total || 0,
+          followersCount: Array.isArray(sellerObj?.followers) ? sellerObj.followers.length : 0,
+          joinedAt: sellerObj?.createdAt ? new Date(sellerObj.createdAt).toISOString() : null,
+        };
+      }
+    } catch {
+      // keep zeros — stats are best-effort
+    }
+
     const data = {
       ...product.toObject(),
       shipsFrom,
       soldCount,
+      sellerStats,
     };
 
     res.status(200).json({ success: true, data });
@@ -111,11 +150,20 @@ export const getMyProducts = async (req: IAuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: "Not authenticated" });
     }
     const channel = typeof req.query.channel === "string" ? req.query.channel : null;
+    const storefrontOnly = req.query.storefrontOnly === "true";
     const filter: Record<string, unknown> = { seller: req.user._id };
     if (channel === "web") {
       filter.$or = [{ salesChannel: "web" }, { salesChannel: "both" }, { salesChannel: { $exists: false } }];
     } else if (channel === "pos") {
       filter.$or = [{ salesChannel: "pos" }, { salesChannel: "both" }];
+    }
+    // When storefrontOnly is set, hide products the seller marked "store
+    // only" so the seller's /me/me shop tab matches what public visitors see.
+    if (storefrontOnly) {
+      filter.$or = [
+        { showInStorefront: { $ne: false } },
+        { showInStorefront: { $exists: false } },
+      ];
     }
     const products = await Product.find(filter).sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: products });

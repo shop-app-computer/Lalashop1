@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { User as UserIcon, CheckCircle, Camera, Loader2, Edit2 } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
+import { uploadImage } from "@/services/uploadImage";
 
 export const GeneralSection: React.FC = () => {
   const [userData, setUserData] = useState({
@@ -66,25 +67,12 @@ export const GeneralSection: React.FC = () => {
     fetchUser();
   }, []);
 
-  const uploadToCloudinary = async (file: File) => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-    const data = new FormData();
-    data.append("file", file);
-    data.append("upload_preset", uploadPreset || "");
-    data.append("cloud_name", cloudName || "");
-
+  const handleProfileUpload = async (file: File): Promise<string | null> => {
+    setUploading(true);
     try {
-      setUploading(true);
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        { method: "POST", body: data }
-      );
-      const resData = await res.json();
-      return resData.secure_url;
+      return await uploadImage(file, "profile");
     } catch (err) {
-      console.error("Cloudinary upload error:", err);
+      console.error("Profile image upload failed:", err);
       return null;
     } finally {
       setUploading(false);
@@ -109,13 +97,9 @@ export const GeneralSection: React.FC = () => {
       let finalImageUrl = userData.profileImage;
 
       if (selectedFile) {
-        console.log("Uploading to Cloudinary...");
-        const uploadedUrl = await uploadToCloudinary(selectedFile);
+        const uploadedUrl = await handleProfileUpload(selectedFile);
         if (uploadedUrl) {
-          console.log("Upload Success:", uploadedUrl);
           finalImageUrl = uploadedUrl;
-        } else {
-          console.error("Cloudinary upload failed, using existing/base64 image");
         }
       }
 

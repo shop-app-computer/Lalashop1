@@ -38,7 +38,9 @@ export const getCart = async (req: Request, res: Response) => {
       select: "name image supplierName description price seller"
     });
 
-    // Map to the structure expected by frontend
+    // Map to the structure expected by frontend. Surface every field the
+    // checkout pages need: `seller` (otherwise order POSTs fail validation)
+    // and `variants` (so the order line item can echo the buyer's choice).
     const formattedItems = cart ? cart.items.map((item: any) => {
       if (!item.productId) return null;
       return {
@@ -46,6 +48,8 @@ export const getCart = async (req: Request, res: Response) => {
         qty: item.qty,
         unitPrice: item.unitPrice,
         total: item.total,
+        seller: item.seller,
+        variants: item.variants || {},
         product: {
           id: item.productId._id,
           name: item.productId.name,
@@ -72,11 +76,21 @@ export const getCart = async (req: Request, res: Response) => {
 // @access  Public
 export const addToCart = async (req: Request, res: Response) => {
   try {
-    const { productId, qty, unitPrice } = req.body;
-    
+    const { productId, qty, unitPrice, variants } = req.body;
+
     if (!productId) {
       return res.status(400).json({ success: false, message: "Product ID is required" });
     }
+
+    // Buyers picking different variant combos of the same product should get
+    // separate line items (e.g. Size:S vs Size:L). We key the merge by both
+    // productId and a stable hash of the variants map.
+    const variantKey = variants && typeof variants === "object"
+      ? Object.keys(variants)
+          .sort()
+          .map((k) => `${k}=${(variants as Record<string, string>)[k]}`)
+          .join("|")
+      : "";
 
     const identifier = getCartIdentifier(req);
     
@@ -89,8 +103,15 @@ export const addToCart = async (req: Request, res: Response) => {
 
     if (!cart) throw new Error("Could not create/find cart");
 
+    const itemVariantKey = (item: { variants?: Record<string, string> }): string => {
+      const v = item.variants || {};
+      return Object.keys(v).sort().map((k) => `${k}=${v[k]}`).join("|");
+    };
+
     const existingItemIndex = cart.items.findIndex(
-      (item) => item.productId.toString() === productId.toString()
+      (item) =>
+        item.productId.toString() === productId.toString() &&
+        itemVariantKey(item) === variantKey
     );
 
     if (existingItemIndex > -1) {
@@ -128,6 +149,7 @@ export const addToCart = async (req: Request, res: Response) => {
         qty: quantity,
         unitPrice: price,
         total: quantity * price,
+        variants: variants && typeof variants === "object" ? variants : {},
       });
     }
 

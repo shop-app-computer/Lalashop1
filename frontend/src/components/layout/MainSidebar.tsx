@@ -23,7 +23,7 @@ export default function MainSidebar() {
     <aside className="fixed left-0 top-0 bottom-0 w-[64px] bg-white flex-col items-center py-4 z-40 hidden md:flex shadow-sm">
       <Link href="/" className="mb-8 group">
         <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg shadow-primary/20">
-          <span className="text-white font-display font-bold text-xl">LALA</span>
+          <span className="text-white font-display font-bold text-xl">L</span>
         </div>
       </Link>
 
@@ -38,13 +38,13 @@ export default function MainSidebar() {
               key={item.label}
               href={item.href}
               className={`relative flex flex-col items-center gap-1 py-3 rounded-lg transition-all group ${
-                isActive ? "text-primary bg-cyan-50" : "text-gray-400 hover:text-primary hover:bg-gray-50"
+                isActive ? "text-primary " : "text-gray-400 hover:text-primary hover:bg-gray-50"
               }`}
             >
               <span className="relative">
                 <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
                 {item.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center ring-2 ring-white">
+                  <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full  text-white text-[10px] font-bold inline-flex items-center justify-center ring-2 ring-white">
                     {item.badge > 99 ? "99+" : item.badge}
                   </span>
                 )}

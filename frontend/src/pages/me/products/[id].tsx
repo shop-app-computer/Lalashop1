@@ -20,6 +20,7 @@ import {
   type CategoryConfig,
 } from "./categoryFields";
 import { apiClient } from "@/services/apiClient";
+import { uploadImage } from "@/services/uploadImage";
 
 type ProductStatus = "Active" | "Draft" | "Archived";
 
@@ -85,24 +86,6 @@ const Field = ({
     {children}
   </div>
 );
-
-const uploadToCloudinary = async (file: File): Promise<string> => {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-  if (!cloudName || !uploadPreset) throw new Error("Cloudinary is not configured.");
-  const data = new FormData();
-  data.append("file", file);
-  data.append("upload_preset", uploadPreset);
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: "POST", body: data }
-  );
-  const json = await res.json();
-  if (!res.ok || !json.secure_url) {
-    throw new Error(json?.error?.message || "Image upload failed");
-  }
-  return json.secure_url;
-};
 
 export default function MyProductDetailPage() {
   const router = useRouter();
@@ -303,11 +286,11 @@ export default function MyProductDetailPage() {
     setSubmitting(true);
     try {
       const imageUrls = await Promise.all(
-        images.map(async (img) => (img.url ? img.url : await uploadToCloudinary(img.file!)))
+        images.map(async (img) => (img.url ? img.url : await uploadImage(img.file!, "products")))
       );
       const advertUrls = await Promise.all(
         advertImages.map(async (img) =>
-          img.url ? img.url : await uploadToCloudinary(img.file!)
+          img.url ? img.url : await uploadImage(img.file!, "banners")
         )
       );
 

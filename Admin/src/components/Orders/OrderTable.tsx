@@ -151,7 +151,7 @@ const OrderTable = ({ initialFilter = 'all', hideFilters = false }: OrderTablePr
             <thead className="text-[11px] text-gray-500 tracking-wide">
               <tr>
                 <th className="px-4 py-2 text-left font-semibold">Order ID</th>
-                <th className="px-4 py-2 text-left font-semibold">Customer</th>
+                <th className="px-4 py-2 text-left font-semibold">User</th>
                 <th className="px-4 py-2 text-left font-semibold">Shop</th>
                 <th className="px-4 py-2 text-right font-semibold">Items</th>
                 <th className="px-4 py-2 text-right font-semibold">Amount (₭)</th>

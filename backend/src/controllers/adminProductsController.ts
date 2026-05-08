@@ -9,6 +9,7 @@ interface ProductListQuery {
   status?: string;
   category?: string;
   flag?: string;
+  seller?: string;
 }
 
 const parsePagination = (query: ProductListQuery) => {
@@ -29,6 +30,10 @@ const buildFilter = (query: ProductListQuery): Record<string, unknown> => {
   else if (query.flag === "violations") filter.tags = { $in: ["violation", "reported"] };
 
   if (query.category) filter.category = query.category;
+
+  if (query.seller && mongoose.isValidObjectId(query.seller)) {
+    filter.seller = new mongoose.Types.ObjectId(query.seller);
+  }
 
   if (query.search) {
     const safe = query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

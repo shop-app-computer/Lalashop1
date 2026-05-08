@@ -171,6 +171,9 @@ export const getMe = async (req: any, res: Response) => {
         isSeller: user.isSeller,
         seller_type: user.seller_type,
         balance: user.balance,
+        // POS revenue is non-withdrawable but the withdraw screen surfaces it
+        // so the seller sees the breakdown. Default 0 if undefined.
+        posRevenue: (user as any).posRevenue || 0,
         orderCount: orderCount,
         profileImage: user.profileImage,
         bio: user.bio,
@@ -178,6 +181,11 @@ export const getMe = async (req: any, res: Response) => {
         following: user.following,
         customId: user.customId,
         lastUsernameChange: user.lastUsernameChange,
+        // Boolean flags so the frontend can decide what to show without
+        // ever exposing the actual hashes. Bumping any of these requires
+        // running through the proper set-PIN / change-password endpoints.
+        hasWithdrawPin: Boolean(user.withdrawPin),
+        hasPassword: Boolean((user as any).password),
       });
     } else {
       res.status(404).json({ message: "User not found" });

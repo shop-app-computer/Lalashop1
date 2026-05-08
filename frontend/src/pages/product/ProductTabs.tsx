@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Package, Globe, Award, Clock, Send, Star } from "lucide-react";
+import { Truck, RefreshCw, Clock, MapPin, Layers, Send, Star, Tag } from "lucide-react";
 import { SpecRow, Stars } from "./ProductUIPrimitives";
 import { ProductTabsProps } from "./types";
 import { apiClient } from "@/services/apiClient";
@@ -72,110 +72,175 @@ function SpecsTab({ product }: Pick<ProductTabsProps, "product">) {
     ? ((product as any).specifications as Array<{ label: string; value: string }>)
     : [];
 
+  // Generate fallback specs from real product fields when the seller hasn't
+  // entered any. Each fallback is conditional so we don't show "Vendor: —".
+  const fallbackSpecs: Array<{ label: string; value: string }> = [];
   const lt: any = (product as any).leadTime;
-  const leadTimeText = lt && (lt.min || lt.max)
-    ? (() => {
-        const unitLabel =
-          lt.unit === "hours" ? "Hours" : lt.unit === "weeks" ? "Weeks" : "Days";
-        const min = Number(lt.min) || 0;
-        const max = Number(lt.max) || min;
-        return min === max ? `${min} ${unitLabel}` : `${min}–${max} ${unitLabel}`;
-      })()
-    : "7–14 Days";
-
-  const fallbackSpecs = [
-    { label: "Origin", value: (product as any).location || "Thailand" },
-    { label: "Vendor", value: (product as any).vendor || "—" },
-    { label: "Lead Time", value: leadTimeText },
-  ];
+  if (lt && (lt.min || lt.max)) {
+    const unitLabel =
+      lt.unit === "hours" ? "Hours" : lt.unit === "weeks" ? "Weeks" : "Days";
+    const min = Number(lt.min) || 0;
+    const max = Number(lt.max) || min;
+    fallbackSpecs.push({
+      label: "Lead Time",
+      value: min === max ? `${min} ${unitLabel}` : `${min}–${max} ${unitLabel}`,
+    });
+  }
+  if ((product as any).originCountry) {
+    fallbackSpecs.push({ label: "Origin", value: (product as any).originCountry });
+  } else if ((product as any).location) {
+    fallbackSpecs.push({ label: "Origin", value: (product as any).location });
+  }
+  if ((product as any).vendor) {
+    fallbackSpecs.push({ label: "Vendor", value: (product as any).vendor });
+  }
+  if ((product as any).sku) {
+    fallbackSpecs.push({ label: "SKU", value: (product as any).sku });
+  }
+  const dim: any = (product as any).dimensions;
+  if (dim && (dim.length || dim.width || dim.height)) {
+    const unit = dim.unit || "cm";
+    fallbackSpecs.push({
+      label: "Dimensions",
+      value: `${dim.length || "?"} × ${dim.width || "?"} × ${dim.height || "?"} ${unit}`,
+    });
+  }
+  if ((product as any).weight) {
+    fallbackSpecs.push({
+      label: "Weight",
+      value: `${(product as any).weight} ${(product as any).weightUnit || "g"}`,
+    });
+  }
 
   const specsToShow = sellerSpecs.length > 0 ? sellerSpecs : fallbackSpecs;
 
-  const supplierSpecs = [
-    { label: "Response Rate", value: "98%" },
-    { label: "Years Active", value: "12 Years" },
-    { label: "Total Orders", value: "25,000+" },
-    { label: "Countries", value: "42 Countries" },
-  ];
+  // Real seller stats — populated by getProductById on the backend.
+  const stats: any = (product as any).sellerStats;
+  const formatJoinedAt = (iso: string | null | undefined): string => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    const now = new Date();
+    const months =
+      (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+    if (months < 1) return "This month";
+    if (months < 12) return `${months} month${months === 1 ? "" : "s"}`;
+    const years = Math.floor(months / 12);
+    return `${years} year${years === 1 ? "" : "s"}`;
+  };
+  const formatCount = (n: number): string => {
+    if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K+`;
+    return n.toLocaleString();
+  };
+  const sellerStatRows: Array<{ label: string; value: string }> = stats
+    ? [
+        { label: "Active On Lalashop", value: formatJoinedAt(stats.joinedAt) },
+        { label: "Products Listed", value: formatCount(Number(stats.productsCount) || 0) },
+        { label: "Orders Fulfilled", value: formatCount(Number(stats.ordersCount) || 0) },
+        { label: "Followers", value: formatCount(Number(stats.followersCount) || 0) },
+      ]
+    : [];
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 32 }}>
       <div>
         <SectionLabel>Key Specifications</SectionLabel>
-        {specsToShow.map((s, i) => (
-          <SpecRow key={`${s.label}-${i}`} label={s.label} value={s.value} />
-        ))}
-        {sellerSpecs.length === 0 && (
-          <p style={{ marginTop: 12, fontSize: 12, color: "#94a3b8" }}>
+        {specsToShow.length > 0 ? (
+          specsToShow.map((s, i) => (
+            <SpecRow key={`${s.label}-${i}`} label={s.label} value={s.value} />
+          ))
+        ) : (
+          <p style={{ fontSize: 12, color: "#94a3b8" }}>
             The seller hasn&apos;t added detailed specifications yet.
           </p>
         )}
       </div>
-      <div>
-        <SectionLabel>Supplier Profile</SectionLabel>
-        {supplierSpecs.map((s, i) => (
-          <SpecRow key={i} label={s.label} value={s.value} />
-        ))}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20 }}>
-          {["Verified Seller", "Trade Assurance"].map((b) => (
-            <span
-              key={b}
-              style={{
-                fontSize: 11,
-                fontWeight: 800,
-                color: "#0077b6",
-                background: "#00a6991a",
-                border: "1px solid #0077b6",
-                borderRadius: 999,
-                padding: "4px 12px",
-              }}
-            >
-              {b}
-            </span>
+      {sellerStatRows.length > 0 && (
+        <div>
+          <SectionLabel>Supplier Profile</SectionLabel>
+          {sellerStatRows.map((s, i) => (
+            <SpecRow key={i} label={s.label} value={s.value} />
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
 /* ── Description ── */
+// Build feature pills from real product fields. Each pill is conditional so we
+// only render facts that are actually true for this product (no marketing copy).
 function DescTab({ product }: Pick<ProductTabsProps, "product">) {
-  const features = [
-    { icon: Package, text: "Bulk packaging available" },
-    { icon: Globe, text: "Ships worldwide" },
-    { icon: Award, text: "Award-winning quality" },
-    { icon: Clock, text: "Fast lead time" },
-  ];
+  const p: any = product;
+  const features: Array<{ icon: typeof Truck; text: string }> = [];
+
+  if (p.freeShipping) {
+    features.push({ icon: Truck, text: "Free shipping" });
+  }
+  const rp = p.returnPolicy;
+  if (rp?.accepts !== false) {
+    const days = Number(rp?.days) || 7;
+    features.push({ icon: RefreshCw, text: `${days}-day returns` });
+  }
+  const lt = p.leadTime;
+  if (lt && (lt.min || lt.max)) {
+    const unitLabel = lt.unit === "hours" ? "h" : lt.unit === "weeks" ? "wks" : "days";
+    const min = Number(lt.min) || 0;
+    const max = Number(lt.max) || min;
+    features.push({
+      icon: Clock,
+      text: min === max ? `Ships in ${min} ${unitLabel}` : `Ships in ${min}–${max} ${unitLabel}`,
+    });
+  }
+  if (p.originCountry) {
+    features.push({ icon: MapPin, text: `Made in ${p.originCountry}` });
+  }
+  if (Array.isArray(p.tiers) && p.tiers.length > 0) {
+    features.push({ icon: Layers, text: "Bulk pricing available" });
+  }
+  if (Array.isArray(p.tags) && p.tags.length > 0) {
+    p.tags.slice(0, 3).forEach((t: string) => {
+      features.push({ icon: Tag, text: t });
+    });
+  }
+
+  const description = (product.description || "").trim();
 
   return (
     <div style={{ maxWidth: 700 }}>
-      <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.8, fontWeight: 500, marginBottom: 20 }}>
-        {product.description ||
-          "The high-performance industrial solution designed for global supply chains. Sourced directly from verified manufacturers with decades of experience."}
-      </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-        {features.map(({ icon: Icon, text }, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "14px 16px",
-              borderRadius: 14,
-              background: "#f8fafc",
-              border: "1.5px solid #f1f5f9",
-              fontWeight: 700,
-              fontSize: 13,
-              color: "#374151",
-            }}
-          >
-            <Icon size={16} color="#0077b6" />
-            {text}
-          </div>
-        ))}
-      </div>
+      {description ? (
+        <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.8, fontWeight: 500, marginBottom: 20, whiteSpace: "pre-wrap" }}>
+          {description}
+        </p>
+      ) : (
+        <p style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic", marginBottom: 20 }}>
+          The seller hasn&apos;t added a description for this product yet.
+        </p>
+      )}
+      {features.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          {features.map(({ icon: Icon, text }, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "14px 16px",
+                borderRadius: 14,
+                background: "#f8fafc",
+                border: "1.5px solid #f1f5f9",
+                fontWeight: 700,
+                fontSize: 13,
+                color: "#374151",
+              }}
+            >
+              <Icon size={16} color="#0077b6" />
+              {text}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

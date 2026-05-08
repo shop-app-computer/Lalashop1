@@ -129,6 +129,17 @@ export default function TransferPage() {
         }> = [];
 
         if (query.name) {
+          // Guard against legacy URLs where `seller` was serialised as
+          // "[object Object]" — Mongoose can't cast that to ObjectId, so the
+          // order POST 500s. We refuse to build an order with a bad seller
+          // and surface a clear error instead.
+          const sellerStr = String(query.seller || "").trim();
+          if (!sellerStr || sellerStr === "[object Object]" || sellerStr === "undefined") {
+            setOrderInitError(
+              "This product link is missing the seller. Open the product again and click Buy."
+            );
+            return;
+          }
           orderItems = [
             {
               name: String(query.name),
@@ -137,7 +148,7 @@ export default function TransferPage() {
               description: String(query.description || ""),
               price: parseFloat(String(query.price || "0")),
               product: String(query.id || query._id),
-              seller: String(query.seller || ""),
+              seller: sellerStr,
             },
           ];
         } else {
