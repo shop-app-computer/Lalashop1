@@ -41,6 +41,7 @@ const buildAcceptLink = (token: string): string => {
 };
 
 const InviteAdminPage = () => {
+  const { t } = useTranslation('common');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [roleId, setRoleId] = useState<InviteRole>('support');
@@ -55,6 +56,13 @@ const InviteAdminPage = () => {
   const [info, setInfo] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const ROLES: { id: InviteRole; name: string; description: string }[] = [
+    { id: 'super', name: t('roles.super'), description: t('admins.invite.roles.superDesc') },
+    { id: 'finance', name: t('roles.finance'), description: t('admins.invite.roles.financeDesc') },
+    { id: 'support', name: t('roles.support'), description: t('admins.invite.roles.supportDesc') },
+    { id: 'content', name: t('roles.content'), description: t('admins.invite.roles.contentDesc') },
+  ];
+
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -62,7 +70,7 @@ const InviteAdminPage = () => {
       const res = await fetchAdminInvites();
       setItems(res.data ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load invites');
+      setError(err instanceof Error ? err.message : t('admins.invite.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -70,6 +78,7 @@ const InviteAdminPage = () => {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSend = async (e: React.FormEvent) => {
@@ -85,26 +94,26 @@ const InviteAdminPage = () => {
         message: message.trim() || undefined,
         expiryDays: expiry,
       });
-      setInfo(`Invitation created for ${email}. Copy the accept link from the table below to share.`);
+      setInfo(t('admins.invite.sentSuccess', { email: email.trim() }));
       setEmail('');
       setName('');
       setMessage('');
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to create invite');
+      alert(err instanceof Error ? err.message : t('admins.invite.failed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const onRevoke = async (id: string) => {
-    if (!window.confirm('Revoke this invitation?')) return;
+    if (!window.confirm(t('admins.invite.confirmRevoke'))) return;
     setBusyId(id);
     try {
       await revokeAdminInvite(id);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Action failed');
+      alert(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setBusyId(null);
     }
@@ -116,7 +125,7 @@ const InviteAdminPage = () => {
       await resendAdminInvite(id);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Action failed');
+      alert(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setBusyId(null);
     }
@@ -128,7 +137,7 @@ const InviteAdminPage = () => {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      alert('Failed to copy. Please copy manually.');
+      alert(t('common.copyFailed'));
     }
   };
 
@@ -141,11 +150,11 @@ const InviteAdminPage = () => {
         href="/admins"
         className="inline-flex items-center gap-2 text-[12px] text-gray-500 hover:text-black font-medium transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to admins
+        <ArrowLeft className="w-3.5 h-3.5" /> {t('common.backToAdmins')}
       </Link>
 
       <p className="text-[12px] text-gray-500">
-        Invite a teammate. Once accepted via the link, the user becomes an admin with the role you assigned.
+        {t('admins.invite.subtitle')}
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -154,7 +163,7 @@ const InviteAdminPage = () => {
           className="lg:col-span-2 rounded-lg border border-gray-100 p-5 space-y-4"
         >
           <div>
-            <label className="text-[11px] font-semibold text-gray-500 tracking-wide">EMAIL</label>
+            <label className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{t('common.email')}</label>
             <div className="relative mt-1">
               <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
               <input
@@ -169,8 +178,8 @@ const InviteAdminPage = () => {
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-gray-500 tracking-wide">
-              FULL NAME <span className="text-gray-400 font-normal">(optional)</span>
+            <label className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">
+              {t('common.fullName')} <span className="text-gray-400 font-normal">({t('common.optional')})</span>
             </label>
             <input
               value={name}
@@ -183,7 +192,7 @@ const InviteAdminPage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] font-semibold text-gray-500 tracking-wide">ROLE</label>
+              <label className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{t('common.role')}</label>
               <select
                 value={roleId}
                 onChange={(e) => setRoleId(e.target.value as InviteRole)}
@@ -195,7 +204,7 @@ const InviteAdminPage = () => {
               </select>
             </div>
             <div>
-              <label className="text-[11px] font-semibold text-gray-500 tracking-wide">EXPIRES IN (DAYS)</label>
+              <label className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{t('admins.invite.expiresIn')}</label>
               <input
                 value={expiry}
                 onChange={(e) => setExpiry(Math.min(Math.max(Number(e.target.value), 1), 30))}
@@ -208,14 +217,14 @@ const InviteAdminPage = () => {
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-gray-500 tracking-wide">
-              MESSAGE <span className="text-gray-400 font-normal">(optional)</span>
+            <label className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">
+              {t('common.message')} <span className="text-gray-400 font-normal">({t('common.optional')})</span>
             </label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
-              placeholder="Add a note that will be shared with the invitee..."
+              placeholder={t('admins.invite.messagePlaceholder')}
               className="w-full mt-1 px-3 py-2 rounded-md text-[12px] bg-gray-50 border border-gray-100 focus:border-primary outline-none resize-none"
             />
           </div>
@@ -231,7 +240,7 @@ const InviteAdminPage = () => {
               className="bg-black text-white px-4 py-2 rounded-md text-[12px] font-semibold inline-flex items-center hover:bg-gray-900 disabled:opacity-40"
             >
               {submitting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
-              {submitting ? 'Creating...' : 'Send Invitation'}
+              {submitting ? t('common.creating') : t('admins.invite.send')}
             </button>
           </div>
         </form>
@@ -243,15 +252,15 @@ const InviteAdminPage = () => {
           </div>
           <p className="text-[11px] text-gray-500">{selectedRole.description}</p>
           <Link href="/admins/roles" className="text-[11px] text-primary hover:underline">
-            View role matrix →
+            {t('admins.invite.viewRoleMatrix')} →
           </Link>
         </div>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-[12px] font-bold text-black">Invitations</h2>
-          <span className="text-[11px] text-gray-500">{pendingCount} pending</span>
+          <h2 className="text-[12px] font-bold text-black">{t('admins.invite.invitations')}</h2>
+          <span className="text-[11px] text-gray-500">{t('admins.invite.pendingCount', { count: pendingCount })}</span>
         </div>
 
         <div className="rounded-lg border border-gray-100 overflow-hidden">
@@ -259,20 +268,20 @@ const InviteAdminPage = () => {
             <table className="w-full text-[12px] tabular-nums">
               <thead className="text-[11px] text-gray-500 tracking-wide bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left font-semibold">Email</th>
-                  <th className="px-4 py-2 text-left font-semibold">Role</th>
-                  <th className="px-4 py-2 text-left font-semibold">Invited By</th>
-                  <th className="px-4 py-2 text-left font-semibold">Sent</th>
-                  <th className="px-4 py-2 text-left font-semibold">Expires</th>
-                  <th className="px-4 py-2 text-left font-semibold">Status</th>
-                  <th className="px-4 py-2 text-right font-semibold">Actions</th>
+                  <th className="px-4 py-2 text-left font-semibold uppercase">{t('common.email')}</th>
+                  <th className="px-4 py-2 text-left font-semibold uppercase">{t('common.role')}</th>
+                  <th className="px-4 py-2 text-left font-semibold uppercase">{t('admins.invite.invitedBy')}</th>
+                  <th className="px-4 py-2 text-left font-semibold uppercase">{t('common.sent')}</th>
+                  <th className="px-4 py-2 text-left font-semibold uppercase">{t('common.expires')}</th>
+                  <th className="px-4 py-2 text-left font-semibold uppercase">{t('common.status')}</th>
+                  <th className="px-4 py-2 text-right font-semibold uppercase">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">
-                      Loading invites...
+                      {t('admins.invite.loading')}
                     </td>
                   </tr>
                 )}
@@ -294,7 +303,7 @@ const InviteAdminPage = () => {
                       <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(inv.expiresAt)}</td>
                       <td className="px-4 py-2">
                         <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusBadge[inv.status]}`}>
-                          {inv.status}
+                          {t(`status.${inv.status}`, inv.status)}
                         </span>
                       </td>
                       <td className="px-4 py-2 text-right">
@@ -302,7 +311,7 @@ const InviteAdminPage = () => {
                           {inv.status === 'pending' && (
                             <button
                               onClick={() => onCopy(inv._id, inv.token)}
-                              title="Copy accept link"
+                              title={t('admins.invite.copyLink')}
                               className="text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1"
                             >
                               {copiedId === inv._id ? (
@@ -316,7 +325,7 @@ const InviteAdminPage = () => {
                             <button
                               disabled={busyId === inv._id}
                               onClick={() => onResend(inv._id)}
-                              title="Resend"
+                              title={t('actions.resend')}
                               className="text-gray-500 hover:text-blue-700 hover:bg-gray-100 rounded p-1 disabled:opacity-30"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
@@ -326,7 +335,7 @@ const InviteAdminPage = () => {
                             <button
                               disabled={busyId === inv._id}
                               onClick={() => onRevoke(inv._id)}
-                              title="Revoke"
+                              title={t('actions.revoke')}
                               className="text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded p-1 disabled:opacity-30"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -340,7 +349,7 @@ const InviteAdminPage = () => {
                 {!loading && !error && items.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">
-                      No invitations yet
+                      {t('admins.invite.noInvites')}
                     </td>
                   </tr>
                 )}

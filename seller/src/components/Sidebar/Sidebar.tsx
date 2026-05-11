@@ -235,7 +235,7 @@ const Sidebar = () => {
                       </span>
                     )}
                   </span>
-                  <span className="flex-1 text-left">{item.name}</span>
+                  <span className="flex-1 text-left">{mounted ? item.name : ''}</span>
 
                   {hasSub && (
                     <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -258,7 +258,7 @@ const Sidebar = () => {
                             router.pathname === sub.href ? 'text-primary bg-primary-soft/50 font-bold' : 'text-gray-500 hover:text-black hover:bg-gray-50'
                           }`}
                         >
-                          {sub.name}
+                          {mounted ? sub.name : ''}
                         </Link>
                       ))}
                     </motion.div>
@@ -274,7 +274,15 @@ const Sidebar = () => {
       <div className="p-4 border-t border-gray-100">
         <button className="flex items-center justify-center w-full py-3 text-xs font-bold text-red-500 rounded-xl hover:bg-red-50 transition-all">
           <LogOut className="mr-2 h-4 w-4" />
-          {t('sidebar.logoutSession')}
+          {mounted ? t('sidebar.logoutSession') : ''}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default Sidebar;
+tSession')}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Monitor } from 'lucide-react';
 import { fetchHistoryLoginDevice } from '@/services/adminApi';
 
@@ -21,6 +22,7 @@ const formatDate = (s?: string): string => {
 };
 
 const LoginDeviceTab = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<LoginRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,16 +52,16 @@ const LoginDeviceTab = () => {
     <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 px-4 py-3 bg-gray-50/50 text-[11px]">
         <div>
-          <p className="text-gray-500">unique users</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.uniqueUsers')}</p>
           <p className="text-base font-bold tabular-nums">{items.length}</p>
         </div>
         <div>
-          <p className="text-gray-500">unique IPs (recent)</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.uniqueIps')}</p>
           <p className="text-base font-bold tabular-nums">{uniqueIps}</p>
         </div>
         <div>
-          <p className="text-gray-500">data note</p>
-          <p className="text-[11px] text-gray-400">based on lastKnownIp + updatedAt</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.dataNote')}</p>
+          <p className="text-[11px] text-gray-400">{t('pages.history.lastKnownIpNote')}</p>
         </div>
       </div>
 
@@ -67,15 +69,15 @@ const LoginDeviceTab = () => {
         <table className="w-full text-[12px] tabular-nums">
           <thead className="text-[11px] text-gray-500 tracking-wide">
             <tr>
-              <th className="px-4 py-2 text-left font-semibold">User</th>
-              <th className="px-4 py-2 text-left font-semibold">Last Known IP</th>
-              <th className="px-4 py-2 text-left font-semibold">Last Active</th>
-              <th className="px-4 py-2 text-left font-semibold">Joined</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.user')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.adminIp')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('pages.history.lastActive')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.joined')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+              <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.loading')}</td></tr>
             )}
             {!loading && error && (
               <tr><td colSpan={4} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
@@ -93,7 +95,7 @@ const LoginDeviceTab = () => {
               </tr>
             ))}
             {!loading && !error && items.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400 text-[12px]">No data</td></tr>
+              <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('pages.history.noData')}</td></tr>
             )}
           </tbody>
         </table>

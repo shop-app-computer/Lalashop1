@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Wallet, ShoppingBag, ArrowLeftRight, FileEdit,
   Banknote, FileBadge, Monitor, Globe, Coins, AlertTriangle, LifeBuoy, ShieldCheck,
@@ -18,48 +19,49 @@ import SupportTab from './tabs/SupportTab';
 import AdminAuditTab from './tabs/AdminAuditTab';
 
 const HistoryUI = () => {
+  const { t } = useTranslation('common');
   const [activeTab, setActiveTab] = useState('financial');
 
   const tabs = [
-    { id: 'financial', name: 'Financial', icon: Wallet, component: <FinancialTab /> },
-    { id: 'orders', name: 'Orders', icon: ShoppingBag, component: <OrdersTab /> },
-    { id: 'transactions', name: 'Transactions', icon: ArrowLeftRight, component: <TransactionsTab /> },
-    { id: 'withdrawals', name: 'Withdrawals', icon: Coins, component: <WithdrawalHistoryTab /> },
-    { id: 'bank_changes', name: 'Bank Accounts', icon: Banknote, component: <BankAccountChangesTab /> },
-    { id: 'kyc', name: 'KYC', icon: FileBadge, component: <KYCTab /> },
-    { id: 'deposit_sources', name: 'Deposit Sources', icon: ArrowLeftRight, component: <DepositSourcesTab /> },
-    { id: 'login_device', name: 'Login & Device', icon: Monitor, component: <LoginDeviceTab /> },
-    { id: 'linked_accounts', name: 'Linked Accounts', icon: Globe, component: <LinkedAccountsTab /> },
-    { id: 'risk_signals', name: 'Risk Signals', icon: AlertTriangle, component: <RiskSignalsTab /> },
-    { id: 'edit_logs', name: 'Edit / System Logs', icon: FileEdit, component: <EditLogsTab /> },
-    { id: 'support', name: 'Support', icon: LifeBuoy, component: <SupportTab /> },
-    { id: 'admin_audit', name: 'Admin Audit', icon: ShieldCheck, component: <AdminAuditTab /> },
+    { id: 'financial', nameKey: 'pages.history.tabs.financial', icon: Wallet, component: <FinancialTab /> },
+    { id: 'orders', nameKey: 'pages.history.tabs.orders', icon: ShoppingBag, component: <OrdersTab /> },
+    { id: 'transactions', nameKey: 'pages.history.tabs.transactions', icon: ArrowLeftRight, component: <TransactionsTab /> },
+    { id: 'withdrawals', nameKey: 'pages.history.tabs.withdrawals', icon: Coins, component: <WithdrawalHistoryTab /> },
+    { id: 'bank_changes', nameKey: 'pages.history.tabs.bankChanges', icon: Banknote, component: <BankAccountChangesTab /> },
+    { id: 'kyc', nameKey: 'pages.history.tabs.kyc', icon: FileBadge, component: <KYCTab /> },
+    { id: 'deposit_sources', nameKey: 'pages.history.tabs.depositSources', icon: ArrowLeftRight, component: <DepositSourcesTab /> },
+    { id: 'login_device', nameKey: 'pages.history.tabs.loginDevice', icon: Monitor, component: <LoginDeviceTab /> },
+    { id: 'linked_accounts', nameKey: 'pages.history.tabs.linkedAccounts', icon: Globe, component: <LinkedAccountsTab /> },
+    { id: 'risk_signals', nameKey: 'pages.history.tabs.riskSignals', icon: AlertTriangle, component: <RiskSignalsTab /> },
+    { id: 'edit_logs', nameKey: 'pages.history.tabs.editLogs', icon: FileEdit, component: <EditLogsTab /> },
+    { id: 'support', nameKey: 'pages.history.tabs.support', icon: LifeBuoy, component: <SupportTab /> },
+    { id: 'admin_audit', nameKey: 'pages.history.tabs.adminAudit', icon: ShieldCheck, component: <AdminAuditTab /> },
   ];
 
   return (
     <div className="space-y-4 text-sm">
-      <div className="flex border-b border-gray-100 text-[12px] overflow-x-auto">
-        {tabs.map((t) => {
-          const isActive = activeTab === t.id;
+      <div className="flex border-b border-gray-100 text-[12px] overflow-x-auto custom-scrollbar">
+        {tabs.map((tItem) => {
+          const isActive = activeTab === tItem.id;
           return (
             <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              key={tItem.id}
+              onClick={() => setActiveTab(tItem.id)}
               className={`px-4 py-2.5 inline-flex items-center gap-2 -mb-px font-medium transition-colors whitespace-nowrap ${
                 isActive
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-500 hover:text-black border-b-2 border-transparent'
               }`}
             >
-              <t.icon className="w-3.5 h-3.5" />
-              {t.name}
+              <tItem.icon className="w-3.5 h-3.5" />
+              {t(tItem.nameKey)}
             </button>
           );
         })}
       </div>
 
       <div className="rounded-lg overflow-hidden">
-        {tabs.find((t) => t.id === activeTab)?.component}
+        {tabs.find((tItem) => tItem.id === activeTab)?.component}
       </div>
     </div>
   );

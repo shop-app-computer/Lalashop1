@@ -91,7 +91,11 @@
     "copy": "Copy",
     "clear": "Clear",
     "apply": "Apply",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "confirming": "Confirming…",
+    "confirmPayment": "Confirm payment",
+    "takeAction": "Take action",
+    "viewAll": "View all"
   },
   "status": {
     "loading": "Loading...",
@@ -129,7 +133,8 @@
     "on": "On",
     "off": "Off",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "unpaid": "Unpaid"
   },
   "table": {
     "id": "ID",
@@ -189,6 +194,26 @@
     "columns": "Columns",
     "columnsTitle": "Columns",
     "dateRange": "Date Range"
+  },
+  "kyc": {
+    "businessTypes": {
+      "individual": "Individual",
+      "sole_proprietor": "Sole Proprietor",
+      "corporate": "Corporate",
+      "partnership": "Partnership"
+    },
+    "title": "KYC submissions",
+    "personalInfo": "Personal info",
+    "shopInfo": "Shop info",
+    "documents": "Documents",
+    "bankInfo": "Bank info",
+    "viewDocument": "View document",
+    "review": "Review",
+    "submissionsCount": "{{count}} submissions",
+    "noMatch": "No KYC submissions match the filter.",
+    "loadingSubmissions": "Loading submissions…",
+    "failedToLoad": "Failed to load KYC submissions",
+    "searchPlaceholder": "Search shop, name, ID..."
   },
   "auth": {
     "login": "Log in",
@@ -289,26 +314,6 @@
     "detailTitle": "Detail",
     "shopFallback": "Shop",
     "adminFallback": "Admin"
-  },
-  "kyc": {
-    "title": "KYC submissions",
-    "personalInfo": "Personal info",
-    "shopInfo": "Shop info",
-    "documents": "Documents",
-    "bankInfo": "Bank info",
-    "viewDocument": "View document",
-    "review": "Review",
-    "submissionsCount": "{{count}} submissions",
-    "noMatch": "No KYC submissions match the filter.",
-    "loadingSubmissions": "Loading submissions…",
-    "failedToLoad": "Failed to load KYC submissions",
-    "searchPlaceholder": "Search shop, name, ID...",
-    "businessTypes": {
-      "individual": "Individual",
-      "sole_proprietor": "Sole Proprietor",
-      "corporate": "Corporate",
-      "partnership": "Partnership"
-    }
   },
   "common": {
     "currencySymbol": "$",
@@ -518,7 +523,40 @@
         "createdAt": "Created at",
         "status": "Status",
         "timeline": "Timeline",
-        "slip": "Payment slip"
+        "slip": "Payment slip",
+        "failedToLoad": "Failed to load order",
+        "failedToUpdateSlip": "Failed to update slip",
+        "fromShop": "From shop",
+        "placedAt": "Placed {{date}}",
+        "contactBuyer": "Contact Buyer",
+        "invoice": "Invoice",
+        "escalate": "Escalate",
+        "paymentVerified": "Payment verified",
+        "paymentRejected": "Payment rejected",
+        "slipAwaitingReview": "Slip submitted — awaiting review",
+        "transferred": "transferred",
+        "to": "to",
+        "amountMismatch": "Amount mismatch! Order",
+        "orderAmount": "Order amount",
+        "transferredAmount": "Transferred",
+        "transferredAt": "Transferred at",
+        "toAccount": "To account",
+        "buyerNote": "Buyer note",
+        "verifiedBy": "Verified by",
+        "awaitingPayment": "Buyer hasn't uploaded a payment slip yet — order is awaiting payment.",
+        "eventPlaced": "Order placed",
+        "actorCustomer": "Customer",
+        "eventPaid": "Payment confirmed",
+        "actorSystem": "System",
+        "eventShipped": "Shipped",
+        "actorSeller": "Seller",
+        "eventDelivered": "Delivered",
+        "actorCarrier": "Carrier",
+        "eventCancelled": "Order cancelled",
+        "actorAdmin": "Admin/System",
+        "awaitingVerification": "Awaiting verification",
+        "paidAt": "Paid At",
+        "inTransit": "In transit / Pending"
       }
     },
     "kyc": {
@@ -544,33 +582,192 @@
         "rejectSuccess": "KYC rejected",
         "approveFailed": "Failed to approve KYC",
         "rejectFailed": "Failed to reject KYC",
-        "missingReason": "A reason is required to reject"
+        "missingReason": "Rejection reason is required",
+        "decision": "Decision",
+        "reviewSubmission": "Review submission",
+        "descriptionSentToUser": "Description (sent to user)",
+        "sendApproval": "Send approval",
+        "sendRejection": "Send rejection",
+        "businessInformation": "Business Information",
+        "shopInformation": "Shop Information",
+        "identityVerification": "Identity Verification",
+        "addressInfo": "Address Information",
+        "warehouseAddress": "Warehouse Address",
+        "verificationStatus": "Verification Status",
+        "emailVerified": "Email Verified",
+        "phoneVerified": "Phone Verified",
+        "additionalDocuments": "Additional Documents",
+        "notProvided": "Not provided",
+        "openPdf": "PDF — open",
+        "idType": "ID Type",
+        "idNumber": "ID Number",
+        "entityName": "Entity Name",
+        "tinNumber": "TIN Number",
+        "street": "Street",
+        "apartment": "Apartment",
+        "city": "City",
+        "state": "State",
+        "country": "Country",
+        "reviewedAt": "Reviewed {{date}}",
+        "noSubmissionId": "No submission ID provided",
+        "descriptionRequired": "Please provide a description for the user",
+        "failedToLoad": "Failed to load submission",
+        "approveReasonPlaceholder": "e.g. Welcome! Your shop is now active.",
+        "idTypes": {
+          "passport": "Passport",
+          "state_id": "State ID",
+          "national_id": "National ID"
+        }
       }
     },
     "withdrawals": {
       "title": "Withdrawals",
       "details": {
-        "title": "Withdrawal detail",
+        "title": "Withdrawal Details",
         "back": "Back to withdrawals",
         "loading": "Loading withdrawal…",
         "notFound": "Withdrawal not found",
         "user": "User",
         "shop": "Shop",
         "bank": "Bank",
-        "accountNumber": "Account number",
-        "accountName": "Account name",
-        "amount": "Amount",
-        "fee": "Fee",
-        "netAmount": "Net amount",
-        "status": "Status",
-        "requestedAt": "Requested at",
-        "processedAt": "Processed at",
-        "processedBy": "Processed by",
-        "notes": "Notes",
-        "approve": "Approve",
-        "reject": "Reject",
-        "markPaid": "Mark Paid",
-        "markFailed": "Mark Failed"
+        "requestedAt": "Requested {{date}}",
+        "processedAt": "Processed {{date}}",
+        "actions": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "markPaid": "Mark Paid",
+          "markFailed": "Mark Failed",
+          "noFurther": "No further actions available"
+        },
+        "amount": {
+          "title": "Amount",
+          "fee": "Fee",
+          "net": "Net to user"
+        },
+        "bankInfo": {
+          "title": "Bank account",
+          "name": "Bank name",
+          "number": "Account number",
+          "accountName": "Account name",
+          "verified": "verified",
+          "unverified": "unverified",
+          "notOnFile": "Bank account not on file"
+        },
+        "notes": {
+          "title": "Admin processing note",
+          "refLabel": "BANK TRANSFER REFERENCE",
+          "refPlaceholder": "e.g. TXN-882910",
+          "adminNoteLabel": "ADMIN NOTE",
+          "adminNotePlaceholder": "Internal notes about this withdrawal..."
+        },
+        "userSection": {
+          "title": "User",
+          "profile": "Open user profile"
+        },
+        "timeline": {
+          "title": "Timeline",
+          "requested": "Requested",
+          "processed": "Processed",
+          "updated": "Last updated"
+        },
+        "rejectConfirm": "Reject this withdrawal? The amount will be refunded to the user balance.",
+        "failConfirm": "Mark this withdrawal as failed? The amount will be refunded to the user balance.",
+        "markedAs": "Marked as {{status}}",
+        "useApproveToSave": "Use Approve or Reject to save note while withdrawal is pending"
+      }
+    },
+    "users": {
+      "details": {
+        "title": "User Details",
+        "back": "Back to users",
+        "loading": "Loading user...",
+        "notFound": "User not found",
+        "identity": "Identity",
+        "financial": "Financial",
+        "security": "Security & Activity",
+        "trustScore": "Trust Score",
+        "accountSuspended": "Account suspended",
+        "liftSuspension": "Lift suspension",
+        "suspendUser": "Suspend user",
+        "issueSellerPassword": "Issue seller password",
+        "issuing": "Issuing...",
+        "editUser": "Edit user",
+        "unsuspend": "Unsuspend",
+        "credsIssued": "Seller credentials issued",
+        "credsIssuedDesc": "The user will see these credentials in their in-app notifications...",
+        "loginUrl": "Login URL",
+        "moneySource": "Money source",
+        "moneySourceDesc": "Use this to verify provenance before approving a withdrawal.",
+        "withdrawalHistory": "Withdrawal history",
+        "orderActivity": "Order activity",
+        "shopAndKyc": "Shop & KYC",
+        "systemMetadata": "System metadata",
+        "editModal": {
+          "title": "Edit user",
+          "bankHeader": "Bank account",
+          "credsHeader": "Reset credentials (leave blank to keep current)",
+          "newPassword": "New password",
+          "newPin": "New PIN (6 digits)",
+          "passwordPlaceholder": "min 6 characters",
+          "pinPlaceholder": "6 digits"
+        },
+        "suspendModal": {
+          "title": "Suspend user",
+          "liftTitle": "Lift suspension",
+          "reason": "Reason",
+          "reasonPlaceholder": "e.g. Suspected fraudulent activity",
+          "liftDesc": "Lifting will restore login + ordering for this user.",
+          "suspendDesc": "Suspended users cannot log in or place orders. Reason is shown to support staff."
+        },
+        "labels": {
+          "displayName": "Display name",
+          "followers": "Followers",
+          "following": "Following",
+          "webBalance": "Web balance",
+          "posRevenue": "POS revenue",
+          "pendingWithdrawals": "Pending withdrawals",
+          "twoFactor": "2FA",
+          "customerPassword": "Customer password",
+          "sellerPassword": "Seller password",
+          "withdrawalPin": "Withdrawal PIN",
+          "lastKnownIp": "Last known IP",
+          "lastUpdate": "Last update",
+          "linkedAccounts": "Linked accounts"
+        }
+      }
+    },
+    "shops": {
+      "details": {
+        "title": "Shop Details",
+        "owner": "Owner",
+        "category": "Category",
+        "followers": "Followers",
+        "following": "Following",
+        "message": "Message",
+        "suspend": "Suspend",
+        "closeShop": "Close Shop",
+        "unverified": "Unverified",
+        "openProfile": "Open shop profile",
+        "viewProducts": "View products",
+        "viewOrders": "View orders",
+        "overview": "Overview",
+        "products": "Products",
+        "orders": "Orders",
+        "violations": "Violations",
+        "analytics": "Analytics",
+        "lifetimeTotals": "Lifetime Totals",
+        "balancePayout": "Balance & Payout",
+        "lastOrder": "Last Order Received",
+        "shopBio": "Shop Bio",
+        "metrics": {
+          "totalProducts": "Total Products",
+          "totalOrders": "Total Orders",
+          "grossRevenue": "Gross Revenue (฿)",
+          "currentBalance": "Current Balance (฿)",
+          "pendingWithdrawals": "Pending Withdrawals",
+          "posRevenue": "POS Revenue (฿)",
+          "lifetimeIncome": "Lifetime Income (฿)"
+        }
       }
     },
     "payment": {
@@ -617,12 +814,37 @@
       "history": {
         "title": "Notification history",
         "noHistory": "No notifications sent",
-        "loading": "Loading history…"
+        "loading": "Loading history...",
+        "table": {
+          "titleContent": "Title / Content"
+        },
+        "types": {
+          "order": "Order",
+          "withdrawal": "Withdrawal",
+          "system": "System",
+          "promo": "Promotion"
+        }
       },
       "reports": {
         "title": "Delivery reports",
         "noReports": "No delivery reports",
-        "loading": "Loading reports…"
+        "loading": "Loading reports...",
+        "loadingReports": "Loading reports...",
+        "noOpenReports": "No open reports",
+        "noOpenReportsDesc": "Reports awaiting review will appear here",
+        "openCount": "{{count}} open report awaiting review",
+        "openCount_other": "{{count}} open reports awaiting review",
+        "onTarget": "on {{target}}",
+        "noDescription": "No description",
+        "reportedBy": "Reported by {{name}}",
+        "reasons": {
+          "spam": "Spam",
+          "abuse": "Abuse",
+          "fraud": "Fraud",
+          "counterfeit": "Counterfeit",
+          "harassment": "Harassment",
+          "other": "Other"
+        }
       }
     },
     "reports": {
@@ -800,27 +1022,34 @@
       "saveSuccess": "Category saved",
       "saveFailed": "Failed to save category"
     },
-    "history": {
-      "title": "History",
-      "subtitle": "Platform activity history",
-      "tabs": {
-        "adminAudit": "Admin audit",
-        "bankChanges": "Bank changes",
-        "depositSources": "Deposit sources",
-        "editLogs": "Edit logs",
-        "financial": "Financial",
-        "kyc": "KYC",
-        "linkedAccounts": "Linked accounts",
-        "loginDevice": "Login & device",
-        "orders": "Orders",
-        "riskSignals": "Risk signals",
-        "support": "Support",
-        "transactions": "Transactions",
-        "withdrawals": "Withdrawals"
+      "history": {
+        "title": "History",
+        "subtitle": "Platform activity history",
+        "tabs": {
+          "adminAudit": "Admin audit",
+          "bankChanges": "Bank changes",
+          "depositSources": "Deposit sources",
+          "editLogs": "Edit logs",
+          "financial": "Financial",
+          "kyc": "KYC",
+          "linkedAccounts": "Linked accounts",
+          "loginDevice": "Login & device",
+          "orders": "Orders",
+          "riskSignals": "Risk signals",
+          "support": "Support",
+          "transactions": "Transactions",
+          "withdrawals": "Withdrawals"
+        },
+        "noEntries": "No entries",
+        "loading": "Loading history...",
+        "loadingFinancial": "Loading financial summary...",
+        "withdrawalsCompleted": "Withdrawals (completed)",
+        "withdrawalsBreakdown": "Withdrawals breakdown",
+        "count": "Count",
+        "noWithdrawalData": "No withdrawal data",
+        "approvalRate": "Approval rate",
+        "submissionsApprovedMsg": "{{approved}} of {{total}} submissions approved"
       },
-      "noEntries": "No entries",
-      "loading": "Loading history…"
-    },
     "posts": {
       "title": "Posts",
       "subtitle": "Manage social posts",

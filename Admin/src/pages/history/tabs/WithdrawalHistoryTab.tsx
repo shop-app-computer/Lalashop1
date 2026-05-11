@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { fetchHistoryWithdrawals, type AdminWithdrawRow } from '@/services/adminApi';
 
@@ -22,6 +23,7 @@ const badge: Record<string, { cls: string; icon: typeof CheckCircle2 }> = {
 };
 
 const WithdrawalHistoryTab = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<AdminWithdrawRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,23 +59,23 @@ const WithdrawalHistoryTab = () => {
     <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 px-4 py-3 bg-gray-50/50 text-[11px]">
         <div>
-          <p className="text-gray-500">total requests</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.totalRequests')}</p>
           <p className="text-base font-bold tabular-nums">{total}</p>
         </div>
         <div>
-          <p className="text-gray-500">approved</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.approved')}</p>
           <p className="text-base font-bold tabular-nums text-green-700">{approved}</p>
         </div>
         <div>
-          <p className="text-gray-500">declined</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.declined')}</p>
           <p className="text-base font-bold tabular-nums text-red-700">{declined}</p>
         </div>
         <div>
-          <p className="text-gray-500">total paid out (₭)</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.totalPaidOut')} ({t('common.currencySymbol')})</p>
           <p className="text-base font-bold tabular-nums">{formatMoney(totalApproved)}</p>
         </div>
         <div>
-          <p className="text-gray-500">last request</p>
+          <p className="text-gray-500 uppercase">{t('pages.history.lastRequest')}</p>
           <p className="font-mono text-[11px] text-gray-700">{last ? formatDate(last.createdAt) : '—'}</p>
         </div>
       </div>
@@ -82,19 +84,19 @@ const WithdrawalHistoryTab = () => {
         <table className="w-full text-[12px] tabular-nums">
           <thead className="text-[11px] text-gray-500 tracking-wide">
             <tr>
-              <th className="px-4 py-2 text-left font-semibold">withdraw id</th>
-              <th className="px-4 py-2 text-left font-semibold">user</th>
-              <th className="px-4 py-2 text-left font-semibold">requested</th>
-              <th className="px-4 py-2 text-right font-semibold">amount (₭)</th>
-              <th className="px-4 py-2 text-left font-semibold">bank / account</th>
-              <th className="px-4 py-2 text-left font-semibold">status</th>
-              <th className="px-4 py-2 text-left font-semibold">processed</th>
-              <th className="px-4 py-2 text-left font-semibold">note</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.withdrawId')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.user')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.requested')}</th>
+              <th className="px-4 py-2 text-right font-semibold">{t('table.amount')} ({t('common.currencySymbol')})</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.bankAccount')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.status')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.processed')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.note')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.loading')}</td></tr>
             )}
             {!loading && error && (
               <tr><td colSpan={8} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
@@ -114,7 +116,7 @@ const WithdrawalHistoryTab = () => {
                   </td>
                   <td className="px-4 py-2">
                     <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded ${B.cls}`}>
-                      <Icon className="w-3 h-3" /> {w.status}
+                      <Icon className="w-3 h-3" /> {t(`status.${w.status}`, { defaultValue: w.status })}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-gray-500 text-[11px]">{w.processedAt ? formatDate(w.processedAt) : '—'}</td>
@@ -123,7 +125,7 @@ const WithdrawalHistoryTab = () => {
               );
             })}
             {!loading && !error && items.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-[12px]">No withdrawals</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('pages.history.noWithdrawals')}</td></tr>
             )}
           </tbody>
         </table>

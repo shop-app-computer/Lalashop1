@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Save, RotateCcw, Loader2, Lock } from 'lucide-react';
 import {
   fetchAdminSettings,
@@ -19,6 +20,7 @@ const groupBadge: Record<string, string> = {
 };
 
 const SettingsPage = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<AdminSettingRow[]>([]);
   const [edited, setEdited] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ const SettingsPage = () => {
       for (const s of list) initial[s.key] = s.value;
       setEdited(initial);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load settings');
+      setError(err instanceof Error ? err.message : t('pages.settings.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -57,7 +59,7 @@ const SettingsPage = () => {
       setSavedKey(key);
       setTimeout(() => setSavedKey(null), 2000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Save failed');
+      alert(err instanceof Error ? err.message : t('actions.saveFailed'));
     } finally {
       setBusyKey(null);
     }
@@ -77,7 +79,7 @@ const SettingsPage = () => {
   return (
     <div className="space-y-4 text-sm">
       <div className="rounded-lg bg-blue-50 px-4 py-3 text-[12px] text-blue-700">
-        Settings flagged as <span className="font-mono bg-white px-1 rounded">isPublic</span> are exposed at <code>/api/settings/public</code> for the storefront. Sensitive settings (finance, KYC) stay server-side.
+        {t('pages.settings.publicHint')}
       </div>
 
       {loading && (
@@ -94,9 +96,9 @@ const SettingsPage = () => {
         <div key={group} className="rounded-lg border border-gray-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${groupBadge[group] ?? 'bg-gray-100 text-gray-600'}`}>
-              {group}
+              {t(`pages.settings.groups.${group}`, { defaultValue: group })}
             </span>
-            <span className="text-[11px] text-gray-500">{settings.length} setting{settings.length === 1 ? '' : 's'}</span>
+            <span className="text-[11px] text-gray-500">{t('pages.settings.settingsCount', { count: settings.length })}</span>
           </div>
 
           <div className="divide-y divide-gray-50">
@@ -143,12 +145,12 @@ const SettingsPage = () => {
 
                   <div className="col-span-12 md:col-span-3 flex items-center gap-1.5 justify-start md:justify-end">
                     {savedKey === s.key && (
-                      <span className="text-[11px] text-green-700 font-medium">Saved</span>
+                      <span className="text-[11px] text-green-700 font-medium">{t('status.saved')}</span>
                     )}
                     {dirty && busyKey !== s.key && (
                       <button
                         onClick={() => onReset(s.key)}
-                        title="Reset"
+                        title={t('actions.reset')}
                         className="px-2 py-1.5 rounded text-[11px] text-gray-600 hover:bg-gray-100"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -164,7 +166,7 @@ const SettingsPage = () => {
                       ) : (
                         <Save className="w-3.5 h-3.5 mr-1.5" />
                       )}
-                      Save
+                      {t('actions.save')}
                     </button>
                   </div>
                 </div>
@@ -176,7 +178,7 @@ const SettingsPage = () => {
 
       {!loading && !error && items.length === 0 && (
         <div className="rounded-lg py-12 text-center text-gray-400 text-[12px]">
-          No settings — defaults will be seeded on first load
+          {t('pages.settings.noSettings')}
         </div>
       )}
     </div>

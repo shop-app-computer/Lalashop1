@@ -19,6 +19,7 @@ const formatDate = (s?: string): string => {
 const targetTypeOptions = ['all', 'user', 'shop', 'product', 'order', 'withdrawal', 'kyc', 'report', 'category', 'notification', 'setting', 'admin', 'invite', 'other'];
 
 const AdminAuditPage = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<AdminAuditLogRow[]>([]);
   const [stats, setStats] = useState<AdminAuditStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,15 +61,15 @@ const AdminAuditPage = () => {
           href="/admins"
           className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center hover:bg-gray-100"
         >
-          ← Back to admins
+          ← {t('common.backToAdmins')}
         </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPI label="Total events" value={stats ? stats.total.toLocaleString() : '—'} tone="text-black" />
-        <KPI label="Last 7 days" value={stats ? stats.last7d.toLocaleString() : '—'} tone="text-blue-700" />
-        <KPI label="Active admins" value={stats ? stats.byAdmin.length.toLocaleString() : '—'} tone="text-green-700" />
-        <KPI label="Distinct actions" value={stats ? stats.byAction.length.toLocaleString() : '—'} tone="text-purple-700" />
+        <KPI label={t('admins.audit.stats.totalEvents')} value={stats ? stats.total.toLocaleString() : '—'} tone="text-black" />
+        <KPI label={t('admins.audit.stats.last7d')} value={stats ? stats.last7d.toLocaleString() : '—'} tone="text-blue-700" />
+        <KPI label={t('admins.audit.stats.activeAdmins')} value={stats ? stats.byAdmin.length.toLocaleString() : '—'} tone="text-green-700" />
+        <KPI label={t('admins.audit.stats.distinctActions')} value={stats ? stats.byAction.length.toLocaleString() : '—'} tone="text-purple-700" />
       </div>
 
       <div className="rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
@@ -79,7 +80,7 @@ const AdminAuditPage = () => {
             className="bg-gray-100 rounded text-[11px] font-semibold text-gray-700 px-3 py-1 pr-7 min-w-[110px] outline-none cursor-pointer appearance-none"
           >
             {targetTypeOptions.map((t) => (
-              <option key={t} value={t}>{t === 'all' ? 'All targets' : t}</option>
+              <option key={t} value={t}>{t === 'all' ? t('admins.audit.allTargets') : t}</option>
             ))}
           </select>
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
@@ -91,7 +92,7 @@ const AdminAuditPage = () => {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             type="text"
-            placeholder="Search action..."
+            placeholder={t('admins.audit.searchPlaceholder')}
             className="pl-7 pr-3 py-1 rounded text-[11px] w-64 bg-gray-50 border border-gray-100 focus:border-primary outline-none"
           />
         </div>
@@ -100,21 +101,21 @@ const AdminAuditPage = () => {
       <div className="rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[12px] tabular-nums">
-            <thead className="text-[11px] text-gray-500 tracking-wide">
+            <thead className="text-[11px] text-gray-500 tracking-wide bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left font-semibold">When</th>
-                <th className="px-4 py-2 text-left font-semibold">Admin</th>
-                <th className="px-4 py-2 text-left font-semibold">Action</th>
-                <th className="px-4 py-2 text-left font-semibold">Target</th>
-                <th className="px-4 py-2 text-left font-semibold">IP</th>
-                <th className="px-4 py-2 text-left font-semibold">Changes</th>
+                <th className="px-4 py-2 text-left font-semibold uppercase">{t('admins.audit.table.time')}</th>
+                <th className="px-4 py-2 text-left font-semibold uppercase">{t('common.admin')}</th>
+                <th className="px-4 py-2 text-left font-semibold uppercase">{t('admins.audit.table.action')}</th>
+                <th className="px-4 py-2 text-left font-semibold uppercase">{t('admins.audit.table.target')}</th>
+                <th className="px-4 py-2 text-left font-semibold uppercase">{t('common.lastIp')}</th>
+                <th className="px-4 py-2 text-left font-semibold uppercase">{t('admins.audit.table.changes')}</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-[12px]">
-                    Loading audit log...
+                    {t('admins.audit.loading')}
                   </td>
                 </tr>
               )}
@@ -124,7 +125,7 @@ const AdminAuditPage = () => {
                 </tr>
               )}
               {!loading && !error && items.map((log) => (
-                <tr key={log._id}>
+                <tr key={log._id} className="border-t border-gray-50">
                   <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(log.createdAt)}</td>
                   <td className="px-4 py-2">
                     {log.admin?._id ? (
@@ -154,11 +155,11 @@ const AdminAuditPage = () => {
                   <td className="px-4 py-2 text-[11px] text-gray-600">
                     {log.before || log.after ? (
                       <details className="cursor-pointer">
-                        <summary className="text-primary hover:underline">view diff</summary>
+                        <summary className="text-primary hover:underline">{t('admins.audit.viewDiff')}</summary>
                         <div className="mt-1 p-2 bg-gray-50 rounded font-mono text-[10px] whitespace-pre-wrap">
-                          {log.before && <div>before: {JSON.stringify(log.before)}</div>}
-                          {log.after && <div className="text-green-700">after: {JSON.stringify(log.after)}</div>}
-                          {log.metadata && <div className="text-gray-500">metadata: {JSON.stringify(log.metadata)}</div>}
+                          {log.before && <div>{t('admins.audit.before')}: {JSON.stringify(log.before)}</div>}
+                          {log.after && <div className="text-green-700">{t('admins.audit.after')}: {JSON.stringify(log.after)}</div>}
+                          {log.metadata && <div className="text-gray-500">{t('common.message')}: {JSON.stringify(log.metadata)}</div>}
                         </div>
                       </details>
                     ) : log.metadata ? (
@@ -174,7 +175,7 @@ const AdminAuditPage = () => {
               {!loading && !error && items.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-[12px]">
-                    No audit events yet — admin actions will be tracked here as they happen
+                    {t('admins.audit.noLogs')}
                   </td>
                 </tr>
               )}

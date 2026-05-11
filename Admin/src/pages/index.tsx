@@ -16,8 +16,8 @@ import {
 
 const formatNumber = (n: number): string =>
   new Intl.NumberFormat("en-US").format(n);
-const formatCurrency = (n: number): string =>
-  `฿${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)}`;
+const formatCurrency = (n: number, t: (k: string) => string): string =>
+  `${t('common.currencySymbol')}${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)}`;
 const formatDate = (s: string): string => {
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return "—";

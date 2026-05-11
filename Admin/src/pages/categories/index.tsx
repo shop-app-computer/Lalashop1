@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Search, Plus, Edit, Trash2, X, Save, Loader2, ToggleLeft, ToggleRight,
   ArrowUp, ArrowDown,
@@ -29,6 +30,7 @@ const emptyForm = (): FormState => ({
 });
 
 const CategoriesPage = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<AdminCategoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +48,7 @@ const CategoriesPage = () => {
       const res = await fetchAdminCategories();
       setItems(res.data ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load categories');
+      setError(err instanceof Error ? err.message : t('pages.categories.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -92,7 +94,7 @@ const CategoriesPage = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      alert('Name is required');
+      alert(t('pages.categories.form.nameRequired'));
       return;
     }
     setSaving(true);
@@ -112,20 +114,20 @@ const CategoriesPage = () => {
       await load();
       closeForm();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Save failed');
+      alert(err instanceof Error ? err.message : t('actions.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const onDelete = async (c: AdminCategoryRow) => {
-    if (!window.confirm(`Delete category "${c.name}"?`)) return;
+    if (!window.confirm(t('pages.categories.confirmDelete', { name: c.name }))) return;
     setBusyId(c._id);
     try {
       await deleteAdminCategory(c._id);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed');
+      alert(err instanceof Error ? err.message : t('actions.deleteFailed'));
     } finally {
       setBusyId(null);
     }
@@ -137,7 +139,7 @@ const CategoriesPage = () => {
       await updateAdminCategory(c._id, { isActive: !c.isActive });
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Toggle failed');
+      alert(err instanceof Error ? err.message : t('actions.toggleFailed'));
     } finally {
       setBusyId(null);
     }
@@ -150,7 +152,7 @@ const CategoriesPage = () => {
       await updateAdminCategory(c._id, { displayOrder: newOrder });
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Reorder failed');
+      alert(err instanceof Error ? err.message : t('actions.reorderFailed'));
     } finally {
       setBusyId(null);
     }
@@ -165,10 +167,10 @@ const CategoriesPage = () => {
           onClick={openCreate}
           className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900"
         >
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Create Category
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> {t('pages.categories.createCategory')}
         </button>
         <span className="text-[11px] text-gray-400">
-          {items.length} categor{items.length === 1 ? 'y' : 'ies'} · {items.filter((c) => c.isActive).length} active
+          {t('pages.categories.categoriesCount', { count: items.length })} · {t('pages.categories.activeCount', { count: items.filter((c) => c.isActive).length })}
         </span>
       </div>
 
@@ -179,7 +181,7 @@ const CategoriesPage = () => {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             type="text"
-            placeholder="Search category..."
+            placeholder={t('pages.categories.searchPlaceholder')}
             className="pl-7 pr-3 py-1 rounded text-[11px] w-64 bg-gray-50 border border-gray-100 focus:border-primary outline-none"
           />
         </div>
@@ -190,20 +192,20 @@ const CategoriesPage = () => {
           <table className="w-full text-[12px] tabular-nums">
             <thead className="text-[11px] text-gray-500 tracking-wide">
               <tr>
-                <th className="px-4 py-2 text-left font-semibold w-16">Order</th>
-                <th className="px-4 py-2 text-left font-semibold">Category Name</th>
-                <th className="px-4 py-2 text-left font-semibold">Slug</th>
-                <th className="px-4 py-2 text-left font-semibold">Description</th>
-                <th className="px-4 py-2 text-right font-semibold">Products</th>
-                <th className="px-4 py-2 text-left font-semibold">Status</th>
-                <th className="px-4 py-2 text-right font-semibold">Actions</th>
+                <th className="px-4 py-2 text-left font-semibold w-16">{t('table.order')}</th>
+                <th className="px-4 py-2 text-left font-semibold">{t('table.categoryName')}</th>
+                <th className="px-4 py-2 text-left font-semibold">{t('table.slug')}</th>
+                <th className="px-4 py-2 text-left font-semibold">{t('table.description')}</th>
+                <th className="px-4 py-2 text-right font-semibold">{t('nav.products')}</th>
+                <th className="px-4 py-2 text-left font-semibold">{t('table.status')}</th>
+                <th className="px-4 py-2 text-right font-semibold">{t('table.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">
-                    Loading categories...
+                    {t('pages.categories.loadingCategories')}
                   </td>
                 </tr>
               )}
@@ -220,7 +222,7 @@ const CategoriesPage = () => {
                       <button
                         disabled={busyId === c._id}
                         onClick={() => onMove(c, 'up')}
-                        title="Move up"
+                        title={t('actions.moveUp')}
                         className="text-gray-300 hover:text-gray-700 disabled:opacity-30"
                       >
                         <ArrowUp className="w-3 h-3" />
@@ -228,7 +230,7 @@ const CategoriesPage = () => {
                       <button
                         disabled={busyId === c._id}
                         onClick={() => onMove(c, 'down')}
-                        title="Move down"
+                        title={t('actions.moveDown')}
                         className="text-gray-300 hover:text-gray-700 disabled:opacity-30"
                       >
                         <ArrowDown className="w-3 h-3" />
@@ -252,14 +254,14 @@ const CategoriesPage = () => {
                       } disabled:opacity-50`}
                     >
                       {c.isActive ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
-                      {c.isActive ? 'active' : 'inactive'}
+                      {c.isActive ? t('status.active') : t('status.inactive')}
                     </button>
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex items-center justify-end gap-0.5">
                       <button
                         onClick={() => openEdit(c)}
-                        title="Edit"
+                        title={t('actions.edit')}
                         className="text-gray-500 hover:text-black hover:bg-gray-100 rounded p-1"
                       >
                         <Edit className="w-3.5 h-3.5" />
@@ -267,7 +269,7 @@ const CategoriesPage = () => {
                       <button
                         disabled={busyId === c._id || c.productCount > 0}
                         onClick={() => onDelete(c)}
-                        title={c.productCount > 0 ? `${c.productCount} product(s) use this — cannot delete` : 'Delete'}
+                        title={c.productCount > 0 ? t('pages.categories.cannotDeleteWithProducts', { count: c.productCount }) : t('actions.delete')}
                         className="text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded p-1 disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -279,7 +281,7 @@ const CategoriesPage = () => {
               {!loading && !error && filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">
-                    {q ? 'No categories match your search' : 'No categories yet — click "Create Category" to add one'}
+                    {q ? t('pages.categories.noMatch') : t('pages.categories.noCategories')}
                   </td>
                 </tr>
               )}
@@ -297,7 +299,7 @@ const CategoriesPage = () => {
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h2 className="font-bold text-base text-gray-900">
-                {creating ? 'Create category' : `Edit "${editing?.name}"`}
+                {creating ? t('pages.categories.createCategory') : t('pages.categories.editCategory', { name: editing?.name })}
               </h2>
               <button
                 type="button"
@@ -311,41 +313,41 @@ const CategoriesPage = () => {
 
             <div className="p-5 space-y-4">
               <label className="block">
-                <span className="text-[11px] font-semibold text-gray-500 tracking-wide">NAME</span>
+                <span className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{t('table.name')}</span>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
-                  placeholder="e.g. Electronics"
+                  placeholder={t('pages.categories.form.namePlaceholder')}
                   className="w-full mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-md text-[12px] outline-none focus:border-primary"
                 />
               </label>
 
               <label className="block">
-                <span className="text-[11px] font-semibold text-gray-500 tracking-wide">DESCRIPTION</span>
+                <span className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{t('table.description')}</span>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={2}
-                  placeholder="Optional description..."
+                  placeholder={t('pages.categories.form.descriptionPlaceholder')}
                   className="w-full mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-md text-[12px] outline-none focus:border-primary resize-none"
                 />
               </label>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-[11px] font-semibold text-gray-500 tracking-wide">ICON (lucide name)</span>
+                  <span className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{t('pages.categories.form.iconLabel')}</span>
                   <input
                     type="text"
                     value={form.icon}
                     onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                    placeholder="e.g. Monitor"
+                    placeholder={t('pages.categories.form.iconPlaceholder')}
                     className="w-full mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-md text-[12px] outline-none focus:border-primary"
                   />
                 </label>
                 <label className="block">
-                  <span className="text-[11px] font-semibold text-gray-500 tracking-wide">DISPLAY ORDER</span>
+                  <span className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{t('table.order')}</span>
                   <input
                     type="number"
                     value={form.displayOrder}
@@ -362,7 +364,7 @@ const CategoriesPage = () => {
                   onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                   className="rounded accent-primary"
                 />
-                <span>Active (show on storefront)</span>
+                <span>{t('pages.categories.form.activeLabel')}</span>
               </label>
             </div>
 
@@ -373,7 +375,7 @@ const CategoriesPage = () => {
                 disabled={saving}
                 className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                Cancel
+                {t('actions.cancel')}
               </button>
               <button
                 type="submit"
@@ -381,7 +383,7 @@ const CategoriesPage = () => {
                 className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900 disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
-                {creating ? 'Create' : 'Save changes'}
+                {creating ? t('actions.create') : t('actions.saveChanges')}
               </button>
             </div>
           </form>

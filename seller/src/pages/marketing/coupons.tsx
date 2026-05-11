@@ -54,7 +54,7 @@ const CouponsPage: React.FC = () => {
       const data = await fetchMyCoupons();
       setItems(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load coupons");
+      setError(err instanceof Error ? err.message : t('pages.kyc.verification.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -69,6 +69,12 @@ const CouponsPage: React.FC = () => {
     const totalUsed = items.reduce((s, c) => s + (c.usedCount || 0), 0);
     return { total: items.length, active, used: totalUsed };
   }, [items]);
+
+  const statsList = [
+    { label: t('pages.coupons.totalCoupons'), value: stats.total.toString() },
+    { label: t('pages.coupons.active'), value: stats.active.toString(), tone: "text-emerald-700" },
+    { label: t('pages.coupons.totalRedemptions'), value: stats.used.toString(), tone: "text-[#00aeff]" }
+  ];
 
   const openCreate = () => {
     setForm(initialForm);
@@ -108,14 +114,14 @@ const CouponsPage: React.FC = () => {
       setShowForm(false);
       await reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(err instanceof Error ? err.message : t('pages.productDetail.errSaveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this coupon?")) return;
+    if (!window.confirm(t('pages.coupons.deleteConfirm'))) return;
     await deleteCoupon(id);
     await reload();
   };
@@ -144,9 +150,9 @@ const CouponsPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <Stat label={t('pages.coupons.totalCoupons')} value={stats.total.toString()} />
-        <Stat label={t('pages.coupons.active')} value={stats.active.toString()} tone="text-emerald-700" />
-        <Stat label={t('pages.coupons.totalRedemptions')} value={stats.used.toString()} tone="text-[#00aeff]" />
+        {statsList.map((s, idx) => (
+          <Stat key={idx} label={s.label} value={s.value} tone={s.tone} />
+        ))}
       </div>
 
       {error && (
@@ -176,7 +182,7 @@ const CouponsPage: React.FC = () => {
                     <button
                       onClick={() => copyCode(c.code)}
                       className="text-gray-400 hover:text-[#00aeff]"
-                      title="Copy code"
+                      title={t('pages.coupons.copyCode')}
                     >
                       {copiedCode === c.code ? (
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -187,7 +193,7 @@ const CouponsPage: React.FC = () => {
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${STATUS_BADGE[c.status]}`}
                     >
-                      {c.status}
+                      {t(`status.${c.status}`)}
                     </span>
                   </div>
                   <h3 className="text-[13px] font-bold text-gray-900 mt-1.5 truncate">{c.title}</h3>
@@ -213,19 +219,19 @@ const CouponsPage: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-2 text-[10px]">
                 <div>
-                  <p className="text-gray-400">Discount</p>
+                  <p className="text-gray-400">{t('pages.coupons.discount')}</p>
                   <p className="font-bold text-gray-900">
                     {c.type === "percent" && `${c.value}%`}
-                    {c.type === "fixed" && `฿${formatMoney(c.value)}`}
-                    {c.type === "freeship" && "Free ship"}
+                    {c.type === "fixed" && `${t('common.currencySymbol')}${formatMoney(c.value)}`}
+                    {c.type === "freeship" && t('pages.coupons.freeship')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Min order</p>
-                  <p className="font-bold text-gray-900">฿{formatMoney(c.minOrder)}</p>
+                  <p className="text-gray-400">{t('pages.coupons.minOrder')}</p>
+                  <p className="font-bold text-gray-900">{t('common.currencySymbol')}{formatMoney(c.minOrder)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Used</p>
+                  <p className="text-gray-400">{t('pages.coupons.used')}</p>
                   <p className="font-bold text-gray-900">
                     {c.usedCount}
                     {c.usageLimit > 0 && ` / ${c.usageLimit}`}
@@ -243,7 +249,7 @@ const CouponsPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-[14px] font-bold text-gray-900">
-                  {editingId ? "Edit coupon" : "New coupon"}
+                  {editingId ? t('pages.coupons.editCoupon') : t('pages.coupons.newCoupon')}
                 </h2>
                 <button
                   type="button"
@@ -255,7 +261,7 @@ const CouponsPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Code">
+                <Field label={t('pages.coupons.code')}>
                   <input
                     required
                     className="w-full border rounded px-2 py-1.5 text-xs font-mono"
@@ -263,21 +269,21 @@ const CouponsPage: React.FC = () => {
                     onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   />
                 </Field>
-                <Field label="Status">
+                <Field label={t('pages.coupons.status')}>
                   <select
                     className="w-full border rounded px-2 py-1.5 text-xs"
                     value={form.status}
                     onChange={(e) => setForm({ ...form, status: e.target.value as CouponStatus })}
                   >
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="expired">Expired</option>
+                    <option value="draft">{t('status.draft')}</option>
+                    <option value="active">{t('status.active')}</option>
+                    <option value="paused">{t('status.paused')}</option>
+                    <option value="expired">{t('status.expired')}</option>
                   </select>
                 </Field>
               </div>
 
-              <Field label="Title">
+              <Field label={t('pages.coupons.titleLabel')}>
                 <input
                   required
                   className="w-full border rounded px-2 py-1.5 text-xs"
@@ -286,7 +292,7 @@ const CouponsPage: React.FC = () => {
                 />
               </Field>
 
-              <Field label="Description">
+              <Field label={t('pages.coupons.descriptionLabel')}>
                 <textarea
                   className="w-full border rounded px-2 py-1.5 text-xs"
                   rows={2}
@@ -296,18 +302,18 @@ const CouponsPage: React.FC = () => {
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Type">
+                <Field label={t('pages.coupons.type')}>
                   <select
                     className="w-full border rounded px-2 py-1.5 text-xs"
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value as CouponType })}
                   >
-                    <option value="percent">Percent (%)</option>
-                    <option value="fixed">Fixed amount (฿)</option>
-                    <option value="freeship">Free shipping</option>
+                    <option value="percent">{t('pages.coupons.percent')}</option>
+                    <option value="fixed">{t('pages.coupons.fixed')}</option>
+                    <option value="freeship">{t('pages.coupons.freeship')}</option>
                   </select>
                 </Field>
-                <Field label="Value">
+                <Field label={t('pages.coupons.value')}>
                   <input
                     type="number"
                     min={0}
@@ -319,7 +325,7 @@ const CouponsPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Min order (฿)">
+                <Field label={`${t('pages.coupons.minOrder')} (${t('common.currencySymbol')})`}>
                   <input
                     type="number"
                     min={0}
@@ -328,7 +334,7 @@ const CouponsPage: React.FC = () => {
                     onChange={(e) => setForm({ ...form, minOrder: Number(e.target.value) })}
                   />
                 </Field>
-                <Field label="Max discount (฿)">
+                <Field label={`${t('pages.coupons.maxDiscount')} (${t('common.currencySymbol')})`}>
                   <input
                     type="number"
                     min={0}
@@ -337,7 +343,7 @@ const CouponsPage: React.FC = () => {
                     onChange={(e) => setForm({ ...form, maxDiscount: Number(e.target.value) })}
                   />
                 </Field>
-                <Field label="Usage limit (0=∞)">
+                <Field label={t('pages.coupons.usageLimitHint')}>
                   <input
                     type="number"
                     min={0}
@@ -349,7 +355,7 @@ const CouponsPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Starts at">
+                <Field label={t('pages.coupons.startsAt')}>
                   <input
                     type="datetime-local"
                     className="w-full border rounded px-2 py-1.5 text-xs"
@@ -359,7 +365,7 @@ const CouponsPage: React.FC = () => {
                     }
                   />
                 </Field>
-                <Field label="Expires at">
+                <Field label={t('pages.coupons.expiresAt')}>
                   <input
                     type="datetime-local"
                     className="w-full border rounded px-2 py-1.5 text-xs"
@@ -377,14 +383,14 @@ const CouponsPage: React.FC = () => {
                   onClick={() => setShowForm(false)}
                   className="px-3 py-1.5 rounded border text-xs font-bold text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('actions.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="px-4 py-1.5 rounded bg-[#00aeff] text-white text-xs font-bold hover:bg-[#0096db] disabled:opacity-50"
                 >
-                  {saving ? "Saving…" : editingId ? "Save changes" : "Create coupon"}
+                  {saving ? t('pages.coupons.saving') : editingId ? t('pages.coupons.saveChanges') : t('pages.coupons.createCoupon')}
                 </button>
               </div>
             </form>

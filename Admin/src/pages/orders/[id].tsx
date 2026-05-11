@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Package, User, Store, CreditCard, MapPin,
   Truck, FileText, MessageSquare, AlertCircle, CheckCircle2,
@@ -23,16 +24,6 @@ const statusBadge: Record<string, string> = {
   pending_payment: 'bg-orange-50 text-orange-700',
 };
 
-const statusLabel: Record<string, string> = {
-  paid: 'Paid',
-  shipping: 'Shipping',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  refunded: 'Refunded',
-  disputed: 'Disputed',
-  pending_payment: 'Pending Payment',
-};
-
 const formatMoney = (n: number): string =>
   Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
@@ -45,6 +36,7 @@ const formatDate = (s?: string): string => {
 };
 
 const OrderDetailPage = () => {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { id } = router.query;
   const [order, setOrder] = useState<AdminOrderDetail | null>(null);
@@ -63,7 +55,7 @@ const OrderDetailPage = () => {
       const res = await fetchAdminOrder(id);
       setOrder(res.data ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load order');
+      setError(err instanceof Error ? err.message : t('pages.orders.details.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -84,14 +76,14 @@ const OrderDetailPage = () => {
       setRejectReason('');
       await reload();
     } catch (err) {
-      setSlipError(err instanceof Error ? err.message : 'Failed to update slip');
+      setSlipError(err instanceof Error ? err.message : t('pages.orders.details.failedToUpdateSlip'));
     } finally {
       setSlipBusy(false);
     }
   };
 
   if (loading) {
-    return <div className="text-[13px] text-gray-400 py-12 text-center">Loading order...</div>;
+    return <div className="text-[13px] text-gray-400 py-12 text-center">{t('pages.orders.details.loading')}</div>;
   }
 
   if (error || !order) {
@@ -101,16 +93,16 @@ const OrderDetailPage = () => {
           onClick={() => router.push('/orders')}
           className="inline-flex items-center gap-2 text-[12px] text-gray-500 hover:text-black font-medium transition-colors"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to orders
+          <ArrowLeft className="w-3.5 h-3.5" /> {t('pages.orders.details.back')}
         </button>
         <div className="rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-700">
-          {error || 'Order not found'}
+          {error || t('pages.orders.details.notFound')}
         </div>
       </div>
     );
   }
 
-  const customerName = order.user?.name || order.shippingAddress?.fullName || 'Guest';
+  const customerName = order.user?.name || order.shippingAddress?.fullName || t('common.guest');
   const customerUserId = order.user?._id || '';
   const customerCustomId = order.user?.customId || customerUserId;
   const firstSeller = order.orderItems?.[0]?.seller;
@@ -143,7 +135,7 @@ const OrderDetailPage = () => {
         onClick={() => router.push('/orders')}
         className="inline-flex items-center gap-2 text-[12px] text-gray-500 hover:text-black font-medium transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to orders
+        <ArrowLeft className="w-3.5 h-3.5" /> {t('pages.orders.details.back')}
       </button>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -151,47 +143,43 @@ const OrderDetailPage = () => {
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className="font-mono text-[12px] text-gray-500">#{order._id.slice(-10).toUpperCase()}</span>
             <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusBadge[statusKey] ?? 'bg-gray-100 text-gray-600'}`}>
-              {statusLabel[statusKey] ?? statusKey}
+              {t(`status.${statusKey}`, statusKey)}
             </span>
-            {/* From-shop tag — clickable to /shops/{sellerId}. Lets the admin */}
-            {/* jump to the shop's full profile (KYC, withdrawals, products). */}
             {shopId && (
               <Link
                 href={`/shops/${shopId}`}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
               >
                 <Store className="w-3 h-3" />
-                From shop: {shopName}
+                {t('pages.orders.details.fromShop')}: {shopName}
               </Link>
             )}
           </div>
-          <div className="text-[11px] text-gray-500 mt-1">Placed {formatDate(order.createdAt)}</div>
+          <div className="text-[11px] text-gray-500 mt-1">{t('pages.orders.details.placedAt', { date: formatDate(order.createdAt) })}</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center hover:bg-gray-100">
-            <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Contact Buyer
+            <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> {t('pages.orders.details.contactBuyer')}
           </button>
           <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 inline-flex items-center hover:bg-gray-100">
-            <FileText className="w-3.5 h-3.5 mr-1.5" /> Invoice
+            <FileText className="w-3.5 h-3.5 mr-1.5" /> {t('pages.orders.details.invoice')}
           </button>
           {isDisputed && (
             <button className="px-3 py-1.5 rounded-md text-xs font-semibold text-orange-700 bg-orange-50 inline-flex items-center hover:bg-orange-100">
-              <AlertCircle className="w-3.5 h-3.5 mr-1.5" /> Escalate
+              <AlertCircle className="w-3.5 h-3.5 mr-1.5" /> {t('pages.orders.details.escalate')}
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Slip review banner ── shows what user paid + which account got the */}
-      {/* money, plus Confirm/Reject buttons. Hidden when no slip on file. */}
       {slip && (
         <div
-          className={`rounded-2xl  p-5 ${
+          className={`rounded-2xl border-2 p-5 ${
             slipVerified
-              ? ' border-emerald-100'
+              ? ' border-emerald-100 bg-emerald-50/30'
               : slipRejected
-                ? ' border-rose-100'
-                : 'border-amber-100'
+                ? ' border-rose-100 bg-rose-50/30'
+                : 'border-amber-100 bg-amber-50/30'
           }`}
         >
           <div className="flex items-start gap-2 mb-3">
@@ -199,18 +187,18 @@ const OrderDetailPage = () => {
             <div className="flex-1 min-w-0">
               <h3 className={`text-[13px] font-bold ${slipVerified ? 'text-emerald-900' : slipRejected ? 'text-rose-900' : 'text-amber-900'}`}>
                 {slipVerified
-                  ? 'Payment verified'
+                  ? t('pages.orders.details.paymentVerified')
                   : slipRejected
-                    ? 'Payment rejected'
-                    : 'Slip submitted — awaiting review'}
+                    ? t('pages.orders.details.paymentRejected')
+                    : t('pages.orders.details.slipAwaitingReview')}
               </h3>
               <p className="text-[11px] text-gray-700 mt-0.5">
-                <strong>{customerName}</strong> transferred{' '}
-                <strong className="tabular-nums">฿{formatMoney(slip.transferAmount)}</strong> to{' '}
+                <strong>{customerName}</strong> {t('pages.orders.details.transferred')}{' '}
+                <strong className="tabular-nums">฿{formatMoney(slip.transferAmount)}</strong> {t('pages.orders.details.to')}{' '}
                 <strong>{accountLine}</strong>.
                 {!amountMatches && (
                   <span className="ml-1 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-bold tracking-wide">
-                    Amount mismatch! Order ฿{formatMoney(order.totalPrice)}
+                    {t('pages.orders.details.amountMismatch')} ฿{formatMoney(order.totalPrice)}
                   </span>
                 )}
               </p>
@@ -225,19 +213,19 @@ const OrderDetailPage = () => {
               className="group relative block rounded-lg overflow-hidden bg-white border border-gray-200 hover:shadow-lg transition-shadow"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={slip.slipImageUrl} alt="Transfer slip" className="w-full h-auto" />
+              <img src={slip.slipImageUrl} alt={t('pages.orders.details.slip')} className="w-full h-auto" />
               <span className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] font-bold inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ExternalLink className="w-2.5 h-2.5" /> View
+                <ExternalLink className="w-2.5 h-2.5" /> {t('actions.view')}
               </span>
             </a>
 
             <div className="md:col-span-2 space-y-2 text-[12px]">
-              <SlipRow label="Order amount" value={`฿${formatMoney(order.totalPrice)}`} />
-              <SlipRow label="Transferred" value={`฿${formatMoney(slip.transferAmount)}`} bold />
-              {slip.transferRef && <SlipRow label="Reference" value={slip.transferRef} mono />}
-              {slip.transferredAt && <SlipRow label="Transferred at" value={formatDate(slip.transferredAt)} />}
-              <SlipRow label="To account" value={accountLine} />
-              {slip.buyerNote && <SlipRow label="Buyer note" value={slip.buyerNote} />}
+              <SlipRow label={t('pages.orders.details.orderAmount')} value={`฿${formatMoney(order.totalPrice)}`} />
+              <SlipRow label={t('pages.orders.details.transferredAmount')} value={`฿${formatMoney(slip.transferAmount)}`} bold />
+              {slip.transferRef && <SlipRow label={t('table.transactionId')} value={slip.transferRef} mono />}
+              {slip.transferredAt && <SlipRow label={t('pages.orders.details.transferredAt')} value={formatDate(slip.transferredAt)} />}
+              <SlipRow label={t('pages.orders.details.toAccount')} value={accountLine} />
+              {slip.buyerNote && <SlipRow label={t('pages.orders.details.buyerNote')} value={slip.buyerNote} />}
               {slipRejected && slip.rejectionReason && (
                 <p className="px-2 py-1.5 rounded bg-rose-50 text-rose-700 text-[11px]">
                   {slip.rejectionReason}
@@ -246,7 +234,7 @@ const OrderDetailPage = () => {
               {slipVerified && slip.reviewedBy && (
                 <p className="text-[11px] text-emerald-700 inline-flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
-                  Verified by {slip.reviewedBy.name || slip.reviewedBy.email} ·{' '}
+                  {t('pages.orders.details.verifiedBy')} {slip.reviewedBy.name || slip.reviewedBy.email} ·{' '}
                   {formatDate(slip.reviewedAt)}
                 </p>
               )}
@@ -259,14 +247,14 @@ const OrderDetailPage = () => {
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {slipBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                    {slipBusy ? 'Confirming…' : 'Confirm payment'}
+                    {slipBusy ? t('actions.confirming') : t('actions.confirmPayment')}
                   </button>
                   <button
                     onClick={() => setRejectOpen(true)}
                     disabled={slipBusy}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-50"
                   >
-                    <XCircle className="w-3.5 h-3.5" /> Reject
+                    <XCircle className="w-3.5 h-3.5" /> {t('actions.reject')}
                   </button>
                   {slipError && (
                     <span className="text-[11px] text-rose-600 font-medium">{slipError}</span>
@@ -281,7 +269,7 @@ const OrderDetailPage = () => {
       {!slip && !order.isPaid && (
         <div className="rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-[12px] text-gray-600 inline-flex items-center gap-2">
           <Clock className="w-3.5 h-3.5" />
-          Buyer hasn&apos;t uploaded a payment slip yet — order is awaiting payment.
+          {t('pages.orders.details.awaitingPayment')}
         </div>
       )}
 
@@ -290,7 +278,7 @@ const OrderDetailPage = () => {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide">
-                Items
+                {t('pages.orders.details.items')}
                 <span className="ml-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold tabular-nums">
                   {order.orderItems.length}
                 </span>
@@ -316,9 +304,9 @@ const OrderDetailPage = () => {
                       </p>
                     </div>
                     <div className="text-[12px] text-gray-500">×{it.qty}</div>
-                    <div className="text-[12px] text-gray-700">{formatMoney(it.price)} ₭</div>
+                    <div className="text-[12px] text-gray-700">{formatMoney(it.price)} {t('common.currencySymbol')}</div>
                     <div className="text-[13px] font-bold text-gray-900 w-32 text-right tabular-nums">
-                      {formatMoney(it.qty * it.price)} ₭
+                      {formatMoney(it.qty * it.price)} {t('common.currencySymbol')}
                     </div>
                   </>
                 );
@@ -340,72 +328,72 @@ const OrderDetailPage = () => {
           </div>
 
           <div className="rounded-lg overflow-hidden">
-            <Row label="Subtotal" value={`${formatMoney(subtotal)} ₭`} />
-            <Row label="Shipping" value={`${formatMoney(shipping)} ₭`} />
-            <Row label="Total" value={`${formatMoney(order.totalPrice)} ₭`} bold />
+            <Row label={t('pages.orders.details.subtotal')} value={`${formatMoney(subtotal)} ${t('common.currencySymbol')}`} />
+            <Row label={t('pages.orders.details.shippingFee')} value={`${formatMoney(shipping)} ${t('common.currencySymbol')}`} />
+            <Row label={t('pages.orders.details.total')} value={`${formatMoney(order.totalPrice)} ${t('common.currencySymbol')}`} bold />
           </div>
 
           <div>
-            <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-3">Timeline</h3>
+            <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-3">{t('pages.orders.details.timeline')}</h3>
             <div className="border-l border-gray-200 ml-2 pl-2">
-              <TimelineEvent at={formatDate(order.createdAt)} event="Order placed" actor="Customer" />
+              <TimelineEvent at={formatDate(order.createdAt)} event={t('pages.orders.details.eventPlaced')} actor={t('pages.orders.details.actorCustomer')} />
               {order.isPaid && (
-                <TimelineEvent at={formatDate(order.paidAt)} event="Payment confirmed" actor="System" />
+                <TimelineEvent at={formatDate(order.paidAt)} event={t('pages.orders.details.eventPaid')} actor={t('pages.orders.details.actorSystem')} />
               )}
               {order.rawStatus === 'shipped' && (
-                <TimelineEvent at={formatDate(order.updatedAt)} event="Shipped" actor="Seller" />
+                <TimelineEvent at={formatDate(order.updatedAt)} event={t('pages.orders.details.eventShipped')} actor={t('pages.orders.details.actorSeller')} />
               )}
               {order.isDelivered && (
-                <TimelineEvent at={formatDate(order.deliveredAt)} event="Delivered" actor="Carrier" />
+                <TimelineEvent at={formatDate(order.deliveredAt)} event={t('pages.orders.details.eventDelivered')} actor={t('pages.orders.details.actorCarrier')} />
               )}
               {order.rawStatus === 'canceled' && (
-                <TimelineEvent at={formatDate(order.updatedAt)} event="Order canceled" actor="Admin/System" />
+                <TimelineEvent at={formatDate(order.updatedAt)} event={t('pages.orders.details.eventCancelled')} actor={t('pages.orders.details.actorAdmin')} />
               )}
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <Section icon={User} title="Customer">
+          <Section icon={User} title={t('pages.orders.details.customer')}>
             <Row2
-              label="Name"
+              label={t('auth.name')}
               value={customerName}
               link={customerUserId ? `/users/${customerUserId}` : undefined}
             />
-            <Row2 label="Customer ID" value={customerCustomId || '—'} mono />
-            {order.user?.email && <Row2 label="Email" value={order.user.email} />}
-            {order.user?.phone && <Row2 label="Phone" value={order.user.phone} />}
+            <Row2 label={t('table.user') + ' ID'} value={customerCustomId || '—'} mono />
+            {order.user?.email && <Row2 label={t('auth.email')} value={order.user.email} />}
+            {order.user?.phone && <Row2 label={t('auth.phone')} value={order.user.phone} />}
           </Section>
 
-          <Section icon={Store} title="Shop">
-            <Row2 label="Name" value={shopName} link={shopId ? `/shops/${shopId}` : undefined} />
-            <Row2 label="Shop ID" value={firstSeller?.customId || shopId || '—'} mono />
+          <Section icon={Store} title={t('pages.orders.details.shop')}>
+            <Row2 label={t('auth.name')} value={shopName} link={shopId ? `/shops/${shopId}` : undefined} />
+            <Row2 label={t('table.shop') + ' ID'} value={firstSeller?.customId || shopId || '—'} mono />
           </Section>
 
-          <Section icon={CreditCard} title="Payment">
-            <Row2 label="Method" value={order.paymentMethod || '—'} />
+          <Section icon={CreditCard} title={t('pages.orders.details.payment')}>
+            <Row2 label={t('table.payment')} value={order.paymentMethod || '—'} />
             <Row2
-              label="Status"
+              label={t('table.status')}
               value={
                 order.isPaid
-                  ? 'Paid'
+                  ? t('status.paid')
                   : slipPending
-                    ? 'Awaiting verification'
+                    ? t('pages.orders.details.awaitingVerification')
                     : slipRejected
-                      ? 'Slip rejected'
-                      : 'Unpaid'
+                      ? t('status.rejected')
+                      : t('status.unpaid')
               }
             />
-            <Row2 label="Paid At" value={formatDate(order.paidAt)} />
-            {account && <Row2 label="To account" value={accountLine} />}
+            <Row2 label={t('pages.orders.details.paidAt')} value={formatDate(order.paidAt)} />
+            {account && <Row2 label={t('pages.orders.details.toAccount')} value={accountLine} />}
           </Section>
 
-          <Section icon={Truck} title="Shipping">
-            <Row2 label="Status" value={order.isDelivered ? 'Delivered' : 'In transit / Pending'} />
-            <Row2 label="Delivered" value={formatDate(order.deliveredAt)} />
+          <Section icon={Truck} title={t('pages.orders.details.shipping')}>
+            <Row2 label={t('table.status')} value={order.isDelivered ? t('status.delivered') : t('pages.orders.details.inTransit')} />
+            <Row2 label={t('status.delivered')} value={formatDate(order.deliveredAt)} />
           </Section>
 
-          <Section icon={MapPin} title="Address">
+          <Section icon={MapPin} title={t('pages.orders.details.shipping')}>
             <p className="text-[12px] text-gray-700 leading-relaxed">
               <span className="font-medium">{order.shippingAddress.fullName}</span>
               <br />
@@ -422,18 +410,17 @@ const OrderDetailPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white w-full max-w-md rounded-xl shadow-xl">
             <div className="px-5 py-3 border-b border-gray-100">
-              <h3 className="text-[14px] font-bold">Reject payment slip</h3>
+              <h3 className="text-[14px] font-bold">{t('pages.orders.rejectModal.title')}</h3>
             </div>
             <div className="px-5 py-4 space-y-3">
               <p className="text-[12px] text-gray-600">
-                Tell the buyer why the slip was rejected. They&apos;ll be able to re-upload from the
-                checkout page.
+                {t('pages.orders.rejectModal.description')}
               </p>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={3}
-                placeholder="e.g. Slip image is unclear / amount doesn't match / wrong account"
+                placeholder={t('pages.orders.rejectModal.placeholder')}
                 className="w-full px-3 py-2 rounded border border-gray-200 focus:border-primary outline-none text-[12px]"
               />
               {slipError && (
@@ -446,14 +433,14 @@ const OrderDetailPage = () => {
                 disabled={slipBusy}
                 className="px-3 py-1.5 rounded text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50"
               >
-                Cancel
+                {t('actions.cancel')}
               </button>
               <button
                 onClick={() => handleReviewSlip('reject', rejectReason.trim())}
                 disabled={slipBusy || !rejectReason.trim()}
                 className="px-4 py-1.5 rounded text-[11px] font-bold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
               >
-                {slipBusy ? 'Rejecting…' : 'Reject slip'}
+                {slipBusy ? t('pages.orders.rejectModal.rejectingShort') : t('pages.orders.rejectModal.rejectButton')}
               </button>
             </div>
           </div>
@@ -521,3 +508,4 @@ const SlipRow = ({ label, value, mono, bold }: SlipRowProps) => (
 );
 
 export default OrderDetailPage;
+

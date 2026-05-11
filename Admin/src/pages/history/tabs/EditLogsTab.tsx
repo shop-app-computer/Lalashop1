@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fetchHistoryEditLogs } from '@/services/adminApi';
 
 interface EditLogRow {
@@ -20,6 +21,7 @@ const formatDate = (s?: string): string => {
 };
 
 const EditLogsTab = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<EditLogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,25 +50,27 @@ const EditLogsTab = () => {
       <table className="w-full text-[12px] tabular-nums">
         <thead className="text-[11px] text-gray-500 tracking-wide">
           <tr>
-            <th className="px-4 py-2 text-left font-semibold">Log ID</th>
-            <th className="px-4 py-2 text-left font-semibold">User</th>
-            <th className="px-4 py-2 text-left font-semibold">Type</th>
-            <th className="px-4 py-2 text-left font-semibold">Title / Description</th>
-            <th className="px-4 py-2 text-left font-semibold">Date</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.id')}</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.user')}</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.type')}</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('pages.notifications.table.titleContent')}</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.createdAt')}</th>
           </tr>
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+            <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.loading')}</td></tr>
           )}
           {!loading && error && (
             <tr><td colSpan={5} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
           )}
           {!loading && !error && items.map((l) => (
             <tr key={l._id}>
-              <td className="px-4 py-2 font-mono text-[11px] text-gray-600">{l._id.slice(-8).toUpperCase()}</td>
+              <td className="px-4 py-2 font-mono text-[11px] text-gray-700">{l._id.slice(-8).toUpperCase()}</td>
               <td className="px-4 py-2 text-gray-700">{l.user?.name || l.user?.email || '—'}</td>
-              <td className="px-4 py-2 text-gray-700 capitalize">{l.type}</td>
+              <td className="px-4 py-2 text-gray-700 capitalize">
+                {t(`pages.history.types.${l.type}`, { defaultValue: l.type })}
+              </td>
               <td className="px-4 py-2">
                 <div className="font-medium text-gray-900">{l.title}</div>
                 <div className="text-[11px] text-gray-500 mt-0.5 truncate max-w-md">{l.body}</div>
@@ -75,7 +79,7 @@ const EditLogsTab = () => {
             </tr>
           ))}
           {!loading && !error && items.length === 0 && (
-            <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">No edit logs</td></tr>
+            <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.empty')}</td></tr>
           )}
         </tbody>
       </table>

@@ -58,12 +58,12 @@ const AdminsList = () => {
           href="/admins/invite"
           className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900"
         >
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> {t('pages.admins.invite.title')}
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> {t('admins.invite.title')}
         </Link>
       </div>
 
       <div className="rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
-        <h2 className="text-[13px] font-semibold text-gray-900">{t('pages.admins.title')}</h2>
+        <h2 className="text-[13px] font-semibold text-gray-900">{t('admins.title')}</h2>
         <div className="ml-auto relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
@@ -123,7 +123,7 @@ const AdminsList = () => {
                 </tr>
               ))}
               {!loading && !error && items.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('pages.admins.noAdmins')}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('admins.noAdmins')}</td></tr>
               )}
             </tbody>
           </table>

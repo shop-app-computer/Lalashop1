@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fetchHistoryFinancial } from '@/services/adminApi';
 
 interface FinancialData {
@@ -11,6 +12,7 @@ const formatMoney = (n: number): string =>
   Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 const FinancialTab = () => {
+  const { t } = useTranslation('common');
   const [data, setData] = useState<FinancialData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,47 +37,49 @@ const FinancialTab = () => {
   }, []);
 
   if (loading) {
-    return <div className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading financial summary...</div>;
+    return <div className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('pages.history.loadingFinancial')}</div>;
   }
 
   if (error || !data) {
-    return <div className="px-4 py-12 text-center text-red-500 text-[12px]">{error || 'No data'}</div>;
+    return <div className="px-4 py-12 text-center text-red-500 text-[12px]">{error || t('status.empty')}</div>;
   }
 
   return (
     <div className="px-4 py-4 space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <Stat label="Total Revenue" value={`${formatMoney(data.revenue)} ₭`} tone="text-green-700" />
-        <Stat label="Paid Orders" value={data.ordersPaid.toLocaleString()} tone="text-blue-700" />
+        <Stat label={t('dashboard.totalRevenue')} value={`${formatMoney(data.revenue)} ${t('common.currencySymbol')}`} tone="text-green-700" />
+        <Stat label={t('dashboard.completedOrders')} value={data.ordersPaid.toLocaleString()} tone="text-blue-700" />
         <Stat
-          label="Withdrawals (completed)"
-          value={`${formatMoney(data.withdrawals.completed?.total ?? 0)} ₭`}
+          label={t('pages.history.withdrawalsCompleted')}
+          value={`${formatMoney(data.withdrawals.completed?.total ?? 0)} ${t('common.currencySymbol')}`}
           tone="text-cyan-700"
         />
       </div>
 
       <div>
-        <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-2">Withdrawals breakdown</h3>
+        <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-2 uppercase">{t('pages.history.withdrawalsBreakdown')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-[12px] tabular-nums">
             <thead className="text-[11px] text-gray-500 tracking-wide">
               <tr>
-                <th className="px-4 py-2 text-left font-semibold">Status</th>
-                <th className="px-4 py-2 text-right font-semibold">Count</th>
-                <th className="px-4 py-2 text-right font-semibold">Total Net (₭)</th>
+                <th className="px-4 py-2 text-left font-semibold">{t('table.status')}</th>
+                <th className="px-4 py-2 text-right font-semibold">{t('pages.history.count')}</th>
+                <th className="px-4 py-2 text-right font-semibold">{t('table.netKip')}</th>
               </tr>
             </thead>
             <tbody>
               {Object.entries(data.withdrawals).map(([status, v]) => (
                 <tr key={status}>
-                  <td className="px-4 py-2 capitalize text-gray-700">{status}</td>
+                  <td className="px-4 py-2 capitalize text-gray-700">
+                    {t(`status.${status}`, { defaultValue: status })}
+                  </td>
                   <td className="px-4 py-2 text-right text-gray-900">{v.count}</td>
                   <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatMoney(v.total)}</td>
                 </tr>
               ))}
               {Object.keys(data.withdrawals).length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-12 text-center text-gray-400 text-[12px]">No withdrawal data</td>
+                  <td colSpan={3} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('pages.history.noWithdrawalData')}</td>
                 </tr>
               )}
             </tbody>

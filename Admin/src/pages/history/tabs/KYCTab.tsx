@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
 import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { fetchHistoryKyc } from '@/services/adminApi';
@@ -28,6 +29,7 @@ const formatDate = (s?: string): string => {
 };
 
 const KYCTab = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<KycRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ const KYCTab = () => {
     <div className="space-y-4 px-4 py-4">
       <div className="flex items-center gap-4 bg-gray-50/50 px-4 py-3 rounded">
         <div className="min-w-[80px]">
-          <p className="text-[11px] text-gray-500">approval rate</p>
+          <p className="text-[11px] text-gray-500 uppercase">{t('pages.history.approvalRate')}</p>
           <p className="text-2xl font-bold tabular-nums">{score}%</p>
         </div>
         <div className="flex-1">
@@ -67,7 +69,7 @@ const KYCTab = () => {
             <div className="h-full bg-green-500 transition-all" style={{ width: `${score}%` }} />
           </div>
           <p className="text-[11px] text-gray-500 mt-1">
-            {approved} of {total} submissions approved
+            {t('pages.history.submissionsApprovedMsg', { approved, total })}
           </p>
         </div>
       </div>
@@ -76,17 +78,17 @@ const KYCTab = () => {
         <table className="w-full text-[12px] tabular-nums">
           <thead className="text-[11px] text-gray-500 tracking-wide">
             <tr>
-              <th className="px-4 py-2 text-left font-semibold">User</th>
-              <th className="px-4 py-2 text-left font-semibold">Shop Name</th>
-              <th className="px-4 py-2 text-left font-semibold">Business Type</th>
-              <th className="px-4 py-2 text-left font-semibold">Category</th>
-              <th className="px-4 py-2 text-left font-semibold">Submitted</th>
-              <th className="px-4 py-2 text-left font-semibold">Status</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.user')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.shop')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.businessType')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.category')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.submittedAt')}</th>
+              <th className="px-4 py-2 text-left font-semibold">{t('table.status')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.loading')}</td></tr>
             )}
             {!loading && error && (
               <tr><td colSpan={6} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
@@ -104,19 +106,21 @@ const KYCTab = () => {
                     ) : '—'}
                   </td>
                   <td className="px-4 py-2 text-gray-700">{k.shopInfo?.shopName || '—'}</td>
-                  <td className="px-4 py-2 text-gray-700 capitalize">{k.businessType || '—'}</td>
+                  <td className="px-4 py-2 text-gray-700 capitalize">
+                    {k.businessType ? t(`kyc.businessTypes.${k.businessType}`, { defaultValue: k.businessType }) : '—'}
+                  </td>
                   <td className="px-4 py-2 text-gray-700">{k.shopInfo?.shopCategory || '—'}</td>
                   <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(k.submittedAt || k.createdAt)}</td>
                   <td className="px-4 py-2">
                     <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded ${B.cls}`}>
-                      <Icon className="w-3 h-3" /> {k.status}
+                      <Icon className="w-3 h-3" /> {t(`status.${k.status}`, { defaultValue: k.status })}
                     </span>
                   </td>
                 </tr>
               );
             })}
             {!loading && !error && items.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-[12px]">No KYC submissions</td></tr>
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.empty')}</td></tr>
             )}
           </tbody>
         </table>

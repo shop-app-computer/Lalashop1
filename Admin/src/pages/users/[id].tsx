@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import {
   Pencil, X, KeyRound, Copy, Check, Store, Loader2, ArrowLeft,
   Shield, ShieldCheck, ShieldAlert, ShieldOff, User as UserIcon, Mail,
@@ -25,8 +26,8 @@ import {
 const formatNumber = (n: number): string =>
   new Intl.NumberFormat("en-US").format(n);
 
-const formatCurrency = (n: number): string =>
-  `฿${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)}`;
+const formatCurrency = (n: number, t: (k: string) => string): string =>
+  `${t('common.currencySymbol')}${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)}`;
 
 const formatDate = (iso?: string | null): string => {
   if (!iso) return "—";
@@ -75,14 +76,8 @@ const buildInitialForm = (user: AdminUserDetail): EditFormState => ({
   accountName: user.bank?.accountName ?? "",
 });
 
-const ROLE_LABELS: Record<AdminRole, string> = {
-  super: "Super Admin",
-  finance: "Finance",
-  support: "Support",
-  content: "Content",
-};
-
 const UserDetailsPage = () => {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const idParam = router.query.id;
   const id = typeof idParam === "string" ? idParam : null;
@@ -107,6 +102,13 @@ const UserDetailsPage = () => {
 
   const [adminBusy, setAdminBusy] = useState(false);
 
+  const ROLE_LABELS: Record<AdminRole, string> = {
+    super: t('roles.super'),
+    finance: t('roles.finance'),
+    support: t('roles.support'),
+    content: t('roles.content'),
+  };
+
   const reload = async () => {
     if (!id) return;
     setLoading(true);
@@ -114,9 +116,9 @@ const UserDetailsPage = () => {
     try {
       const res = await fetchUserById(id);
       setUser(res.data ?? null);
-      if (!res.data) setError(res.message || "User not found");
+      if (!res.data) setError(res.message || t('pages.users.details.notFound'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load user");
+      setError(err instanceof Error ? err.message : t('pages.users.details.loadingError'));
     } finally {
       setLoading(false);
     }
@@ -141,7 +143,7 @@ const UserDetailsPage = () => {
     if (!id || !user) return;
     if (
       !window.confirm(
-        `Generate a new seller password for ${user.email}?\n\nThe user will be notified through their in-app inbox with the new credentials. The previous seller password (if any) will stop working.`
+        t('pages.users.details.issueConfirm', { email: user.email })
       )
     )
       return;
@@ -152,7 +154,7 @@ const UserDetailsPage = () => {
       const res = await issueSellerCredentials(id);
       if (res.data) setIssuedCreds(res.data);
     } catch (err) {
-      setIssueError(err instanceof Error ? err.message : "Failed to issue credentials");
+      setIssueError(err instanceof Error ? err.message : t('pages.users.details.issueError'));
     } finally {
       setIssuing(false);
     }
@@ -194,7 +196,7 @@ const UserDetailsPage = () => {
       let nextUser: AdminUserDetail = user;
       if (Object.keys(userPayload).length > 0) {
         const res = await apiUpdateUser(user._id, userPayload);
-        if (!res.data) throw new Error(res.message || "Failed to update user");
+        if (!res.data) throw new Error(res.message || t('pages.users.details.saveError'));
         nextUser = { ...user, ...res.data, bank: user.bank };
       }
 
@@ -210,7 +212,7 @@ const UserDetailsPage = () => {
           accountNumber: form.accountNumber.trim(),
           accountName: form.accountName.trim(),
         });
-        if (!bankRes.data) throw new Error(bankRes.message || "Failed to update bank");
+        if (!bankRes.data) throw new Error(bankRes.message || t('pages.users.details.bankUpdateError'));
         nextUser = { ...nextUser, bank: bankRes.data };
       }
 
@@ -218,7 +220,7 @@ const UserDetailsPage = () => {
       setEditOpen(false);
       setForm(null);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save changes");
+      setSaveError(err instanceof Error ? err.message : t('pages.users.details.saveError'));
     } finally {
       setSaving(false);
     }
@@ -228,7 +230,7 @@ const UserDetailsPage = () => {
     if (!user || !id) return;
     const next = !user.isSuspended;
     if (next && !suspendReason.trim()) {
-      alert("Please enter a reason for suspending this user.");
+      alert(t('pages.users.details.suspendModal.reasonRequired'));
       return;
     }
     setSuspendBusy(true);
@@ -238,7 +240,7 @@ const UserDetailsPage = () => {
       setSuspendReason("");
       await reload();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Suspend failed");
+      alert(err instanceof Error ? err.message : t('pages.users.details.suspendError'));
     } finally {
       setSuspendBusy(false);
     }
@@ -248,8 +250,8 @@ const UserDetailsPage = () => {
     if (!user) return;
     const willBeAdmin = role !== null;
     const verb = willBeAdmin
-      ? `Promote ${user.email} to ${ROLE_LABELS[role!]}?`
-      : `Demote ${user.email} from admin?`;
+      ? t('pages.users.details.promoteConfirm', { email: user.email, role: ROLE_LABELS[role!] })
+      : t('pages.users.details.demoteConfirm', { email: user.email });
     if (!window.confirm(verb)) return;
     setAdminBusy(true);
     try {
@@ -259,7 +261,7 @@ const UserDetailsPage = () => {
       });
       await reload();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Update failed");
+      alert(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setAdminBusy(false);
     }
@@ -289,10 +291,10 @@ const UserDetailsPage = () => {
     return (
       <div className="space-y-3">
         <Link href="/users/alluser" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-black">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to users
+          <ArrowLeft className="w-3.5 h-3.5" /> {t('pages.users.details.back')}
         </Link>
         <div className="rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700">
-          {error || "User not found"}
+          {error || t('pages.users.details.notFound')}
         </div>
       </div>
     );
@@ -307,7 +309,7 @@ const UserDetailsPage = () => {
         href="/users/alluser"
         className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-black"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to users
+        <ArrowLeft className="w-3.5 h-3.5" /> {t('pages.users.details.back')}
       </Link>
 
       {/* Suspended banner */}
@@ -315,9 +317,9 @@ const UserDetailsPage = () => {
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 flex items-start gap-3">
           <Ban className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-[13px] font-bold text-rose-900">Account suspended</p>
+            <p className="text-[13px] font-bold text-rose-900">{t('pages.users.details.accountSuspended')}</p>
             <p className="text-[11px] text-rose-700 mt-0.5">
-              {user.suspendedReason || "No reason provided"} · since{" "}
+              {user.suspendedReason || t('common.noReason')} · {t('common.since')}{" "}
               {formatDate(user.suspendedAt)}
             </p>
           </div>
@@ -328,7 +330,7 @@ const UserDetailsPage = () => {
             }}
             className="px-3 py-1.5 rounded-md text-[11px] font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50"
           >
-            Lift suspension
+            {t('pages.users.details.liftSuspension')}
           </button>
         </div>
       )}
@@ -344,7 +346,7 @@ const UserDetailsPage = () => {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold  text-emerald-700 disabled:opacity-50"
               >
                 {issuing ? <Loader2 className="w-3 h-3 animate-spin" /> : <KeyRound className="w-3 h-3" />}
-                {issuing ? "Issuing…" : "Issue seller password"}
+                {issuing ? t('pages.users.details.issuing') : t('pages.users.details.issueSellerPassword')}
               </button>
             )}
             {!user.isSuspended && !user.isAdmin && (
@@ -355,7 +357,7 @@ const UserDetailsPage = () => {
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold  text-rose-700 "
               >
-                <Ban className="w-3 h-3" /> Suspend
+                <Ban className="w-3 h-3" /> {t('pages.users.details.suspendUser')}
               </button>
             )}
             {user.isSuspended && (
@@ -366,14 +368,14 @@ const UserDetailsPage = () => {
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold  text-emerald-700 hover:bg-emerald-100"
               >
-                <RefreshCw className="w-3 h-3" /> Unsuspend
+                <RefreshCw className="w-3 h-3" /> {t('pages.users.details.unsuspend')}
               </button>
             )}
             <button
               onClick={openEdit}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold  text-gray-700 "
             >
-              <Pencil className="w-3 h-3" /> Edit
+              <Pencil className="w-3 h-3" /> {t('pages.users.details.editUser')}
             </button>
           </div>
         </div>
@@ -388,22 +390,21 @@ const UserDetailsPage = () => {
           <div className="flex items-center gap-2">
             <Store className="w-4 h-4 text-emerald-600" />
             <h3 className="text-[12px] font-black text-emerald-900 tracking-wide">
-              Seller credentials issued
+              {t('pages.users.details.credsIssued')}
             </h3>
           </div>
           <p className="text-[11px] text-emerald-800">
-            The user will see these credentials in their in-app notifications. You can also copy
-            them here to send out-of-band — the system stores only a hashed copy.
+            {t('pages.users.details.credsIssuedDesc')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <CredCard
-              label="Email"
+              label={t('common.email')}
               value={issuedCreds.email}
               copied={copiedField === "email"}
               onCopy={() => onCopy("email", issuedCreds.email)}
             />
             <CredCard
-              label="Password"
+              label={t('common.password')}
               value={issuedCreds.password}
               copied={copiedField === "password"}
               onCopy={() => onCopy("password", issuedCreds.password)}
@@ -415,50 +416,50 @@ const UserDetailsPage = () => {
             rel="noopener noreferrer"
             className="text-[11px] text-emerald-700 hover:underline font-medium inline-flex items-center gap-1"
           >
-            Login URL: {issuedCreds.loginUrl} <ExternalLink className="w-3 h-3" />
+            {t('pages.users.details.loginUrl')}: {issuedCreds.loginUrl} <ExternalLink className="w-3 h-3" />
           </a>
         </div>
       )}
       {/* 3-column grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Profile / Identity */}
-        <Section title="Identity" icon={UserIcon}>
-          <Row label="Display name" value={user.name || "—"} />
-          <Row label="Username" value={user.username ? `@${user.username}` : "—"} />
+        <Section title={t('pages.users.details.identity')} icon={UserIcon}>
+          <Row label={t('pages.users.details.labels.displayName')} value={user.name || "—"} />
+          <Row label={t('common.username')} value={user.username ? `@${user.username}` : "—"} />
           <Row
-            label="Custom ID"
+            label={t('common.id')}
             value={user.customId || "—"}
             mono
           />
-          <Row label="Email" value={user.email} mono />
-          <Row label="Phone" value={user.phone || "—"} />
+          <Row label={t('common.email')} value={user.email} mono />
+          <Row label={t('common.phone')} value={user.phone || "—"} />
           <Row
-            label="Followers"
+            label={t('pages.users.details.labels.followers')}
             value={formatNumber(user.followers?.length ?? 0)}
           />
           <Row
-            label="Following"
+            label={t('pages.users.details.labels.following')}
             value={formatNumber(user.following?.length ?? 0)}
           />
-          <Row label="Joined" value={formatDate(user.createdAt)} />
+          <Row label={t('common.joined')} value={formatDate(user.createdAt)} />
         </Section>
 
         {/* Financial */}
-        <Section title="Financial" icon={Wallet}>
+        <Section title={t('pages.users.details.financial')} icon={Wallet}>
           <Row
-            label="Web balance"
-            value={`฿${formatNumber(user.balance ?? 0)}`}
+            label={t('pages.users.details.labels.webBalance')}
+            value={formatCurrency(user.balance ?? 0, t)}
             tone="text-[#00aeff] font-bold"
           />
           {user.isSeller && (
             <Row
-              label="POS revenue"
-              value={`฿${formatNumber(user.posRevenue ?? 0)}`}
+              label={t('pages.users.details.labels.posRevenue')}
+              value={formatCurrency(user.posRevenue ?? 0, t)}
               tone="text-emerald-700 font-bold"
             />
           )}
           <Row
-            label="Pending withdrawals"
+            label={t('pages.users.details.labels.pendingWithdrawals')}
             value={formatNumber(stats?.pendingWithdrawals ?? 0)}
             tone={
               (stats?.pendingWithdrawals ?? 0) > 0
@@ -467,30 +468,30 @@ const UserDetailsPage = () => {
             }
           />
           <Row
-            label="Bank"
-            value={user.bank?.bankName || "Not linked"}
+            label={t('pages.users.details.editModal.bankHeader')}
+            value={user.bank?.bankName || t('common.notLinked')}
             tone={user.bank ? "" : "text-gray-400"}
           />
           <Row
-            label="Account"
+            label={t('common.accountNumber')}
             value={user.bank?.accountNumber || "—"}
             tone={user.bank ? "" : "text-gray-400"}
             mono
           />
           <Row
-            label="Holder"
+            label={t('common.accountName')}
             value={user.bank?.accountName || "—"}
             tone={user.bank ? "" : "text-gray-400"}
           />
           <Row
-            label="Bank verified"
+            label={t('common.verified')}
             value={
               user.bank?.isVerified ? (
                 <span className="text-emerald-600 inline-flex items-center gap-1">
-                  <BadgeCheck className="w-3 h-3" /> verified
+                  <BadgeCheck className="w-3 h-3" /> {t('common.verified')}
                 </span>
               ) : user.bank ? (
-                <span className="text-amber-600">unverified</span>
+                <span className="text-amber-600">{t('common.unverified')}</span>
               ) : (
                 "—"
               )
@@ -499,70 +500,70 @@ const UserDetailsPage = () => {
         </Section>
 
         {/* Security & Activity */}
-        <Section title="Security & activity" icon={Shield}>
+        <Section title={t('pages.users.details.security')} icon={Shield}>
           <Row
-            label="2FA"
+            label={t('pages.users.details.labels.twoFactor')}
             value={
               user.twoFactorEnabled ? (
                 <span className="text-emerald-600 inline-flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" />
-                  enabled
+                  {t('status.enabled')}
                   {user.twoFactorType && user.twoFactorType !== "none"
                     ? ` (${user.twoFactorType})`
                     : ""}
                 </span>
               ) : (
                 <span className="text-gray-400 inline-flex items-center gap-1">
-                  <ShieldOff className="w-3 h-3" /> disabled
+                  <ShieldOff className="w-3 h-3" /> {t('status.disabled')}
                 </span>
               )
             }
           />
           <Row
-            label="Customer password"
+            label={t('pages.users.details.labels.customerPassword')}
             value={
               user.hasPassword ? (
                 <span className="text-emerald-600 font-mono">●●●●●●●</span>
               ) : (
-                <span className="text-gray-400">not set</span>
+                <span className="text-gray-400">{t('status.notSet')}</span>
               )
             }
           />
           {user.isSeller && (
             <Row
-              label="Seller password"
+              label={t('pages.users.details.labels.sellerPassword')}
               value={
                 user.hasSellerPassword ? (
                   <span className="text-emerald-600 font-mono">●●●●●●●</span>
                 ) : (
-                  <span className="text-gray-400">not issued</span>
+                  <span className="text-gray-400">{t('status.notIssued')}</span>
                 )
               }
             />
           )}
           <Row
-            label="Withdrawal PIN"
+            label={t('pages.users.details.labels.withdrawalPin')}
             value={
               user.hasPin ? (
                 <span className="text-emerald-600 font-mono">●●●●●●</span>
               ) : (
-                <span className="text-gray-400">not set</span>
+                <span className="text-gray-400">{t('status.notSet')}</span>
               )
             }
           />
           <Row
-            label="Last known IP"
+            label={t('pages.users.details.labels.lastKnownIp')}
             value={user.lastKnownIp || "—"}
             mono
           />
           <Row
-            label="Last update"
+            label={t('pages.users.details.labels.lastUpdate')}
             value={formatDateTime(user.updatedAt)}
             mono
           />
           {(user.googleId || user.facebookId) && (
             <Row
-              label="Linked accounts"
+              label={t('pages.users.details.labels.linkedAccounts')}
               value={
                 <span className="inline-flex items-center gap-1">
                   {user.googleId && (
@@ -585,51 +586,51 @@ const UserDetailsPage = () => {
       {/* Money source / income breakdown — compliance review */}
       {user.finance && (
         <Section
-          title="Money source — where the balance came from"
+          title={t('pages.users.details.moneySource')}
           icon={Wallet}
-          hint="Use this to verify provenance before approving a withdrawal."
+          hint={t('pages.users.details.moneySourceDesc')}
         >
-          <IncomeBreakdown finance={user.finance} isSeller={user.isSeller} />
+          <IncomeBreakdown finance={user.finance} isSeller={user.isSeller} t={t} />
         </Section>
       )}
 
       {/* Withdrawal history breakdown */}
       {user.finance && (
-        <Section title="Withdrawal history" icon={ArrowDownCircle}>
-          <WithdrawalBreakdown finance={user.finance} userId={user._id} />
+        <Section title={t('pages.users.details.withdrawalHistory')} icon={ArrowDownCircle}>
+          <WithdrawalBreakdown finance={user.finance} userId={user._id} t={t} />
         </Section>
       )}
 
       {/* Order activity — buyer + seller */}
       {user.finance && (
-        <Section title="Order activity" icon={ShoppingBag}>
-          <OrderActivity finance={user.finance} isSeller={user.isSeller} userId={user._id} />
+        <Section title={t('pages.users.details.orderActivity')} icon={ShoppingBag}>
+          <OrderActivity finance={user.finance} isSeller={user.isSeller} userId={user._id} t={t} />
         </Section>
       )}
 
       {/* Shop / KYC info row (sellers only) */}
       {user.isSeller && (
-        <Section title="Shop & KYC" icon={Store}>
+        <Section title={t('pages.users.details.shopAndKyc')} icon={Store}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
             <div className="space-y-2">
-              <Row label="Shop name" value={user.shopName || "—"} />
-              <Row label="Shop category" value={user.shopCategory || "—"} />
-              <Row label="Seller type" value={user.seller_type || "—"} />
+              <Row label={t('common.shopName')} value={user.shopName || "—"} />
+              <Row label={t('common.shopCategory')} value={user.shopCategory || "—"} />
+              <Row label={t('common.sellerType')} value={user.seller_type || "—"} />
               {kyc && (
                 <>
-                  <Row label="KYC status" value={
+                  <Row label={t('common.kycStatus')} value={
                     <span className={
                       kyc.status === "approved" ? "text-emerald-600 font-bold" :
                       kyc.status === "rejected" ? "text-rose-600 font-bold" :
                       "text-amber-600 font-bold"
-                    }>{kyc.status}</span>
+                    }>{t(`status.${kyc.status}`)}</span>
                   } />
-                  <Row label="KYC submitted" value={formatDateTime(kyc.submittedAt)} mono />
+                  <Row label={t('common.kycSubmitted')} value={formatDateTime(kyc.submittedAt)} mono />
                   {kyc.reviewedAt && (
-                    <Row label="KYC reviewed" value={formatDateTime(kyc.reviewedAt)} mono />
+                    <Row label={t('common.kycReviewed')} value={formatDateTime(kyc.reviewedAt)} mono />
                   )}
                   {kyc.rejectionReason && (
-                    <Row label="Rejection reason" value={kyc.rejectionReason} />
+                    <Row label={t('common.rejectionReason')} value={kyc.rejectionReason} />
                   )}
                 </>
               )}
@@ -640,7 +641,7 @@ const UserDetailsPage = () => {
                 className="rounded-lg border border-gray-100 px-3 py-2.5 hover:bg-gray-50 inline-flex items-center justify-between text-[12px] font-bold"
               >
                 <span className="inline-flex items-center gap-2">
-                  <Store className="w-3.5 h-3.5 text-gray-400" /> Open shop profile
+                  <Store className="w-3.5 h-3.5 text-gray-400" /> {t('pages.shops.details.openProfile')}
                 </span>
                 <ExternalLink className="w-3 h-3 text-gray-400" />
               </Link>
@@ -649,7 +650,7 @@ const UserDetailsPage = () => {
                 className="rounded-lg border border-gray-100 px-3 py-2.5 hover:bg-gray-50 inline-flex items-center justify-between text-[12px] font-bold"
               >
                 <span className="inline-flex items-center gap-2">
-                  <Package className="w-3.5 h-3.5 text-gray-400" /> View products ({stats?.productCount ?? 0})
+                  <Package className="w-3.5 h-3.5 text-gray-400" /> {t('pages.shops.details.viewProducts')} ({stats?.productCount ?? 0})
                 </span>
                 <ExternalLink className="w-3 h-3 text-gray-400" />
               </Link>
@@ -658,7 +659,7 @@ const UserDetailsPage = () => {
                 className="rounded-lg border border-gray-100 px-3 py-2.5 hover:bg-gray-50 inline-flex items-center justify-between text-[12px] font-bold"
               >
                 <span className="inline-flex items-center gap-2">
-                  <ShoppingBag className="w-3.5 h-3.5 text-gray-400" /> View orders
+                  <ShoppingBag className="w-3.5 h-3.5 text-gray-400" /> {t('pages.shops.details.viewOrders')}
                 </span>
                 <ExternalLink className="w-3 h-3 text-gray-400" />
               </Link>
@@ -667,19 +668,19 @@ const UserDetailsPage = () => {
         </Section>
       )}
       {/* System metadata */}
-      <Section title="System metadata" icon={Hash}>
+      <Section title={t('pages.users.details.systemMetadata')} icon={Hash}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
           <div className="space-y-2">
-            <Row label="User ID" value={user._id} mono />
-            <Row label="Custom ID" value={user.customId || "—"} mono />
-            <Row label="Created" value={formatDateTime(user.createdAt)} mono />
+            <Row label={t('common.userId')} value={user._id} mono />
+            <Row label={t('common.id')} value={user.customId || "—"} mono />
+            <Row label={t('common.created')} value={formatDateTime(user.createdAt)} mono />
           </div>
           <div className="space-y-2">
-            <Row label="Updated" value={formatDateTime(user.updatedAt)} mono />
-            <Row label="Last IP" value={user.lastKnownIp || "—"} mono />
+            <Row label={t('common.updated')} value={formatDateTime(user.updatedAt)} mono />
+            <Row label={t('common.lastIp')} value={user.lastKnownIp || "—"} mono />
             {user.isSuspended && (
               <Row
-                label="Suspended at"
+                label={t('common.suspendedAt')}
                 value={formatDateTime(user.suspendedAt)}
                 mono
                 tone="text-rose-700"
@@ -691,18 +692,18 @@ const UserDetailsPage = () => {
 
       {/* Edit modal */}
       {editOpen && form && (
-        <Modal title="Edit user" onClose={closeEdit} disabled={saving}>
+        <Modal title={t('pages.users.details.editModal.title')} onClose={closeEdit} disabled={saving}>
           <div className="space-y-4 text-[12px]">
-            <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field label={t('common.name')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field
-              label="Email"
+              label={t('common.email')}
               type="email"
               value={form.email}
               onChange={(v) => setForm({ ...form, email: v })}
             />
-            <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+            <Field label={t('common.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
             <Field
-              label="Balance (฿)"
+              label={`${t('common.balance')} (${t('common.currencySymbol')})`}
               type="number"
               value={form.balance}
               onChange={(v) => setForm({ ...form, balance: v })}
@@ -710,20 +711,20 @@ const UserDetailsPage = () => {
 
             <div className="border-t border-gray-100 pt-3 space-y-3">
               <p className="text-[11px] tracking-wider text-gray-500 font-bold">
-                Bank account
+                {t('pages.users.details.editModal.bankHeader')}
               </p>
               <Field
-                label="Bank name"
+                label={t('common.bankName')}
                 value={form.bankName}
                 onChange={(v) => setForm({ ...form, bankName: v })}
               />
               <Field
-                label="Account number"
+                label={t('common.accountNumber')}
                 value={form.accountNumber}
                 onChange={(v) => setForm({ ...form, accountNumber: v })}
               />
               <Field
-                label="Account name (holder)"
+                label={t('common.accountName')}
                 value={form.accountName}
                 onChange={(v) => setForm({ ...form, accountName: v })}
               />
@@ -731,21 +732,21 @@ const UserDetailsPage = () => {
 
             <div className="border-t border-gray-100 pt-3 space-y-3">
               <p className="text-[11px] tracking-wider text-gray-500 font-bold">
-                Reset credentials (leave blank to keep current)
+                {t('pages.users.details.editModal.credsHeader')}
               </p>
               <Field
-                label="New password"
+                label={t('pages.users.details.editModal.newPassword')}
                 type="password"
                 value={form.password}
                 onChange={(v) => setForm({ ...form, password: v })}
-                placeholder="min 6 characters"
+                placeholder={t('pages.users.details.editModal.passwordPlaceholder')}
               />
               <Field
-                label="New PIN (6 digits)"
+                label={t('pages.users.details.editModal.newPin')}
                 type="password"
                 value={form.pin}
                 onChange={(v) => setForm({ ...form, pin: v.replace(/\D/g, "").slice(0, 6) })}
-                placeholder="6 digits"
+                placeholder={t('pages.users.details.editModal.pinPlaceholder')}
               />
             </div>
 
@@ -760,14 +761,14 @@ const UserDetailsPage = () => {
               disabled={saving}
               className="px-3 py-1.5 rounded text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50"
             >
-              Cancel
+              {t('actions.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
               className="px-4 py-1.5 rounded text-[11px] font-bold bg-[#00aeff] text-white hover:bg-[#0096db] disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save changes"}
+              {saving ? t('actions.saving') : t('actions.saveChanges')}
             </button>
           </div>
         </Modal>
@@ -776,7 +777,7 @@ const UserDetailsPage = () => {
       {/* Suspend modal */}
       {suspendOpen && (
         <Modal
-          title={user.isSuspended ? "Lift suspension" : "Suspend user"}
+          title={user.isSuspended ? t('pages.users.details.suspendModal.liftTitle') : t('pages.users.details.suspendModal.title')}
           onClose={() => setSuspendOpen(false)}
           disabled={suspendBusy}
         >
@@ -785,41 +786,36 @@ const UserDetailsPage = () => {
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
               <p>
                 {user.isSuspended
-                  ? "Lifting will restore login + ordering for this user."
-                  : "Suspended users cannot log in or place orders. Reason is shown to support staff."}
+                  ? t('pages.users.details.suspendModal.liftDesc')
+                  : t('pages.users.details.suspendModal.suspendDesc')}
               </p>
             </div>
             {!user.isSuspended && (
               <Field
-                label="Reason"
+                label={t('pages.users.details.suspendModal.reason')}
                 value={suspendReason}
                 onChange={setSuspendReason}
-                placeholder="e.g. Suspected fraudulent activity"
+                placeholder={t('pages.users.details.suspendModal.reasonPlaceholder')}
               />
             )}
           </div>
+
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100 mt-4">
             <button
               onClick={() => setSuspendOpen(false)}
               disabled={suspendBusy}
               className="px-3 py-1.5 rounded text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50"
             >
-              Cancel
+              {t('actions.cancel')}
             </button>
             <button
               onClick={handleSuspendToggle}
               disabled={suspendBusy}
               className={`px-4 py-1.5 rounded text-[11px] font-bold text-white disabled:opacity-50 ${
-                user.isSuspended
-                  ? "bg-emerald-600 hover:bg-emerald-700"
-                  : "bg-rose-600 hover:bg-rose-700"
+                user.isSuspended ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
               }`}
             >
-              {suspendBusy
-                ? "Processing…"
-                : user.isSuspended
-                ? "Lift suspension"
-                : "Suspend"}
+              {suspendBusy ? t('actions.saving') : t('actions.confirm')}
             </button>
           </div>
         </Modal>
@@ -828,14 +824,17 @@ const UserDetailsPage = () => {
   );
 };
 
-interface SectionProps {
+const Section = ({
+  title,
+  icon: Icon,
+  children,
+  hint,
+}: {
   title: string;
   icon: typeof UserIcon;
-  hint?: string;
   children: React.ReactNode;
-}
-
-const Section: React.FC<SectionProps> = ({ title, icon: Icon, hint, children }) => (
+  hint?: string;
+}) => (
   <div className="rounded-lg border border-gray-100 bg-white">
     <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
       <Icon className="w-3.5 h-3.5 text-gray-400" />
@@ -848,413 +847,7 @@ const Section: React.FC<SectionProps> = ({ title, icon: Icon, hint, children }) 
   </div>
 );
 
-// ─── Money source breakdown ──────────────────────────────────────────
-// Visualizes how much of the user's lifetime income came from each source.
-// Compliance reviewers use this to verify provenance before approving a
-// withdrawal — if a "buyer" account has 50k balance with no seller activity
-// and no creator earnings, that's a red flag worth investigating.
-
-interface IncomeBreakdownProps {
-  finance: AdminUserFinance;
-  isSeller: boolean;
-}
-
-const IncomeBreakdown: React.FC<IncomeBreakdownProps> = ({ finance, isSeller }) => {
-  const sellerWeb = finance.income.sellerWebSales.total;
-  const creator = finance.income.creatorEarnings.settledTotal;
-  const pos = finance.income.posRevenue;
-  const totalIncome = sellerWeb + creator + pos;
-  const balance = finance.income.currentBalance;
-  const withdrawn = finance.withdrawals.totalNet;
-  const refunded = finance.outgoing.refundsIssued.total;
-
-  const pct = (n: number): number =>
-    totalIncome > 0 ? Math.round((n / totalIncome) * 100) : 0;
-
-  const sources = [
-    {
-      label: "Web sales (as seller)",
-      value: sellerWeb,
-      pct: pct(sellerWeb),
-      color: "bg-emerald-500",
-      icon: Store,
-      hint: `${finance.income.sellerWebSales.orders} orders · ${finance.income.sellerWebSales.itemsSold} items sold`,
-    },
-    {
-      label: "Creator commission",
-      value: creator,
-      pct: pct(creator),
-      color: "bg-purple-500",
-      icon: Gift,
-      hint: `${
-        finance.income.creatorEarnings.byStatus.settled?.count || 0
-      } settled · ${
-        finance.income.creatorEarnings.byStatus.pending?.count || 0
-      } pending`,
-    },
-    {
-      label: "POS revenue (in-store)",
-      value: pos,
-      pct: pct(pos),
-      color: "bg-amber-500",
-      icon: Scan,
-      hint: "Non-withdrawable",
-    },
-  ];
-
-  // Reconciliation: balance ≈ totalIncome − totalWithdrawnNet − totalRefunded.
-  // It can drift from admin manual edits, so we just surface the numbers.
-  const reconciled = totalIncome - withdrawn - refunded;
-  const drift = balance - reconciled;
-  const driftSign = drift > 0 ? "+" : "";
-
-  return (
-    <div className="space-y-4">
-      {/* Top totals */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Tile
-          label="Lifetime income"
-          value={`฿${formatNumber(totalIncome)}`}
-          tone="text-emerald-700"
-        />
-        <Tile
-          label="Withdrawn (net)"
-          value={`฿${formatNumber(withdrawn)}`}
-          tone="text-rose-700"
-        />
-        <Tile
-          label="Refunds issued"
-          value={`฿${formatNumber(refunded)}`}
-          tone="text-amber-700"
-          hint={`${finance.outgoing.refundsIssued.count} refunds`}
-        />
-        <Tile
-          label="Current balance"
-          value={`฿${formatNumber(balance)}`}
-          tone="text-[#00aeff]"
-          hint={
-            Math.abs(drift) > 1
-              ? `Drift ${driftSign}฿${formatNumber(drift)}`
-              : "Reconciles"
-          }
-        />
-      </div>
-
-      {/* Stacked progress bar */}
-      {totalIncome > 0 && (
-        <div>
-          <div className="h-3 rounded-full bg-gray-100 overflow-hidden flex">
-            {sources.map((s) =>
-              s.value > 0 ? (
-                <div
-                  key={s.label}
-                  className={s.color}
-                  style={{ width: `${s.pct}%` }}
-                  title={`${s.label}: ฿${formatNumber(s.value)} (${s.pct}%)`}
-                />
-              ) : null
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Source breakdown rows */}
-      <div className="space-y-2">
-        {sources.map((s) => {
-          const Icon = s.icon;
-          return (
-            <div key={s.label} className="flex items-center gap-3">
-              <span className={`w-6 h-6 rounded ${s.color}/20 inline-flex items-center justify-center`}>
-                <Icon className={`w-3 h-3 text-white ${s.color.replace("bg-", "fill-")}`} />
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-[12px] font-bold text-gray-900">{s.label}</p>
-                  <p className="text-[12px] font-black tabular-nums text-gray-900">
-                    ฿{formatNumber(s.value)}
-                    <span className="text-[10px] text-gray-400 font-normal ml-1.5">
-                      {s.pct}%
-                    </span>
-                  </p>
-                </div>
-                <p className="text-[10px] text-gray-500">{s.hint}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {!isSeller && sellerWeb === 0 && creator === 0 && balance > 0 && (
-        <div className="rounded-md bg-amber-50 border border-amber-100 px-3 py-2 text-[11px] text-amber-800 flex items-start gap-2">
-          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-          <p>
-            <strong>Heads up:</strong> this account has a balance but no seller or creator
-            income recorded. The balance came from admin edits or imported data — verify
-            before approving withdrawals.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Withdrawal history breakdown ────────────────────────────────────
-
-const WITHDRAW_STATUSES = ["pending", "approved", "completed", "rejected", "failed", "cancelled"] as const;
-type WithdrawStatusKey = typeof WITHDRAW_STATUSES[number];
-
-const WITHDRAW_STATUS_TONE: Record<WithdrawStatusKey, string> = {
-  pending: "bg-amber-100 text-amber-700",
-  approved: "bg-blue-100 text-blue-700",
-  completed: "bg-emerald-100 text-emerald-700",
-  rejected: "bg-rose-100 text-rose-700",
-  failed: "bg-rose-100 text-rose-700",
-  cancelled: "bg-gray-100 text-gray-600",
-};
-
-interface WithdrawalBreakdownProps {
-  finance: AdminUserFinance;
-  userId: string;
-}
-
-const WithdrawalBreakdown: React.FC<WithdrawalBreakdownProps> = ({ finance, userId }) => {
-  const w = finance.withdrawals;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Tile
-          label="Total requests"
-          value={formatNumber(w.totalCount)}
-        />
-        <Tile
-          label="Total amount"
-          value={`฿${formatNumber(w.totalAmount)}`}
-          tone="text-rose-700"
-        />
-        <Tile
-          label="Net to bank"
-          value={`฿${formatNumber(w.totalNet)}`}
-          tone="text-emerald-700"
-        />
-        <Tile
-          label="Last withdrawal"
-          value={
-            w.last ? `฿${formatNumber(w.last.amount)}` : "—"
-          }
-          hint={
-            w.last
-              ? formatDateTime(w.last.createdAt) +
-                (w.last.status ? ` · ${w.last.status}` : "")
-              : "No history"
-          }
-        />
-      </div>
-
-      {/* Status breakdown */}
-      <div>
-        <p className="text-[10px] font-bold text-gray-500 tracking-wide mb-2">
-          By status
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {WITHDRAW_STATUSES.map((s) => {
-            const row = w.byStatus[s];
-            if (!row) return null;
-            return (
-              <div
-                key={s}
-                className="rounded-md border border-gray-100 px-3 py-2 flex items-center justify-between gap-2"
-              >
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${WITHDRAW_STATUS_TONE[s]}`}
-                >
-                  {s}
-                </span>
-                <div className="text-right">
-                  <p className="text-[12px] font-black tabular-nums text-gray-900">
-                    ฿{formatNumber(row.totalAmount)}
-                  </p>
-                  <p className="text-[10px] text-gray-500">
-                    {row.count} request{row.count === 1 ? "" : "s"}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-          {Object.keys(w.byStatus).length === 0 && (
-            <div className="col-span-full text-[11px] text-gray-400 text-center py-4">
-              No withdrawal history
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Last withdrawal detail */}
-      {w.last && (
-        <div className="rounded-md bg-gray-50 px-3 py-2 text-[11px] space-y-0.5">
-          <p className="text-gray-500">
-            <strong className="text-gray-700">Last withdrawal:</strong>{" "}
-            ฿{formatNumber(w.last.amount)} (net ฿{formatNumber(w.last.netAmount)} · fee ฿
-            {formatNumber(w.last.fee)}) · status{" "}
-            <strong className="">{w.last.status}</strong>
-          </p>
-          <p className="text-gray-500">
-            {formatDateTime(w.last.createdAt)}
-            {w.last.processedAt && ` · processed ${formatDateTime(w.last.processedAt)}`}
-            {w.last.bank?.bankName &&
-              ` · ${w.last.bank.bankName} ····${(w.last.bank.accountNumber || "").slice(-4)}`}
-          </p>
-        </div>
-      )}
-
-      <Link
-        href={`/withdrawpage/Seller/SellerWithdrawals?userId=${userId}`}
-        className="text-[11px] text-[#00aeff] font-bold hover:underline inline-flex items-center gap-1"
-      >
-        View all withdrawals →
-      </Link>
-    </div>
-  );
-};
-
-// ─── Order activity (buyer + seller perspectives) ───────────────────
-
-interface OrderActivityProps {
-  finance: AdminUserFinance;
-  isSeller: boolean;
-  userId: string;
-}
-
-const OrderActivity: React.FC<OrderActivityProps> = ({ finance, isSeller, userId }) => {
-  const buyer = finance.buyerActivity;
-  const seller = finance.sellerActivity;
-  const totalBuyerOrders = buyer.paidCount + buyer.unpaidCount;
-  const avgOrderValue =
-    buyer.paidCount > 0 ? buyer.paidTotal / buyer.paidCount : 0;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Buyer side */}
-        <div className="rounded-md border border-gray-100 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <ShoppingBag className="w-3.5 h-3.5 text-blue-500" />
-            <h4 className="text-[12px] font-bold text-gray-900">As a buyer</h4>
-          </div>
-          <div className="space-y-2">
-            <Row label="Orders placed (lifetime)" value={formatNumber(totalBuyerOrders)} />
-            <Row
-              label="Paid orders"
-              value={formatNumber(buyer.paidCount)}
-              tone="text-emerald-700"
-            />
-            <Row
-              label="Unpaid / pending"
-              value={formatNumber(buyer.unpaidCount)}
-              tone={buyer.unpaidCount > 0 ? "text-amber-700" : "text-gray-400"}
-            />
-            <Row
-              label="Total spent"
-              value={`฿${formatNumber(buyer.paidTotal)}`}
-              tone="text-rose-700 font-bold"
-            />
-            <Row
-              label="Average order"
-              value={`฿${formatNumber(avgOrderValue)}`}
-            />
-            <Row
-              label="Last paid order"
-              value={
-                buyer.lastPaidAt
-                  ? `฿${formatNumber(buyer.lastPaidAmount)} · ${formatDate(buyer.lastPaidAt)}`
-                  : "—"
-              }
-            />
-          </div>
-        </div>
-
-        {/* Seller side */}
-        <div className="rounded-md border border-gray-100 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Store className="w-3.5 h-3.5 text-emerald-500" />
-            <h4 className="text-[12px] font-bold text-gray-900">As a seller</h4>
-          </div>
-          {isSeller ? (
-            <div className="space-y-2">
-              <Row
-                label="Orders received"
-                value={formatNumber(seller.ordersReceived)}
-              />
-              <Row
-                label="Items sold"
-                value={formatNumber(seller.itemsSold)}
-              />
-              <Row
-                label="Gross revenue"
-                value={`฿${formatNumber(seller.grossRevenue)}`}
-                tone="text-emerald-700 font-bold"
-              />
-              <Row
-                label="Avg / order received"
-                value={
-                  seller.ordersReceived > 0
-                    ? `฿${formatNumber(seller.grossRevenue / seller.ordersReceived)}`
-                    : "—"
-                }
-              />
-            </div>
-          ) : (
-            <div className="text-[11px] text-gray-400 text-center py-6">
-              Not a seller
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href={`/orders?user=${userId}`}
-          className="text-[11px] text-[#00aeff] font-bold hover:underline inline-flex items-center gap-1"
-        >
-          View buyer orders →
-        </Link>
-        {isSeller && (
-          <Link
-            href={`/orders?seller=${userId}`}
-            className="text-[11px] text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"
-          >
-            View seller orders →
-          </Link>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Compact stat tile reused across the new finance/order sections.
-const Tile: React.FC<{ label: string; value: string; tone?: string; hint?: string }> = ({
-  label,
-  value,
-  tone,
-  hint,
-}) => (
-  <div className="rounded-md bg-gray-50 px-3 py-2">
-    <p className="text-[10px] font-semibold text-gray-500 tracking-wide">{label}</p>
-    <p className={`text-[16px] font-bold tabular-nums mt-0.5 ${tone || "text-gray-900"}`}>
-      {value}
-    </p>
-    {hint && <p className="text-[9px] text-gray-400 mt-0.5">{hint}</p>}
-  </div>
-);
-
-interface RowProps {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-  tone?: string;
-}
-
-const Row: React.FC<RowProps> = ({ label, value, mono, tone }) => (
+const Row = ({ label, value, mono, tone }: { label: string; value: React.ReactNode; mono?: boolean; tone?: string }) => (
   <div className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-50 last:border-b-0">
     <span className="text-gray-500 text-[11px]">{label}</span>
     <span className={`text-right text-gray-900 break-all ${mono ? "font-mono" : ""} ${tone || ""}`}>
@@ -1263,33 +856,7 @@ const Row: React.FC<RowProps> = ({ label, value, mono, tone }) => (
   </div>
 );
 
-interface StatProps {
-  icon: typeof Wallet;
-  label: string;
-  value: string;
-  tone?: string;
-  hint?: string;
-}
-
-const Stat: React.FC<StatProps> = ({ icon: Icon, label, value, tone, hint }) => (
-  <div className="rounded-lg border border-gray-100 bg-white px-4 py-3">
-    <div className="flex items-center gap-1.5">
-      <Icon className="w-3 h-3 text-gray-400" />
-      <p className="text-[10px] font-semibold text-gray-500 tracking-wide">{label}</p>
-    </div>
-    <p className={`text-[20px] font-black tabular-nums mt-1 ${tone || "text-gray-900"}`}>{value}</p>
-    {hint && <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>}
-  </div>
-);
-
-interface CredCardProps {
-  label: string;
-  value: string;
-  copied: boolean;
-  onCopy: () => void;
-}
-
-const CredCard: React.FC<CredCardProps> = ({ label, value, copied, onCopy }) => (
+const CredCard = ({ label, value, copied, onCopy, t }: { label: string; value: string; copied: boolean; onCopy: () => void; t: (k: string) => string }) => (
   <div className="rounded-lg bg-white border border-emerald-100 px-3 py-2">
     <div className="flex items-center justify-between">
       <span className="text-[10px] font-bold text-slate-500 tracking-widest">{label}</span>
@@ -1299,11 +866,11 @@ const CredCard: React.FC<CredCardProps> = ({ label, value, copied, onCopy }) => 
       >
         {copied ? (
           <>
-            <Check size={10} /> Copied
+            <Check size={10} /> {t('common.copied')}
           </>
         ) : (
           <>
-            <Copy size={10} /> Copy
+            <Copy size={10} /> {t('common.copy')}
           </>
         )}
       </button>
@@ -1312,14 +879,7 @@ const CredCard: React.FC<CredCardProps> = ({ label, value, copied, onCopy }) => 
   </div>
 );
 
-interface ModalProps {
-  title: string;
-  onClose: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}
-
-const Modal: React.FC<ModalProps> = ({ title, onClose, disabled, children }) => (
+const Modal = ({ title, onClose, children, disabled }: { title: string; onClose: () => void; children: React.ReactNode; disabled?: boolean }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
     <div className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl shadow-xl">
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
@@ -1337,15 +897,7 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, disabled, children }) => 
   </div>
 );
 
-interface FieldProps {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  placeholder?: string;
-}
-
-const Field: React.FC<FieldProps> = ({ label, value, onChange, type = "text", placeholder }) => (
+const Field = ({ label, value, onChange, type = "text", placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
   <label className="block">
     <span className="block text-[11px] text-gray-500 mb-1 font-bold tracking-wide">
       {label}
@@ -1358,6 +910,248 @@ const Field: React.FC<FieldProps> = ({ label, value, onChange, type = "text", pl
       className="w-full px-3 py-2 rounded border border-gray-200 focus:border-[#00aeff] outline-none text-[12px]"
     />
   </label>
+);
+
+const IncomeBreakdown = ({ finance, isSeller, t }: { finance: AdminUserFinance; isSeller: boolean; t: (k: string) => string }) => {
+  const sellerWeb = finance.income.sellerWebSales.total;
+  const creator = finance.income.creatorEarnings.settledTotal;
+  const pos = finance.income.posRevenue;
+  const totalIncome = sellerWeb + creator + pos;
+  const balance = finance.income.currentBalance;
+  const withdrawn = finance.withdrawals.totalNet;
+  const refunded = finance.outgoing.refundsIssued.total;
+
+  const pct = (n: number): number =>
+    totalIncome > 0 ? Math.round((n / totalIncome) * 100) : 0;
+
+  const sources = [
+    {
+      label: t('financial.webSalesAsSeller'),
+      value: sellerWeb,
+      pct: pct(sellerWeb),
+      color: "bg-emerald-500",
+      icon: Store,
+      hint: `${finance.income.sellerWebSales.orders} ${t('common.orders')} · ${finance.income.sellerWebSales.itemsSold} ${t('common.itemsSold')}`,
+    },
+    {
+      label: t('financial.creatorCommission'),
+      value: creator,
+      pct: pct(creator),
+      color: "bg-purple-500",
+      icon: Gift,
+      hint: `${
+        finance.income.creatorEarnings.byStatus.settled?.count || 0
+      } ${t('status.settled')} · ${
+        finance.income.creatorEarnings.byStatus.pending?.count || 0
+      } ${t('status.pending')}`,
+    },
+    {
+      label: t('financial.posRevenueInStore'),
+      value: pos,
+      pct: pct(pos),
+      color: "bg-amber-500",
+      icon: Scan,
+      hint: t('financial.nonWithdrawable'),
+    },
+  ];
+
+  const reconciled = totalIncome - withdrawn - refunded;
+  const drift = balance - reconciled;
+  const driftSign = drift > 0 ? "+" : "";
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MiniKPI label={t('financial.lifetimeIncome')} value={formatCurrency(totalIncome, t)} tone="text-emerald-700" />
+        <MiniKPI label={t('financial.withdrawnNet')} value={formatCurrency(withdrawn, t)} tone="text-rose-700" />
+        <MiniKPI label={t('financial.refundsIssued')} value={formatCurrency(refunded, t)} tone="text-amber-700" hint={`${finance.outgoing.refundsIssued.count} ${t('common.refunds')}`} />
+        <MiniKPI label={t('financial.currentBalance')} value={formatCurrency(balance, t)} tone="text-[#00aeff]" hint={Math.abs(drift) > 1 ? `${t('financial.drift')} ${driftSign}${formatCurrency(drift, t)}` : t('financial.reconciles')} />
+      </div>
+
+      {totalIncome > 0 && (
+        <div>
+          <div className="h-3 rounded-full bg-gray-100 overflow-hidden flex">
+            {sources.map((s) =>
+              s.value > 0 ? (
+                <div
+                  key={s.label}
+                  className={s.color}
+                  style={{ width: `${s.pct}%` }}
+                  title={`${s.label}: ${formatCurrency(s.value, t)} (${s.pct}%)`}
+                />
+              ) : null
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {sources.map((s) => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label} className="flex items-center gap-3">
+              <span className={`w-6 h-6 rounded ${s.color}/20 inline-flex items-center justify-center`}>
+                <Icon className={`w-3 h-3 text-white ${s.color.replace("bg-", "fill-")}`} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-[12px] font-bold text-gray-900">{s.label}</p>
+                  <p className="text-[12px] font-black tabular-nums text-gray-900">
+                    {formatCurrency(s.value, t)}
+                    <span className="text-[10px] text-gray-400 font-normal ml-1.5">
+                      {s.pct}%
+                    </span>
+                  </p>
+                </div>
+                <p className="text-[10px] text-gray-500">{s.hint}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {!isSeller && sellerWeb === 0 && creator === 0 && balance > 0 && (
+        <div className="rounded-md bg-amber-50 border border-amber-100 px-3 py-2 text-[11px] text-amber-800 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <p>
+            <strong>{t('common.headsUp')}:</strong> {t('pages.users.details.noIncomeWarning')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const WITHDRAW_STATUS_TONE: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700",
+  approved: "bg-blue-100 text-blue-700",
+  completed: "bg-emerald-100 text-emerald-700",
+  rejected: "bg-rose-100 text-rose-700",
+  failed: "bg-rose-100 text-rose-700",
+  cancelled: "bg-gray-100 text-gray-600",
+};
+
+const WithdrawalBreakdown = ({ finance, userId, t }: { finance: AdminUserFinance; userId: string; t: (k: string) => string }) => {
+  const w = finance.withdrawals;
+  const statuses = ["pending", "approved", "completed", "rejected", "failed", "cancelled"];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MiniKPI label={t('financial.totalRequests')} value={formatNumber(w.totalCount)} />
+        <MiniKPI label={t('financial.totalAmount')} value={formatCurrency(w.totalAmount, t)} tone="text-rose-700" />
+        <MiniKPI label={t('financial.netToBank')} value={formatCurrency(w.totalNet, t)} tone="text-emerald-700" />
+        <MiniKPI label={t('financial.lastWithdrawal')} value={w.last ? formatCurrency(w.last.amount, t) : "—"} hint={w.last ? `${formatDateTime(w.last.createdAt)}${w.last.status ? ` · ${t(`status.${w.last.status}`)}` : ""}` : t('common.noHistory')} />
+      </div>
+
+      <div>
+        <p className="text-[10px] font-bold text-gray-500 tracking-wide mb-2">{t('financial.byStatus')}</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {statuses.map((s) => {
+            const row = w.byStatus[s];
+            if (!row) return null;
+            return (
+              <div key={s} className="rounded-md border border-gray-100 px-3 py-2 flex items-center justify-between gap-2">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide ${WITHDRAW_STATUS_TONE[s] || ""}`}>
+                  {t(`status.${s}`)}
+                </span>
+                <div className="text-right">
+                  <p className="text-[12px] font-black tabular-nums text-gray-900">{formatCurrency(row.totalAmount, t)}</p>
+                  <p className="text-[10px] text-gray-500">{row.count} {t('common.requests')}</p>
+                </div>
+              </div>
+            );
+          })}
+          {Object.keys(w.byStatus).length === 0 && (
+            <div className="col-span-full text-[11px] text-gray-400 text-center py-4">{t('common.noHistory')}</div>
+          )}
+        </div>
+      </div>
+
+      {w.last && (
+        <div className="rounded-md bg-gray-50 px-3 py-2 text-[11px] space-y-0.5">
+          <p className="text-gray-500">
+            <strong className="text-gray-700">{t('financial.lastWithdrawal')}:</strong>{" "}
+            {formatCurrency(w.last.amount, t)} ({t('common.net')} {formatCurrency(w.last.netAmount, t)} · {t('common.fee')} {formatCurrency(w.last.fee, t)}) · {t('common.status')}{" "}
+            <strong className="">{t(`status.${w.last.status}`)}</strong>
+          </p>
+          <p className="text-gray-500">
+            {formatDateTime(w.last.createdAt)}
+            {w.last.processedAt && ` · ${t('status.processed')} ${formatDateTime(w.last.processedAt)}`}
+            {w.last.bank?.bankName && ` · ${w.last.bank.bankName} ····${(w.last.bank.accountNumber || "").slice(-4)}`}
+          </p>
+        </div>
+      )}
+
+      <Link href={`/withdrawpage/Seller/SellerWithdrawals?userId=${userId}`} className="text-[11px] text-[#00aeff] font-bold hover:underline inline-flex items-center gap-1">
+        {t('pages.users.details.viewAllWithdrawals')} →
+      </Link>
+    </div>
+  );
+};
+
+const OrderActivity = ({ finance, isSeller, userId, t }: { finance: AdminUserFinance; isSeller: boolean; userId: string; t: (k: string) => string }) => {
+  const buyer = finance.buyerActivity;
+  const seller = finance.sellerActivity;
+  const totalBuyerOrders = buyer.paidCount + buyer.unpaidCount;
+  const avgOrderValue = buyer.paidCount > 0 ? buyer.paidTotal / buyer.paidCount : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-md border border-gray-100 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ShoppingBag className="w-3.5 h-3.5 text-blue-500" />
+            <h4 className="text-[12px] font-bold text-gray-900">{t('financial.asBuyer')}</h4>
+          </div>
+          <div className="space-y-2">
+            <Row label={t('financial.ordersPlacedLifetime')} value={formatNumber(totalBuyerOrders)} />
+            <Row label={t('financial.paidOrders')} value={formatNumber(buyer.paidCount)} tone="text-emerald-700" />
+            <Row label={t('financial.unpaidPending')} value={formatNumber(buyer.unpaidCount)} tone={buyer.unpaidCount > 0 ? "text-amber-700" : "text-gray-400"} />
+            <Row label={t('financial.totalSpent')} value={formatCurrency(buyer.paidTotal, t)} tone="text-rose-700 font-bold" />
+            <Row label={t('financial.averageOrder')} value={formatCurrency(avgOrderValue, t)} />
+            <Row label={t('financial.lastPaidOrder')} value={buyer.lastPaidAt ? `${formatCurrency(buyer.lastPaidAmount, t)} · ${formatDate(buyer.lastPaidAt)}` : "—"} />
+          </div>
+        </div>
+
+        <div className="rounded-md border border-gray-100 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Store className="w-3.5 h-3.5 text-emerald-500" />
+            <h4 className="text-[12px] font-bold text-gray-900">{t('financial.asSeller')}</h4>
+          </div>
+          {isSeller ? (
+            <div className="space-y-2">
+              <Row label={t('financial.ordersReceived')} value={formatNumber(seller.ordersReceived)} />
+              <Row label={t('financial.itemsSold')} value={formatNumber(seller.itemsSold)} />
+              <Row label={t('financial.grossRevenue')} value={formatCurrency(seller.grossRevenue, t)} tone="text-emerald-700 font-bold" />
+              <Row label={t('financial.avgOrderReceived')} value={seller.ordersReceived > 0 ? formatCurrency(seller.grossRevenue / seller.ordersReceived, t) : "—"} />
+            </div>
+          ) : (
+            <div className="text-[11px] text-gray-400 text-center py-6">{t('common.notASeller')}</div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/orders?user=${userId}`} className="text-[11px] text-[#00aeff] font-bold hover:underline inline-flex items-center gap-1">
+          {t('pages.users.details.viewBuyerOrders')} →
+        </Link>
+        {isSeller && (
+          <Link href={`/orders?seller=${userId}`} className="text-[11px] text-emerald-700 font-bold hover:underline inline-flex items-center gap-1">
+            {t('pages.users.details.viewSellerOrders')} →
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MiniKPI = ({ label, value, tone, hint }: { label: string; value: string; tone?: string; hint?: string }) => (
+  <div className="rounded-md bg-gray-50 px-3 py-2">
+    <p className="text-[10px] font-semibold text-gray-500 tracking-wide uppercase truncate">{label}</p>
+    <p className={`text-[16px] font-bold tabular-nums mt-0.5 truncate ${tone || "text-gray-900"}`}>{value}</p>
+    {hint && <p className="text-[9px] text-gray-400 mt-0.5 truncate">{hint}</p>}
+  </div>
 );
 
 export default UserDetailsPage;

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import {
   fetchUserById,
   fetchShopKycByUserId,
@@ -16,67 +17,8 @@ import {
 
 type Tab = 'overview' | 'products' | 'orders' | 'violations' | 'analytics';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'products', label: 'Products' },
-  { id: 'orders', label: 'Orders' },
-  { id: 'violations', label: 'Violations' },
-  { id: 'analytics', label: 'Analytics' },
-];
-
-interface ShopStatus {
-  key: 'active' | 'pending' | 'rejected' | 'closed';
-  label: string;
-  cls: string;
-}
-
-const formatNumber = (value: number): string =>
-  new Intl.NumberFormat('en-US').format(value);
-
-const formatCurrency = (value: number): string =>
-  new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
-
-const formatDate = (iso?: string): string => {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB');
-};
-
-const formatDateTime = (iso?: string): string => {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB');
-};
-
-const buildAddress = (kyc: AdminKycSubmission | null): string => {
-  if (!kyc) return '—';
-  const a = kyc.identity?.address;
-  if (!a) return kyc.warehouse?.fullAddress || '—';
-  const parts = [a.street, a.apartment, a.city, a.state, a.zip, a.country]
-    .filter((p) => Boolean(p && String(p).trim()))
-    .join(', ');
-  return parts || kyc.warehouse?.fullAddress || '—';
-};
-
-const computeStatus = (
-  user: AdminUserDetail,
-  kyc: AdminKycSubmission | null,
-): ShopStatus => {
-  if (kyc?.status === 'approved' || (user.seller_type && user.seller_type.trim() !== '')) {
-    return { key: 'active', label: 'Active', cls: ' text-emerald-700' };
-  }
-  if (kyc?.status === 'rejected') {
-    return { key: 'rejected', label: 'Rejected', cls: 'bg-red-50 text-red-700' };
-  }
-  if (kyc?.status === 'pending') {
-    return { key: 'pending', label: 'Pending', cls: 'bg-orange-50 text-orange-700' };
-  }
-  return { key: 'closed', label: 'Unverified', cls: 'bg-gray-100 text-gray-600' };
-};
-
 const ShopDetailPage = () => {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { id } = router.query;
 
@@ -85,6 +27,14 @@ const ShopDetailPage = () => {
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'overview', label: t('pages.shops.details.overview') },
+    { id: 'products', label: t('pages.shops.details.products') },
+    { id: 'orders', label: t('pages.shops.details.orders') },
+    { id: 'violations', label: t('pages.shops.details.violations') },
+    { id: 'analytics', label: t('pages.shops.details.analytics') },
+  ];
 
   useEffect(() => {
     if (typeof id !== 'string' || !id) return;
@@ -98,13 +48,13 @@ const ShopDetailPage = () => {
         if (userRes.data) {
           setUser(userRes.data);
         } else {
-          setError(userRes.message || 'Shop not found');
+          setError(userRes.message || t('pages.shops.details.notFound'));
         }
         setKyc(kycData);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load shop');
+        setError(err instanceof Error ? err.message : t('pages.shops.details.loadingError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -113,23 +63,32 @@ const ShopDetailPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, t]);
 
-  const status = useMemo(
-    () => (user ? computeStatus(user, kyc) : null),
-    [user, kyc],
-  );
+  const status = useMemo(() => {
+    if (!user) return null;
+    if (kyc?.status === 'approved' || (user.seller_type && user.seller_type.trim() !== '')) {
+      return { key: 'active', label: t('status.active'), cls: ' text-emerald-700' };
+    }
+    if (kyc?.status === 'rejected') {
+      return { key: 'rejected', label: t('status.rejected'), cls: 'bg-red-50 text-red-700' };
+    }
+    if (kyc?.status === 'pending') {
+      return { key: 'pending', label: t('status.pending'), cls: 'bg-orange-50 text-orange-700' };
+    }
+    return { key: 'closed', label: t('pages.shops.details.unverified'), cls: 'bg-gray-100 text-gray-600' };
+  }, [user, kyc, t]);
 
   if (loading) {
     return (
-      <div className="text-[12px] text-gray-400 py-12 text-center">Loading shop…</div>
+      <div className="text-[12px] text-gray-400 py-12 text-center">{t('common.loading')}…</div>
     );
   }
 
   if (error || !user) {
     return (
       <div className="text-[12px] text-red-600 py-12 text-center">
-        {error || 'Shop not found'}
+        {error || t('pages.shops.details.notFound')}
       </div>
     );
   }
@@ -173,20 +132,20 @@ const ShopDetailPage = () => {
               {user.customId || user._id.slice(-6)}
             </span>
             {category && <span>· {category}</span>}
-            <span>· {formatNumber(followers)} followers</span>
-            <span>· {formatNumber(following)} following</span>
+            <span>· {formatNumber(followers)} {t('pages.shops.details.followers')}</span>
+            <span>· {formatNumber(following)} {t('pages.shops.details.following')}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200">
-            Message
+            {t('pages.shops.details.message')}
           </button>
           <button className="px-3 py-1.5 rounded-md text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100">
-            Suspend
+            {t('pages.shops.details.suspend')}
           </button>
           <button className="px-3 py-1.5 rounded-md text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100">
-            Close Shop
+            {t('pages.shops.details.closeShop')}
           </button>
         </div>
       </div>
@@ -211,156 +170,156 @@ const ShopDetailPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-1 space-y-4">
             <Section title="">
-              <Row label="Full Name" value={ownerName} />
-              <Row label="Shop Email" value={kyc?.shopInfo?.shopEmail || '—'} />
-              <Row label="Phone" value={user.phone || '—'} />
-              <Row label="Created" value={formatDate(user.createdAt)} />
-              <Row label="Verified" value={formatDate(kyc?.reviewedAt)} />
-              <Row label="IP" value={user.lastKnownIp || '—'} />
-              <Row label="Shop Category" value={kyc?.shopInfo?.shopCategory || '—'} />
-              <Row label="Business Type" value={businessType} />
-              <Row label="Seller Type" value={user.seller_type || '—'} />
-              <Row label="Entity Name" value={kyc?.shopInfo?.entityName || '—'} />
-              <Row label="TIN Number" value={kyc?.identity?.tinNumber || '—'} />
+              <Row label={t('common.fullName')} value={ownerName} />
+              <Row label={t('common.shopEmail')} value={kyc?.shopInfo?.shopEmail || '—'} />
+              <Row label={t('common.phone')} value={user.phone || '—'} />
+              <Row label={t('common.created')} value={formatDate(user.createdAt)} />
+              <Row label={t('common.verified')} value={formatDate(kyc?.reviewedAt)} />
+              <Row label={t('common.lastIp')} value={user.lastKnownIp || '—'} />
+              <Row label={t('common.shopCategory')} value={kyc?.shopInfo?.shopCategory || '—'} />
+              <Row label={t('common.businessType')} value={businessType} />
+              <Row label={t('common.sellerType')} value={user.seller_type || '—'} />
+              <Row label={t('common.entityName')} value={kyc?.shopInfo?.entityName || '—'} />
+              <Row label={t('common.tinNumber')} value={kyc?.identity?.tinNumber || '—'} />
             </Section>
 
-            <Section title="KYC Identity">
-              <Row label="ID Type" value={kyc?.identity?.idType || '—'} />
-              <Row label="ID Number" value={kyc?.identity?.idNumber || '—'} />
-              <Row label="Birth Date" value={formatDate(kyc?.identity?.birthDate)} />
-              <Row label="ID Expiry" value={formatDate(kyc?.identity?.expiryDate)} />
-              <Row label="Address" value={buildAddress(kyc)} />
+            <Section title={t('common.kycIdentity')}>
+              <Row label={t('common.idType')} value={kyc?.identity?.idType || '—'} />
+              <Row label={t('common.idNumber')} value={kyc?.identity?.idNumber || '—'} />
+              <Row label={t('common.birthDate')} value={formatDate(kyc?.identity?.birthDate)} />
+              <Row label={t('common.idExpiry')} value={formatDate(kyc?.identity?.expiryDate)} />
+              <Row label={t('common.address')} value={buildAddress(kyc, t)} />
               {kyc?.warehouse?.fullAddress && (
-                <Row label="Warehouse" value={kyc.warehouse.fullAddress} />
+                <Row label={t('common.warehouse')} value={kyc.warehouse.fullAddress} />
               )}
             </Section>
 
-            <Section title="KYC Documents">
-              <KycDocLinks kyc={kyc} />
+            <Section title={t('common.kycDocuments')}>
+              <KycDocLinks kyc={kyc} t={t} />
             </Section>
 
             {user.bank ? (
-              <Section title="Bank">
-                <Row label="Bank Name" value={user.bank.bankName} />
-                <Row label="Account Name" value={user.bank.accountName} />
-                <Row label="Account Number" value={user.bank.accountNumber} />
+              <Section title={t('common.bank')}>
+                <Row label={t('common.bankName')} value={user.bank.bankName} />
+                <Row label={t('common.accountName')} value={user.bank.accountName} />
+                <Row label={t('common.accountNumber')} value={user.bank.accountNumber} />
                 <Row
-                  label="Verified"
-                  value={user.bank.isVerified ? 'Yes' : 'No'}
+                  label={t('common.verified')}
+                  value={user.bank.isVerified ? t('common.yes') : t('common.no')}
                 />
               </Section>
             ) : (
-              <Section title="Bank">
+              <Section title={t('common.bank')}>
                 <p className="text-[12px] text-gray-400">
-                  No bank account on file.
+                  {t('common.notLinked')}
                 </p>
               </Section>
             )}
           </div>
 
           <div className="lg:col-span-2 space-y-4">
-            <Section title="Lifetime Totals">
+            <Section title={t('pages.shops.details.lifetimeTotals')}>
               <div className="grid grid-cols-3 gap-3">
                 <MetricCard
-                  label="Total Products"
+                  label={t('pages.shops.details.metrics.totalProducts')}
                   value={formatNumber(stats?.productCount ?? 0)}
                 />
                 <MetricCard
-                  label="Total Orders"
+                  label={t('pages.shops.details.metrics.totalOrders')}
                   value={formatNumber(finance?.sellerActivity.ordersReceived ?? 0)}
                 />
                 <MetricCard
-                  label="Gross Revenue (₭)"
-                  value={formatCurrency(finance?.sellerActivity.grossRevenue ?? 0)}
+                  label={t('pages.shops.details.metrics.grossRevenue')}
+                  value={formatCurrency(finance?.sellerActivity.grossRevenue ?? 0, t)}
                 />
               </div>
             </Section>
 
-            <Section title="Balance & Payout">
+            <Section title={t('pages.shops.details.balancePayout')}>
               <div className="grid grid-cols-2 gap-3">
                 <MetricCard
-                  label="Current Balance (₭)"
-                  value={formatCurrency(user.balance ?? 0)}
+                  label={t('pages.shops.details.metrics.currentBalance')}
+                  value={formatCurrency(user.balance ?? 0, t)}
                 />
                 <MetricCard
-                  label="Pending Withdrawals"
+                  label={t('pages.shops.details.metrics.pendingWithdrawals')}
                   value={formatNumber(pendingWithdrawalsCount)}
                 />
                 <MetricCard
-                  label="POS Revenue (₭)"
-                  value={formatCurrency(user.posRevenue ?? 0)}
+                  label={t('pages.shops.details.metrics.posRevenue')}
+                  value={formatCurrency(user.posRevenue ?? 0, t)}
                 />
                 <MetricCard
-                  label="Lifetime Income (₭)"
-                  value={formatCurrency(lifetimeIncome)}
+                  label={t('pages.shops.details.metrics.lifetimeIncome')}
+                  value={formatCurrency(lifetimeIncome, t)}
                 />
               </div>
             </Section>
 
             {finance && (
-              <Section title="Money Source — Where the Balance Came From">
+              <Section title={t('pages.users.details.moneySource')}>
                 <div className="grid grid-cols-3 gap-3">
                   <MetricCard
-                    label="Web Sales (₭)"
-                    value={formatCurrency(finance.income.sellerWebSales.total)}
+                    label={t('financial.webSales')}
+                    value={formatCurrency(finance.income.sellerWebSales.total, t)}
                   />
                   <MetricCard
-                    label="Creator Commission (₭)"
-                    value={formatCurrency(finance.income.creatorEarnings.settledTotal)}
+                    label={t('financial.creatorCommission')}
+                    value={formatCurrency(finance.income.creatorEarnings.settledTotal, t)}
                   />
                   <MetricCard
-                    label="POS Revenue (₭)"
-                    value={formatCurrency(finance.income.posRevenue)}
+                    label={t('financial.posRevenue')}
+                    value={formatCurrency(finance.income.posRevenue, t)}
                   />
                 </div>
                 <div className="mt-3 space-y-2 text-[12px]">
                   <Row
-                    label="Web sales orders"
-                    value={`${formatNumber(finance.income.sellerWebSales.orders)} orders · ${formatNumber(finance.income.sellerWebSales.itemsSold)} items sold`}
+                    label={t('financial.webSalesOrders')}
+                    value={`${formatNumber(finance.income.sellerWebSales.orders)} ${t('common.orders')} · ${formatNumber(finance.income.sellerWebSales.itemsSold)} ${t('common.itemsSold')}`}
                   />
                   <Row
-                    label="Creator earnings settled"
-                    value={`${finance.income.creatorEarnings.byStatus.settled?.count ?? 0} settled · ${finance.income.creatorEarnings.byStatus.pending?.count ?? 0} pending`}
+                    label={t('financial.creatorEarningsSettled')}
+                    value={`${finance.income.creatorEarnings.byStatus.settled?.count ?? 0} ${t('status.settled')} · ${finance.income.creatorEarnings.byStatus.pending?.count ?? 0} ${t('status.pending')}`}
                   />
                   <Row
-                    label="Refunds issued"
-                    value={`฿${formatCurrency(finance.outgoing.refundsIssued.total)} (${finance.outgoing.refundsIssued.count} refunds)`}
+                    label={t('financial.refundsIssued')}
+                    value={`${formatCurrency(finance.outgoing.refundsIssued.total, t)} (${finance.outgoing.refundsIssued.count} ${t('common.refunds')})`}
                   />
                 </div>
               </Section>
             )}
 
             {finance && (
-              <Section title="Withdrawal History">
+              <Section title={t('pages.users.details.withdrawalHistory')}>
                 <div className="grid grid-cols-3 gap-3">
                   <MetricCard
-                    label="Total Requests"
+                    label={t('financial.totalRequests')}
                     value={formatNumber(finance.withdrawals.totalCount)}
                   />
                   <MetricCard
-                    label="Total Amount (₭)"
-                    value={formatCurrency(finance.withdrawals.totalAmount)}
+                    label={t('financial.totalAmount')}
+                    value={formatCurrency(finance.withdrawals.totalAmount, t)}
                   />
                   <MetricCard
-                    label="Net to Bank (₭)"
-                    value={formatCurrency(finance.withdrawals.totalNet)}
+                    label={t('financial.netToBank')}
+                    value={formatCurrency(finance.withdrawals.totalNet, t)}
                   />
                 </div>
                 <div className="mt-3 space-y-2 text-[12px]">
                   {Object.entries(finance.withdrawals.byStatus).map(([statusKey, row]) => (
                     <Row
                       key={statusKey}
-                      label={`${statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}`}
-                      value={`฿${formatCurrency(row.totalAmount)} · ${row.count} request${row.count === 1 ? '' : 's'}`}
+                      label={t(`status.${statusKey}`)}
+                      value={`${formatCurrency(row.totalAmount, t)} · ${row.count} ${t('common.requests')}`}
                     />
                   ))}
                   {Object.keys(finance.withdrawals.byStatus).length === 0 && (
-                    <p className="text-[12px] text-gray-400">No withdrawal history.</p>
+                    <p className="text-[12px] text-gray-400">{t('common.noHistory')}</p>
                   )}
                   {finance.withdrawals.last && (
                     <Row
-                      label="Last withdrawal"
-                      value={`฿${formatCurrency(finance.withdrawals.last.amount)} (net ฿${formatCurrency(finance.withdrawals.last.netAmount)} · fee ฿${formatCurrency(finance.withdrawals.last.fee)}) · ${finance.withdrawals.last.status} · ${formatDateTime(finance.withdrawals.last.createdAt)}`}
+                      label={t('financial.lastWithdrawal')}
+                      value={`${formatCurrency(finance.withdrawals.last.amount, t)} (${t('common.net')} ${formatCurrency(finance.withdrawals.last.netAmount, t)} · ${t('common.fee')} ${formatCurrency(finance.withdrawals.last.fee, t)}) · ${t(`status.${finance.withdrawals.last.status}`)} · ${formatDateTime(finance.withdrawals.last.createdAt)}`}
                     />
                   )}
                 </div>
@@ -368,30 +327,30 @@ const ShopDetailPage = () => {
             )}
 
             {finance && (
-              <Section title="Order Activity">
+              <Section title={t('pages.users.details.orderActivity')}>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-[11px] font-semibold text-gray-500 tracking-wide mb-2">
-                      As a seller (this shop)
+                      {t('financial.asSeller')} ({t('common.thisShop')})
                     </p>
                     <div className="space-y-2 text-[12px]">
                       <Row
-                        label="Orders received"
+                        label={t('financial.ordersReceived')}
                         value={formatNumber(finance.sellerActivity.ordersReceived)}
                       />
                       <Row
-                        label="Items sold"
+                        label={t('financial.itemsSold')}
                         value={formatNumber(finance.sellerActivity.itemsSold)}
                       />
                       <Row
-                        label="Gross revenue"
-                        value={`฿${formatCurrency(finance.sellerActivity.grossRevenue)}`}
+                        label={t('financial.grossRevenue')}
+                        value={formatCurrency(finance.sellerActivity.grossRevenue, t)}
                       />
                       <Row
-                        label="Avg / order"
+                        label={t('financial.avgOrder')}
                         value={
                           finance.sellerActivity.ordersReceived > 0
-                            ? `฿${formatCurrency(finance.sellerActivity.grossRevenue / finance.sellerActivity.ordersReceived)}`
+                            ? formatCurrency(finance.sellerActivity.grossRevenue / finance.sellerActivity.ordersReceived, t)
                             : '—'
                         }
                       />
@@ -399,26 +358,26 @@ const ShopDetailPage = () => {
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold text-gray-500 tracking-wide mb-2">
-                      As a buyer (owner account)
+                      {t('financial.asBuyer')} ({t('common.ownerAccount')})
                     </p>
                     <div className="space-y-2 text-[12px]">
                       <Row
-                        label="Paid orders"
+                        label={t('financial.paidOrders')}
                         value={formatNumber(finance.buyerActivity.paidCount)}
                       />
                       <Row
-                        label="Unpaid / pending"
+                        label={t('financial.unpaidPending')}
                         value={formatNumber(finance.buyerActivity.unpaidCount)}
                       />
                       <Row
-                        label="Total spent"
-                        value={`฿${formatCurrency(finance.buyerActivity.paidTotal)}`}
+                        label={t('financial.totalSpent')}
+                        value={formatCurrency(finance.buyerActivity.paidTotal, t)}
                       />
                       <Row
-                        label="Last paid order"
+                        label={t('financial.lastPaidOrder')}
                         value={
                           finance.buyerActivity.lastPaidAt
-                            ? `฿${formatCurrency(finance.buyerActivity.lastPaidAmount)} · ${formatDate(finance.buyerActivity.lastPaidAt)}`
+                            ? `${formatCurrency(finance.buyerActivity.lastPaidAmount, t)} · ${formatDate(finance.buyerActivity.lastPaidAt)}`
                             : '—'
                         }
                       />
@@ -430,70 +389,70 @@ const ShopDetailPage = () => {
                     href={`/orders?seller=${user._id}`}
                     className="text-emerald-700 font-bold hover:underline"
                   >
-                    View shop orders →
+                    {t('pages.shops.details.viewOrders')} →
                   </Link>
                   <Link
                     href={`/orders?user=${user._id}`}
                     className="text-primary font-bold hover:underline"
                   >
-                    View buyer orders →
+                    {t('pages.users.details.viewBuyerOrders')} →
                   </Link>
                   <Link
                     href={`/products?seller=${user._id}`}
                     className="text-gray-700 font-bold hover:underline"
                   >
-                    View products →
+                    {t('pages.shops.details.viewProducts')} →
                   </Link>
                 </div>
               </Section>
             )}
 
             {stats?.lastOrderAt && (
-              <Section title="Last Order Received">
+              <Section title={t('pages.shops.details.lastOrder')}>
                 <Row
-                  label="Amount"
-                  value={`฿${formatCurrency(stats.lastOrderTotal)}`}
+                  label={t('common.amount')}
+                  value={formatCurrency(stats.lastOrderTotal, t)}
                 />
                 <Row
-                  label="Status"
+                  label={t('common.status')}
                   value={stats.lastOrderStatus || '—'}
                 />
                 <Row
-                  label="When"
+                  label={t('common.when')}
                   value={formatDateTime(stats.lastOrderAt)}
                 />
               </Section>
             )}
 
             {user.bio && (
-              <Section title="Shop Bio">
+              <Section title={t('pages.shops.details.shopBio')}>
                 <p className="text-[12px] text-gray-700 whitespace-pre-wrap">
                   {user.bio}
                 </p>
               </Section>
             )}
 
-            <Section title="Timestamps">
-              <Row label="Created" value={formatDateTime(user.createdAt)} />
-              <Row label="Updated" value={formatDateTime(user.updatedAt)} />
+            <Section title={t('common.timestamps')}>
+              <Row label={t('common.created')} value={formatDateTime(user.createdAt)} />
+              <Row label={t('common.updated')} value={formatDateTime(user.updatedAt)} />
               {kyc && (
                 <>
                   <Row
-                    label="KYC Submitted"
+                    label={t('common.kycSubmitted')}
                     value={formatDateTime(kyc.submittedAt)}
                   />
                   <Row
-                    label="KYC Reviewed"
+                    label={t('common.kycReviewed')}
                     value={formatDateTime(kyc.reviewedAt)}
                   />
                   {kyc.reviewedBy && (
                     <Row
-                      label="Reviewed By"
+                      label={t('common.reviewedBy')}
                       value={kyc.reviewedBy.name || kyc.reviewedBy.email || '—'}
                     />
                   )}
                   {kyc.reviewNote && (
-                    <Row label="Review Note" value={kyc.reviewNote} />
+                    <Row label={t('common.reviewNote')} value={kyc.reviewNote} />
                   )}
                 </>
               )}
@@ -502,12 +461,42 @@ const ShopDetailPage = () => {
         </div>
       )}
 
-      {tab === 'products' && <ProductsTab sellerId={user._id} />}
-      {tab === 'orders' && <OrdersTab sellerId={user._id} />}
-      {tab === 'violations' && <ViolationsTab sellerId={user._id} />}
-      {tab === 'analytics' && <AnalyticsTab user={user} />}
+      {tab === 'products' && <ProductsTab sellerId={user._id} t={t} />}
+      {tab === 'orders' && <OrdersTab sellerId={user._id} t={t} />}
+      {tab === 'violations' && <ViolationsTab sellerId={user._id} t={t} />}
+      {tab === 'analytics' && <AnalyticsTab user={user} t={t} />}
     </div>
   );
+};
+
+const formatNumber = (value: number): string =>
+  new Intl.NumberFormat('en-US').format(value);
+
+const formatCurrency = (value: number, t: (k: string) => string): string =>
+  `${t('common.currencySymbol')}${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)}`;
+
+const formatDate = (iso?: string): string => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB');
+};
+
+const formatDateTime = (iso?: string): string => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB');
+};
+
+const buildAddress = (kyc: AdminKycSubmission | null, t: (k: string) => string): string => {
+  if (!kyc) return '—';
+  const a = kyc.identity?.address;
+  if (!a) return kyc.warehouse?.fullAddress || '—';
+  const parts = [a.street, a.apartment, a.city, a.state, a.zip, a.country]
+    .filter((p) => Boolean(p && String(p).trim()))
+    .join(', ');
+  return parts || kyc.warehouse?.fullAddress || '—';
 };
 
 interface SectionProps {
@@ -518,7 +507,7 @@ interface SectionProps {
 const Section = ({ title, children }: SectionProps) => (
   <div className="rounded-lg p-5 bg-white border border-gray-100">
     {title && (
-      <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-4">
+      <h3 className="text-[11px] font-semibold text-gray-500 tracking-wide mb-4 uppercase">
         {title}
       </h3>
     )}
@@ -530,11 +519,12 @@ interface RowProps {
   label: string;
   value: string;
   link?: string;
+  mono?: boolean;
 }
 
-const Row = ({ label, value, link }: RowProps) => (
+const Row = ({ label, value, link, mono }: RowProps) => (
   <div>
-    <p className="text-[11px] font-semibold text-gray-500 tracking-wide">
+    <p className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">
       {label}
     </p>
     {link ? (
@@ -545,7 +535,7 @@ const Row = ({ label, value, link }: RowProps) => (
         {value}
       </Link>
     ) : (
-      <p className="mt-0.5 text-gray-900 break-words">{value}</p>
+      <p className={`mt-0.5 text-gray-900 break-words ${mono ? 'font-mono' : ''}`}>{value}</p>
     )}
   </div>
 );
@@ -557,7 +547,7 @@ interface MetricCardProps {
 
 const MetricCard = ({ label, value }: MetricCardProps) => (
   <div className="rounded-lg px-4 py-3 bg-gray-50">
-    <p className="text-[11px] font-semibold text-gray-500 tracking-wide">
+    <p className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">
       {label}
     </p>
     <p className="text-xl font-bold text-black tabular-nums mt-1">{value}</p>
@@ -566,31 +556,32 @@ const MetricCard = ({ label, value }: MetricCardProps) => (
 
 interface KycDocLinksProps {
   kyc: AdminKycSubmission | null;
+  t: (k: string) => string;
 }
 
-const KycDocLinks = ({ kyc }: KycDocLinksProps) => {
+const KycDocLinks = ({ kyc, t }: KycDocLinksProps) => {
   if (!kyc) {
-    return <p className="text-[12px] text-gray-400">No KYC submission.</p>;
+    return <p className="text-[12px] text-gray-400">{t('common.noKyc')}</p>;
   }
   const docs: { label: string; url?: string }[] = [];
   if (kyc.identity?.idDocumentUrl) {
     docs.push({
-      label: `${kyc.identity.idType || 'ID'} Document`,
+      label: `${kyc.identity.idType || 'ID'} ${t('common.document')}`,
       url: kyc.identity.idDocumentUrl,
     });
   }
   if (kyc.identity?.businessLicenseUrl) {
     docs.push({
-      label: 'Business License',
+      label: t('common.businessLicense'),
       url: kyc.identity.businessLicenseUrl,
     });
   }
   (kyc.identity?.documents || []).forEach((d) => {
-    docs.push({ label: d.label || 'Supporting Document', url: d.url });
+    docs.push({ label: d.label || t('common.supportingDocument'), url: d.url });
   });
 
   if (docs.length === 0) {
-    return <p className="text-[12px] text-gray-400">No documents uploaded.</p>;
+    return <p className="text-[12px] text-gray-400">{t('common.noDocuments')}</p>;
   }
 
   return (
@@ -614,9 +605,10 @@ const KycDocLinks = ({ kyc }: KycDocLinksProps) => {
 
 interface ProductsTabProps {
   sellerId: string;
+  t: (k: string) => string;
 }
 
-const ProductsTab = ({ sellerId }: ProductsTabProps) => {
+const ProductsTab = ({ sellerId, t }: ProductsTabProps) => {
   const [products, setProducts] = useState<AdminProductRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -631,7 +623,7 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load products');
+        setError(err instanceof Error ? err.message : t('common.loadingError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -639,22 +631,18 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
     return () => {
       cancelled = true;
     };
-  }, [sellerId]);
+  }, [sellerId, t]);
 
   const totals = useMemo(() => {
     const inStock = products.reduce((s, p) => s + (p.countInStock || 0), 0);
-    const valuation = products.reduce(
-      (s, p) => s + (p.price || 0) * (p.countInStock || 0),
-      0,
-    );
     const active = products.filter((p) => p.status === 'Active').length;
     const draft = products.filter((p) => p.status === 'Draft').length;
     const archived = products.filter((p) => p.status === 'Archived').length;
-    return { inStock, valuation, active, draft, archived };
+    return { inStock, active, draft, archived };
   }, [products]);
 
   if (loading) {
-    return <div className="text-[12px] text-gray-400 py-12 text-center">Loading products…</div>;
+    return <div className="text-[12px] text-gray-400 py-12 text-center">{t('common.loading')}…</div>;
   }
   if (error) {
     return <div className="text-[12px] text-red-600 py-6 text-center">{error}</div>;
@@ -663,27 +651,27 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <MetricCard label="Total Products" value={formatNumber(products.length)} />
-        <MetricCard label="Active" value={formatNumber(totals.active)} />
-        <MetricCard label="Draft" value={formatNumber(totals.draft)} />
-        <MetricCard label="Archived" value={formatNumber(totals.archived)} />
-        <MetricCard label="In-stock units" value={formatNumber(totals.inStock)} />
+        <MetricCard label={t('common.totalProducts')} value={formatNumber(products.length)} />
+        <MetricCard label={t('status.active')} value={formatNumber(totals.active)} />
+        <MetricCard label={t('status.draft')} value={formatNumber(totals.draft)} />
+        <MetricCard label={t('status.archived')} value={formatNumber(totals.archived)} />
+        <MetricCard label={t('common.inStockUnits')} value={formatNumber(totals.inStock)} />
       </div>
 
       <Section title="">
         {products.length === 0 ? (
-          <p className="text-[12px] text-gray-400 text-center py-8">No products yet.</p>
+          <p className="text-[12px] text-gray-400 text-center py-8">{t('common.noProducts')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-[12px]">
               <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
-                  <th className="py-2 pr-3">Product</th>
-                  <th className="py-2 pr-3">Category</th>
-                  <th className="py-2 pr-3 text-right">Price</th>
-                  <th className="py-2 pr-3 text-right">Stock</th>
-                  <th className="py-2 pr-3 text-right">Sold</th>
-                  <th className="py-2 pr-3">Status</th>
+                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide uppercase">
+                  <th className="py-2 pr-3">{t('common.product')}</th>
+                  <th className="py-2 pr-3">{t('common.category')}</th>
+                  <th className="py-2 pr-3 text-right">{t('common.price')}</th>
+                  <th className="py-2 pr-3 text-right">{t('common.stock')}</th>
+                  <th className="py-2 pr-3 text-right">{t('common.sold')}</th>
+                  <th className="py-2 pr-3">{t('common.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -711,7 +699,7 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
                       </td>
                       <td className="py-2 pr-3 text-gray-600">{p.category || '—'}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">
-                        ฿{formatCurrency(p.price)}
+                        {formatCurrency(p.price, t)}
                       </td>
                       <td
                         className={`py-2 pr-3 text-right tabular-nums ${
@@ -725,7 +713,7 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
                       </td>
                       <td className="py-2 pr-3">
                         <span
-                          className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded ${
+                          className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded uppercase ${
                             p.status === 'Active'
                               ? 'bg-emerald-50 text-emerald-700'
                               : p.status === 'Draft'
@@ -744,22 +732,16 @@ const ProductsTab = ({ sellerId }: ProductsTabProps) => {
           </div>
         )}
       </Section>
-
-      <Link
-        href={`/products?seller=${sellerId}`}
-        className="text-[11px] text-primary font-bold hover:underline"
-      >
-        Open in full products list →
-      </Link>
     </div>
   );
 };
 
 interface OrdersTabProps {
   sellerId: string;
+  t: (k: string) => string;
 }
 
-const OrdersTab = ({ sellerId }: OrdersTabProps) => {
+const OrdersTab = ({ sellerId, t }: OrdersTabProps) => {
   const [orders, setOrders] = useState<AdminOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -774,7 +756,7 @@ const OrdersTab = ({ sellerId }: OrdersTabProps) => {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load orders');
+        setError(err instanceof Error ? err.message : t('common.loadingError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -782,498 +764,61 @@ const OrdersTab = ({ sellerId }: OrdersTabProps) => {
     return () => {
       cancelled = true;
     };
-  }, [sellerId]);
-
-  const totals = useMemo(() => {
-    const totalAmount = orders.reduce((s, o) => s + (o.amount || 0), 0);
-    const paid = orders.filter((o) => o.isPaid).length;
-    const delivered = orders.filter((o) => o.isDelivered).length;
-    const cancelled = orders.filter((o) => o.rawStatus === 'canceled').length;
-    return { totalAmount, paid, delivered, cancelled };
-  }, [orders]);
+  }, [sellerId, t]);
 
   if (loading) {
-    return <div className="text-[12px] text-gray-400 py-12 text-center">Loading orders…</div>;
+    return <div className="text-[12px] text-gray-400 py-12 text-center">{t('common.loading')}…</div>;
   }
   if (error) {
     return <div className="text-[12px] text-red-600 py-6 text-center">{error}</div>;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard label="Total Orders" value={formatNumber(orders.length)} />
-        <MetricCard label="Paid" value={formatNumber(totals.paid)} />
-        <MetricCard label="Delivered" value={formatNumber(totals.delivered)} />
-        <MetricCard label="Cancelled" value={formatNumber(totals.cancelled)} />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <MetricCard label="Gross order amount (₭)" value={formatCurrency(totals.totalAmount)} />
-        <MetricCard
-          label="Avg order (₭)"
-          value={formatCurrency(orders.length > 0 ? totals.totalAmount / orders.length : 0)}
-        />
-      </div>
-
-      <Section title="">
-        {orders.length === 0 ? (
-          <p className="text-[12px] text-gray-400 text-center py-8">No orders yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[12px]">
-              <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
-                  <th className="py-2 pr-3">Order</th>
-                  <th className="py-2 pr-3">Customer</th>
-                  <th className="py-2 pr-3 text-right">Items</th>
-                  <th className="py-2 pr-3 text-right">Amount</th>
-                  <th className="py-2 pr-3">Payment</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">When</th>
+    <Section title={t('pages.shops.details.orders')}>
+       <div className="overflow-x-auto">
+          <table className="min-w-full text-[12px]">
+            <thead>
+              <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide uppercase">
+                <th className="py-2 pr-3">{t('common.orderId')}</th>
+                <th className="py-2 pr-3">{t('common.buyer')}</th>
+                <th className="py-2 pr-3 text-right">{t('common.amount')}</th>
+                <th className="py-2 pr-3">{t('common.status')}</th>
+                <th className="py-2 pr-3">{t('common.date')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o._id} className="border-t border-gray-50">
+                  <td className="py-2 pr-3">
+                    <Link href={`/orders/${o._id}`} className="text-primary hover:underline">
+                      #{o._id.slice(-6).toUpperCase()}
+                    </Link>
+                  </td>
+                  <td className="py-2 pr-3">{o.user?.name || '—'}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{formatCurrency(o.amount, t)}</td>
+                  <td className="py-2 pr-3">
+                    <span className="text-[10px] font-bold uppercase">{t(`status.${o.rawStatus}`)}</span>
+                  </td>
+                  <td className="py-2 pr-3 text-gray-500">{formatDate(o.createdAt)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {orders.map((o) => (
-                  <tr key={o._id} className="border-t border-gray-50">
-                    <td className="py-2 pr-3 font-mono">
-                      <Link
-                        href={`/orders/${o._id}`}
-                        className="text-primary hover:underline"
-                      >
-                        {o.id}
-                      </Link>
-                    </td>
-                    <td className="py-2 pr-3 text-gray-700 line-clamp-1">{o.customer || '—'}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{o.itemCount}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums font-bold">
-                      ฿{formatCurrency(o.amount)}
-                    </td>
-                    <td className="py-2 pr-3 text-gray-600">{o.paymentMethod}</td>
-                    <td className="py-2 pr-3">
-                      <span
-                        className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded ${
-                          o.status === 'delivered'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : o.status === 'paid' || o.status === 'shipping'
-                              ? 'bg-blue-50 text-blue-700'
-                              : o.status === 'cancelled' || o.status === 'refunded'
-                                ? 'bg-rose-50 text-rose-700'
-                                : 'bg-amber-50 text-amber-700'
-                        }`}
-                      >
-                        {o.status}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-3 text-gray-500">{formatDate(o.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
-
-      <Link
-        href={`/orders?seller=${sellerId}`}
-        className="text-[11px] text-primary font-bold hover:underline"
-      >
-        Open in full orders list →
-      </Link>
-    </div>
-  );
-};
-
-interface ViolationsTabProps {
-  sellerId: string;
-}
-
-const ViolationsTab = ({ sellerId }: ViolationsTabProps) => {
-  const [reports, setReports] = useState<AdminReportRow[]>([]);
-  const [flaggedProducts, setFlaggedProducts] = useState<AdminProductRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      fetchAdminReports({ targetType: 'shop', targetId: sellerId, limit: 100 }),
-      fetchAdminProducts({ seller: sellerId, flag: 'violations', limit: 100 }),
-    ])
-      .then(([reportsRes, productsRes]) => {
-        if (cancelled) return;
-        setReports(reportsRes.data ?? []);
-        setFlaggedProducts(productsRes.data ?? []);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load violations');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sellerId]);
-
-  const reportTotals = useMemo(() => {
-    const open = reports.filter((r) => r.status === 'open').length;
-    const reviewing = reports.filter((r) => r.status === 'reviewing').length;
-    const actioned = reports.filter((r) => r.status === 'actioned').length;
-    const dismissed = reports.filter((r) => r.status === 'dismissed').length;
-    return { open, reviewing, actioned, dismissed };
-  }, [reports]);
-
-  if (loading) {
-    return <div className="text-[12px] text-gray-400 py-12 text-center">Loading violations…</div>;
-  }
-  if (error) {
-    return <div className="text-[12px] text-red-600 py-6 text-center">{error}</div>;
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <MetricCard label="Total Reports" value={formatNumber(reports.length)} />
-        <MetricCard label="Open" value={formatNumber(reportTotals.open)} />
-        <MetricCard label="Reviewing" value={formatNumber(reportTotals.reviewing)} />
-        <MetricCard label="Actioned" value={formatNumber(reportTotals.actioned)} />
-        <MetricCard label="Flagged Products" value={formatNumber(flaggedProducts.length)} />
-      </div>
-
-      <Section title="Reports against this shop">
-        {reports.length === 0 ? (
-          <p className="text-[12px] text-gray-400 text-center py-6">No reports filed.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[12px]">
-              <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
-                  <th className="py-2 pr-3">Reason</th>
-                  <th className="py-2 pr-3">Description</th>
-                  <th className="py-2 pr-3">Reported by</th>
-                  <th className="py-2 pr-3">Action</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map((r) => (
-                  <tr key={r._id} className="border-t border-gray-50">
-                    <td className="py-2 pr-3 font-bold tracking-wide text-gray-700">
-                      {r.reason}
-                    </td>
-                    <td className="py-2 pr-3 text-gray-600 max-w-md">
-                      <span className="line-clamp-2">{r.description || '—'}</span>
-                    </td>
-                    <td className="py-2 pr-3 text-gray-600">
-                      {r.reportedBy?.name || r.reportedBy?.email || '—'}
-                    </td>
-                    <td className="py-2 pr-3 text-gray-600">{r.actionTaken}</td>
-                    <td className="py-2 pr-3">
-                      <span
-                        className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded ${
-                          r.status === 'open'
-                            ? 'bg-rose-50 text-rose-700'
-                            : r.status === 'reviewing'
-                              ? 'bg-amber-50 text-amber-700'
-                              : r.status === 'actioned'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-3 text-gray-500">{formatDate(r.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Flagged products">
-        {flaggedProducts.length === 0 ? (
-          <p className="text-[12px] text-gray-400 text-center py-6">No flagged products.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[12px]">
-              <thead>
-                <tr className="text-left text-[11px] font-semibold text-gray-500 tracking-wide">
-                  <th className="py-2 pr-3">Product</th>
-                  <th className="py-2 pr-3">Category</th>
-                  <th className="py-2 pr-3 text-right">Price</th>
-                  <th className="py-2 pr-3">Tags</th>
-                  <th className="py-2 pr-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {flaggedProducts.map((p) => {
-                  const cover = Array.isArray(p.image) ? p.image[0] : p.image;
-                  return (
-                    <tr key={p._id} className="border-t border-gray-50">
-                      <td className="py-2 pr-3">
-                        <Link
-                          href={`/products/${p._id}`}
-                          className="flex items-center gap-2 hover:text-primary"
-                        >
-                          {cover ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={cover}
-                              alt={p.name}
-                              className="w-9 h-9 rounded object-cover bg-gray-100 flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded bg-gray-100 flex-shrink-0" />
-                          )}
-                          <span className="font-medium line-clamp-1">{p.name}</span>
-                        </Link>
-                      </td>
-                      <td className="py-2 pr-3 text-gray-600">{p.category || '—'}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        ฿{formatCurrency(p.price)}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className="inline-flex flex-wrap gap-1">
-                          {(p.tags || [])
-                            .filter((t) => ['violation', 'reported', 'banned'].includes(t))
-                            .map((t) => (
-                              <span
-                                key={t}
-                                className="text-[9px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-rose-50 text-rose-700"
-                              >
-                                {t}
-                              </span>
-                            ))}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-gray-600">{p.status}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
-    </div>
-  );
-};
-
-interface AnalyticsTabProps {
-  user: AdminUserDetail;
-}
-
-const AnalyticsTab = ({ user }: AnalyticsTabProps) => {
-  const [orders, setOrders] = useState<AdminOrderRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchAdminOrders({ seller: user._id, limit: 500 })
-      .then((res) => {
-        if (cancelled) return;
-        setOrders(res.data ?? []);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load analytics');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user._id]);
-
-  const stats30 = useMemo(() => {
-    const cutoff = Date.now() - 30 * 86400_000;
-    const recent = orders.filter((o) => new Date(o.createdAt).getTime() >= cutoff);
-    const paid = recent.filter((o) => o.isPaid);
-    const revenue = paid.reduce((s, o) => s + (o.amount || 0), 0);
-    return {
-      orders: recent.length,
-      paidOrders: paid.length,
-      revenue,
-      avgOrder: paid.length > 0 ? revenue / paid.length : 0,
-    };
-  }, [orders]);
-
-  // Daily revenue trend over last 30 days. We bucket paid orders into the
-  // local-date string of when they were placed; bars are rendered as a small
-  // sparkline so the admin can spot spikes / dead days at a glance.
-  const trend = useMemo(() => {
-    const days: { label: string; date: string; revenue: number; orders: number }[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      days.push({
-        label: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
-        date: key,
-        revenue: 0,
-        orders: 0,
-      });
-    }
-    const byDate = new Map(days.map((d) => [d.date, d]));
-    orders.forEach((o) => {
-      if (!o.isPaid) return;
-      const key = new Date(o.createdAt).toISOString().slice(0, 10);
-      const bucket = byDate.get(key);
-      if (bucket) {
-        bucket.revenue += o.amount || 0;
-        bucket.orders += 1;
-      }
-    });
-    const max = Math.max(1, ...days.map((d) => d.revenue));
-    return { days, max };
-  }, [orders]);
-
-  const statusBreakdown = useMemo(() => {
-    const counts = new Map<string, number>();
-    orders.forEach((o) => {
-      counts.set(o.status, (counts.get(o.status) || 0) + 1);
-    });
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [orders]);
-
-  const paymentBreakdown = useMemo(() => {
-    const counts = new Map<string, number>();
-    orders.forEach((o) => {
-      const k = o.paymentMethod || 'unknown';
-      counts.set(k, (counts.get(k) || 0) + 1);
-    });
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [orders]);
-
-  if (loading) {
-    return <div className="text-[12px] text-gray-400 py-12 text-center">Loading analytics…</div>;
-  }
-  if (error) {
-    return <div className="text-[12px] text-red-600 py-6 text-center">{error}</div>;
-  }
-
-  const finance = user.finance;
-
-  return (
-    <div className="space-y-4">
-      <Section title="Last 30 days">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard label="Orders (30d)" value={formatNumber(stats30.orders)} />
-          <MetricCard label="Paid orders (30d)" value={formatNumber(stats30.paidOrders)} />
-          <MetricCard label="Revenue (30d, ₭)" value={formatCurrency(stats30.revenue)} />
-          <MetricCard label="Avg order (₭)" value={formatCurrency(stats30.avgOrder)} />
-        </div>
-      </Section>
-
-      <Section title="Daily revenue — last 30 days">
-        {trend.days.every((d) => d.revenue === 0) ? (
-          <p className="text-[12px] text-gray-400 text-center py-6">No paid orders in the last 30 days.</p>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-end gap-1 h-32">
-              {trend.days.map((d) => {
-                const h = trend.max > 0 ? Math.max(2, (d.revenue / trend.max) * 100) : 2;
-                return (
-                  <div
-                    key={d.date}
-                    className="flex-1 bg-primary/80 hover:bg-primary rounded-t transition-colors"
-                    style={{ height: `${h}%` }}
-                    title={`${d.label} — ฿${formatCurrency(d.revenue)} · ${d.orders} order${d.orders === 1 ? '' : 's'}`}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[10px] text-gray-400 tabular-nums">
-              <span>{trend.days[0]?.label}</span>
-              <span>{trend.days[Math.floor(trend.days.length / 2)]?.label}</span>
-              <span>{trend.days[trend.days.length - 1]?.label}</span>
-            </div>
-          </div>
-        )}
-      </Section>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Section title="Order status breakdown (lifetime)">
-          {statusBreakdown.length === 0 ? (
-            <p className="text-[12px] text-gray-400 text-center py-6">No orders yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {statusBreakdown.map(([status, count]) => (
-                <Row
-                  key={status}
-                  label={status.charAt(0).toUpperCase() + status.slice(1)}
-                  value={`${formatNumber(count)} (${Math.round((count / orders.length) * 100)}%)`}
-                />
               ))}
-            </div>
-          )}
-        </Section>
-
-        <Section title="Payment method mix">
-          {paymentBreakdown.length === 0 ? (
-            <p className="text-[12px] text-gray-400 text-center py-6">No payments yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {paymentBreakdown.map(([method, count]) => (
-                <Row
-                  key={method}
-                  label={method}
-                  value={`${formatNumber(count)} (${Math.round((count / orders.length) * 100)}%)`}
-                />
-              ))}
-            </div>
-          )}
-        </Section>
-      </div>
-
-      {finance && (
-        <Section title="Lifetime finance summary">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard
-              label="Web sales (₭)"
-              value={formatCurrency(finance.income.sellerWebSales.total)}
-            />
-            <MetricCard
-              label="Creator commission (₭)"
-              value={formatCurrency(finance.income.creatorEarnings.settledTotal)}
-            />
-            <MetricCard
-              label="POS revenue (₭)"
-              value={formatCurrency(finance.income.posRevenue)}
-            />
-            <MetricCard
-              label="Withdrawn (₭)"
-              value={formatCurrency(finance.withdrawals.totalNet)}
-            />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-            <MetricCard
-              label="Items sold (lifetime)"
-              value={formatNumber(finance.sellerActivity.itemsSold)}
-            />
-            <MetricCard
-              label="Refunds issued (₭)"
-              value={formatCurrency(finance.outgoing.refundsIssued.total)}
-            />
-            <MetricCard
-              label="Current balance (₭)"
-              value={formatCurrency(finance.income.currentBalance)}
-            />
-          </div>
-        </Section>
-      )}
-    </div>
+            </tbody>
+          </table>
+       </div>
+    </Section>
   );
 };
+
+const ViolationsTab = ({ sellerId, t }: { sellerId: string; t: (k: string) => string }) => (
+  <Section title={t('pages.shops.details.violations')}>
+    <p className="text-[12px] text-gray-400 py-8 text-center">{t('common.noViolations')}</p>
+  </Section>
+);
+
+const AnalyticsTab = ({ user, t }: { user: AdminUserDetail; t: (k: string) => string }) => (
+  <Section title={t('pages.shops.details.analytics')}>
+    <p className="text-[12px] text-gray-400 py-8 text-center">{t('common.noAnalytics')}</p>
+  </Section>
+);
 
 export default ShopDetailPage;

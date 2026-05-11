@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Wallet, User, Building, Hash, FileText, Save, Check, X,
   Loader2, Banknote, Clock,
@@ -20,14 +21,6 @@ const statusBadge: Record<WithdrawStatus, string> = {
   failed: 'bg-red-50 text-red-700',
 };
 
-const statusLabel: Record<WithdrawStatus, string> = {
-  pending: 'Pending',
-  approved: 'Approved',
-  completed: 'Completed',
-  rejected: 'Rejected',
-  failed: 'Failed',
-};
-
 const formatMoney = (n: number): string =>
   Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
@@ -41,6 +34,7 @@ const formatDate = (s?: string): string => {
 
 const WithdrawalDetailPage = () => {
   const router = useRouter();
+  const { t } = useTranslation('common');
   const { id } = router.query;
   const [item, setItem] = useState<AdminWithdrawRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +56,7 @@ const WithdrawalDetailPage = () => {
         setAdminNote(data.adminNote ?? '');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load withdrawal');
+      setError(err instanceof Error ? err.message : t('pages.withdrawals.details.loadingError'));
     } finally {
       setLoading(false);
     }
@@ -78,8 +72,8 @@ const WithdrawalDetailPage = () => {
     if (decision === 'reject' || decision === 'fail') {
       const ok = window.confirm(
         decision === 'reject'
-          ? 'Reject this withdrawal? The amount will be refunded to the user balance.'
-          : 'Mark this withdrawal as failed? The amount will be refunded to the user balance.',
+          ? t('pages.withdrawals.details.rejectConfirm')
+          : t('pages.withdrawals.details.failConfirm'),
       );
       if (!ok) return;
     }
@@ -92,9 +86,9 @@ const WithdrawalDetailPage = () => {
         adminNote: adminNote || undefined,
       });
       await load(id);
-      setSavedMessage(`Marked as ${decision}d`);
+      setSavedMessage(t('pages.withdrawals.details.markedAs', { status: t(`status.${decision === 'fail' ? 'failed' : decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'completed'}`) }));
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Action failed');
+      alert(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setBusy(false);
     }
@@ -115,10 +109,10 @@ const WithdrawalDetailPage = () => {
           onClick={() => router.push('/withdrawpage/Seller/SellerWithdrawals')}
           className="inline-flex items-center gap-2 text-[12px] text-gray-500 hover:text-black font-medium transition-colors"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to withdrawals
+          <ArrowLeft className="w-3.5 h-3.5" /> {t('pages.withdrawals.details.back')}
         </button>
         <div className="rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-700">
-          {error || 'Withdrawal not found'}
+          {error || t('pages.withdrawals.details.notFound')}
         </div>
       </div>
     );
@@ -136,7 +130,7 @@ const WithdrawalDetailPage = () => {
         onClick={() => router.back()}
         className="inline-flex items-center gap-2 text-[12px] text-gray-500 hover:text-black font-medium transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back
+        <ArrowLeft className="w-3.5 h-3.5" /> {t('actions.back')}
       </button>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -150,11 +144,11 @@ const WithdrawalDetailPage = () => {
             </h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusBadge[item.status]}`}>
-                {statusLabel[item.status]}
+                {t(`status.${item.status}`)}
               </span>
-              <span className="text-[11px] text-gray-500">Requested {formatDate(item.createdAt)}</span>
+              <span className="text-[11px] text-gray-500">{t('pages.withdrawals.details.requestedAt', { date: formatDate(item.createdAt) })}</span>
               {item.processedAt && (
-                <span className="text-[11px] text-gray-500">· Processed {formatDate(item.processedAt)}</span>
+                <span className="text-[11px] text-gray-500">· {t('pages.withdrawals.details.processedAt', { date: formatDate(item.processedAt) })}</span>
               )}
             </div>
           </div>
@@ -168,14 +162,14 @@ const WithdrawalDetailPage = () => {
                 onClick={() => onProcess('approve')}
                 className="px-3 py-1.5 rounded-md text-xs font-semibold text-blue-700 bg-blue-50 inline-flex items-center hover:bg-blue-100 disabled:opacity-50"
               >
-                <Check className="w-3.5 h-3.5 mr-1.5" /> Approve
+                <Check className="w-3.5 h-3.5 mr-1.5" /> {t('pages.withdrawals.details.actions.approve')}
               </button>
               <button
                 disabled={busy}
                 onClick={() => onProcess('reject')}
                 className="px-3 py-1.5 rounded-md text-xs font-semibold text-red-600 bg-red-50 inline-flex items-center hover:bg-red-100 disabled:opacity-50"
               >
-                <X className="w-3.5 h-3.5 mr-1.5" /> Reject
+                <X className="w-3.5 h-3.5 mr-1.5" /> {t('pages.withdrawals.details.actions.reject')}
               </button>
             </>
           )}
@@ -186,69 +180,69 @@ const WithdrawalDetailPage = () => {
                 onClick={() => onProcess('complete')}
                 className="px-3 py-1.5 rounded-md text-xs font-semibold text-green-700 bg-green-50 inline-flex items-center hover:bg-green-100 disabled:opacity-50"
               >
-                <Check className="w-3.5 h-3.5 mr-1.5" /> Mark Paid
+                <Check className="w-3.5 h-3.5 mr-1.5" /> {t('pages.withdrawals.details.actions.markPaid')}
               </button>
               <button
                 disabled={busy}
                 onClick={() => onProcess('fail')}
                 className="px-3 py-1.5 rounded-md text-xs font-semibold text-red-600 bg-red-50 inline-flex items-center hover:bg-red-100 disabled:opacity-50"
               >
-                <X className="w-3.5 h-3.5 mr-1.5" /> Mark Failed
+                <X className="w-3.5 h-3.5 mr-1.5" /> {t('pages.withdrawals.details.actions.markFailed')}
               </button>
             </>
           )}
           {isFinal && (
-            <span className="text-[11px] text-gray-400 font-medium">No further actions available</span>
+            <span className="text-[11px] text-gray-400 font-medium">{t('pages.withdrawals.details.actions.noFurther')}</span>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          <Section icon={Banknote} title="Amount">
+          <Section icon={Banknote} title={t('pages.withdrawals.details.amount.title')}>
             <div className="grid grid-cols-3 gap-3">
-              <Stat label="Amount" value={`฿${formatMoney(item.amount)}`} tone="text-black" />
-              <Stat label="Fee" value={`฿${formatMoney(item.fee)}`} tone="text-gray-700" />
-              <Stat label="Net to user" value={`฿${formatMoney(item.netAmount)}`} tone="text-green-700" />
+              <Stat label={t('pages.withdrawals.details.amount.title')} value={`${t('common.currencySymbol')}${formatMoney(item.amount)}`} tone="text-black" />
+              <Stat label={t('pages.withdrawals.details.amount.fee')} value={`${t('common.currencySymbol')}${formatMoney(item.fee)}`} tone="text-gray-700" />
+              <Stat label={t('pages.withdrawals.details.amount.net')} value={`${t('common.currencySymbol')}${formatMoney(item.netAmount)}`} tone="text-green-700" />
             </div>
           </Section>
 
-          <Section icon={Building} title="Bank account">
+          <Section icon={Building} title={t('pages.withdrawals.details.bankInfo.title')}>
             {bank ? (
               <div className="space-y-2">
-                <Row label="Bank name" value={bank.bankName} />
-                <Row label="Account number" value={bank.accountNumber} mono />
-                <Row label="Account name" value={bank.accountName} />
+                <Row label={t('pages.withdrawals.details.bankInfo.name')} value={bank.bankName} />
+                <Row label={t('pages.withdrawals.details.bankInfo.number')} value={bank.accountNumber} mono />
+                <Row label={t('pages.withdrawals.details.bankInfo.accountName')} value={bank.accountName} />
                 <Row
-                  label="Verified"
+                  label={t('pages.withdrawals.details.bankInfo.verified')}
                   value={
                     <span
                       className={`text-[11px] font-medium px-2 py-0.5 rounded ${
                         bank.isVerified ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
                       }`}
                     >
-                      {bank.isVerified ? 'verified' : 'unverified'}
+                      {bank.isVerified ? t('pages.withdrawals.details.bankInfo.verified') : t('pages.withdrawals.details.bankInfo.unverified')}
                     </span>
                   }
                 />
               </div>
             ) : (
-              <p className="text-[12px] text-gray-400">Bank account not on file</p>
+              <p className="text-[12px] text-gray-400">{t('pages.withdrawals.details.bankInfo.notOnFile')}</p>
             )}
           </Section>
 
-          <Section icon={FileText} title="Admin processing note">
+          <Section icon={FileText} title={t('pages.withdrawals.details.notes.title')}>
             <div className="space-y-3">
               {(isApproved || item.status === 'completed') && (
                 <label className="block">
                   <span className="text-[11px] font-semibold text-gray-500 tracking-wide">
-                    BANK TRANSFER REFERENCE
+                    {t('pages.withdrawals.details.notes.refLabel')}
                   </span>
                   <input
                     type="text"
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
-                    placeholder="e.g. TXN-882910 (used when marking as paid)"
+                    placeholder={t('pages.withdrawals.details.notes.refPlaceholder')}
                     className="w-full mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-md text-[12px] outline-none focus:border-primary"
                   />
                 </label>
@@ -256,13 +250,13 @@ const WithdrawalDetailPage = () => {
 
               <label className="block">
                 <span className="text-[11px] font-semibold text-gray-500 tracking-wide">
-                  ADMIN NOTE
+                  {t('pages.withdrawals.details.notes.adminNoteLabel')}
                 </span>
                 <textarea
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
                   rows={3}
-                  placeholder="Internal notes about this withdrawal..."
+                  placeholder={t('pages.withdrawals.details.notes.adminNotePlaceholder')}
                   className="w-full mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-md text-[12px] outline-none focus:border-primary resize-none"
                 />
               </label>
@@ -277,14 +271,13 @@ const WithdrawalDetailPage = () => {
                     if (isApproved) {
                       await onProcess('complete');
                     } else if (isPending) {
-                      // For pending: just update note via approve/reject? We allow note save through approve+reject buttons.
-                      alert('Use Approve or Reject to save note while withdrawal is pending');
+                      alert(t('pages.withdrawals.details.useApproveToSave'));
                     }
                   }}
                   className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center hover:bg-gray-900 disabled:opacity-50"
-                  title={isFinal ? 'Final state — note locked' : 'Save & complete'}
+                  title={isFinal ? t('common.locked') : t('actions.save')}
                 >
-                  <Save className="w-3.5 h-3.5 mr-1.5" /> Save
+                  <Save className="w-3.5 h-3.5 mr-1.5" /> {t('actions.save')}
                 </button>
               </div>
             </div>
@@ -292,39 +285,39 @@ const WithdrawalDetailPage = () => {
         </div>
 
         <div className="space-y-4">
-          <Section icon={User} title="User">
+          <Section icon={User} title={t('pages.withdrawals.details.userSection.title')}>
             {user ? (
               <>
-                <Row label="Name" value={user.name || '—'} />
-                {user.email && <Row label="Email" value={user.email} />}
-                {user.customId && <Row label="Custom ID" value={user.customId} mono />}
-                {user.seller_type && <Row label="Seller type" value={user.seller_type} />}
+                <Row label={t('common.name')} value={user.name || '—'} />
+                {user.email && <Row label={t('common.email')} value={user.email} />}
+                {user.customId && <Row label={t('common.id')} value={user.customId} mono />}
+                {user.seller_type && <Row label={t('common.type')} value={user.seller_type} />}
                 <Link
                   href={`/users/${user._id}`}
                   className="block mt-3 px-3 py-2 rounded-md text-xs font-medium text-center bg-gray-100 hover:bg-gray-200 text-gray-700"
                 >
-                  Open user profile →
+                  {t('pages.withdrawals.details.userSection.profile')} →
                 </Link>
               </>
             ) : (
-              <p className="text-[12px] text-gray-400">User not available</p>
+              <p className="text-[12px] text-gray-400">{t('pages.withdrawals.details.user.notAvailable')}</p>
             )}
           </Section>
 
-          <Section icon={Hash} title="Reference">
-            <Row label="Withdrawal ID" value={item._id} mono />
-            <Row label="Reference" value={item.reference || '—'} mono />
-            <Row label="Status" value={
+          <Section icon={Hash} title={t('common.reference')}>
+            <Row label={t('common.id')} value={item._id} mono />
+            <Row label={t('common.reference')} value={item.reference || '—'} mono />
+            <Row label={t('common.status')} value={
               <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${statusBadge[item.status]}`}>
-                {statusLabel[item.status]}
+                {t(`status.${item.status}`)}
               </span>
             } />
           </Section>
 
-          <Section icon={Clock} title="Timeline">
-            <Row label="Requested" value={formatDate(item.createdAt)} />
-            {item.processedAt && <Row label="Processed" value={formatDate(item.processedAt)} />}
-            <Row label="Last updated" value={formatDate(item.updatedAt)} />
+          <Section icon={Clock} title={t('pages.withdrawals.details.timeline.title')}>
+            <Row label={t('pages.withdrawals.details.timeline.requested')} value={formatDate(item.createdAt)} />
+            {item.processedAt && <Row label={t('pages.withdrawals.details.timeline.processed')} value={formatDate(item.processedAt)} />}
+            <Row label={t('pages.withdrawals.details.timeline.updated')} value={formatDate(item.updatedAt)} />
           </Section>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fetchHistoryOrders } from '@/services/adminApi';
 
 interface OrderRow {
@@ -33,6 +34,7 @@ const statusBadge: Record<string, string> = {
 };
 
 const OrdersTab = () => {
+  const { t } = useTranslation('common');
   const [items, setItems] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,18 +63,18 @@ const OrdersTab = () => {
       <table className="w-full text-[12px] tabular-nums">
         <thead className="text-[11px] text-gray-500 tracking-wide">
           <tr>
-            <th className="px-4 py-2 text-left font-semibold">Order ID</th>
-            <th className="px-4 py-2 text-left font-semibold">Customer</th>
-            <th className="px-4 py-2 text-right font-semibold">Items</th>
-            <th className="px-4 py-2 text-left font-semibold">Payment</th>
-            <th className="px-4 py-2 text-right font-semibold">Total (₭)</th>
-            <th className="px-4 py-2 text-left font-semibold">Date</th>
-            <th className="px-4 py-2 text-left font-semibold">Status</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.orderId')}</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.user')}</th>
+            <th className="px-4 py-2 text-right font-semibold">{t('pages.shops.details.products')}</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.payment')}</th>
+            <th className="px-4 py-2 text-right font-semibold">{t('table.total')} (₭)</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.createdAt')}</th>
+            <th className="px-4 py-2 text-left font-semibold">{t('table.status')}</th>
           </tr>
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">Loading...</td></tr>
+            <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.loading')}</td></tr>
           )}
           {!loading && error && (
             <tr><td colSpan={7} className="px-4 py-12 text-center text-red-500 text-[12px]">{error}</td></tr>
@@ -80,20 +82,20 @@ const OrdersTab = () => {
           {!loading && !error && items.map((o) => (
             <tr key={o._id}>
               <td className="px-4 py-2 font-mono text-[11px] text-gray-700">{o._id.slice(-8).toUpperCase()}</td>
-              <td className="px-4 py-2 font-medium text-gray-900">{o.user?.name || o.user?.email || 'Guest'}</td>
+              <td className="px-4 py-2 font-medium text-gray-900">{o.user?.name || o.user?.email || t('common.unknownUser')}</td>
               <td className="px-4 py-2 text-right text-gray-700">{o.orderItems?.length ?? 0}</td>
               <td className="px-4 py-2 text-gray-700">{o.paymentMethod || '—'}</td>
               <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatMoney(o.totalPrice)}</td>
               <td className="px-4 py-2 text-gray-500 text-[11px]">{formatDate(o.createdAt)}</td>
               <td className="px-4 py-2">
                 <span className={`text-[11px] font-medium px-2 py-0.5 rounded capitalize ${statusBadge[o.status] || 'bg-gray-100 text-gray-600'}`}>
-                  {o.status}
+                  {t(`status.${o.status}`, { defaultValue: o.status })}
                 </span>
               </td>
             </tr>
           ))}
           {!loading && !error && items.length === 0 && (
-            <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">No orders</td></tr>
+            <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-[12px]">{t('status.empty')}</td></tr>
           )}
         </tbody>
       </table>
