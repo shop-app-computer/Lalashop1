@@ -154,20 +154,20 @@ export default function SocialPost({ post, currentUserId }: SocialPostProps) {
           </div>
         )}
 
-        <div className="aspect-square bg-gray-light relative group">
+        <div className="bg-white relative group">
           {post.mediaType === "video" ? (
             <video
               src={post.mediaUrl}
               controls
               playsInline
               preload="metadata"
-              className="w-full h-full object-cover bg-black"
+              className="block w-full h-auto bg-black"
             />
           ) : (
             <img
               src={post.mediaUrl}
               alt={post.caption || "post"}
-              className="w-full h-full object-cover cursor-pointer"
+              className="block w-full h-auto cursor-pointer select-none"
               onDoubleClick={toggleLike}
             />
           )}

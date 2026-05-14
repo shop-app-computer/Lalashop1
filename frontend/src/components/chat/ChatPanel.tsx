@@ -228,12 +228,12 @@ const ChatPanel: React.FC = () => {
   return (
     <>
       <div
-        className="fixed inset-0 z-[80] bg-black/30 backdrop-blur-sm md:bg-transparent md:backdrop-blur-0"
+        className="fixed inset-0 z-[110] bg-black/30 backdrop-blur-sm md:bg-transparent md:backdrop-blur-0"
         onClick={close}
         aria-hidden
       />
       <aside
-        className="fixed top-0 right-0 z-[81] h-full w-full sm:w-[420px] bg-white shadow-2xl border-l border-slate-100 flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed top-0 right-0 z-[111] h-[100dvh] w-full sm:w-[420px] bg-white shadow-2xl border-l border-slate-100 flex flex-col animate-in slide-in-from-right duration-200"
         role="dialog"
         aria-label={t("components.chat.messagesAriaLabel")}
       >
@@ -573,7 +573,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
     <form
       onSubmit={onSend}
-      className="border-t border-slate-100 px-3 py-2.5 flex items-center gap-2 bg-white"
+      className="border-t border-slate-100 px-3 py-2.5 flex items-center gap-2 bg-white pb-[max(0.625rem,env(safe-area-inset-bottom))]"
     >
       <button
         type="button"

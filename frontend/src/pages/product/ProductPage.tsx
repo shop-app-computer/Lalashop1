@@ -798,11 +798,11 @@ export default function ProductPage() {
                     className="block text-inherit hover:no-underline group"
                   >
                     <div className="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-xl transition-all h-full flex flex-col">
-                      <div className="aspect-square relative overflow-hidden bg-gray-50">
+                      <div className="relative overflow-hidden bg-white">
                         <img
                           src={Array.isArray(p.image) ? p.image[0] : p.image}
                           alt={p.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          className="block w-full h-auto group-hover:scale-110 transition-transform duration-500"
                         />
                       </div>
                       <div className="p-3 flex-1 flex flex-col">

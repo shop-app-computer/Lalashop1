@@ -178,11 +178,11 @@ export default function Home() {
                         className="block text-inherit hover:no-underline h-full"
                       >
                         <div className="group cursor-pointer bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg transition-all h-full">
-                          <div className="aspect-square relative overflow-hidden bg-gray-100">
-                            <img 
-                              src={Array.isArray(product.image) ? product.image[0] : product.image} 
+                          <div className="relative overflow-hidden bg-white">
+                            <img
+                              src={Array.isArray(product.image) ? product.image[0] : product.image}
                               alt={product.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              className="block w-full h-auto group-hover:scale-105 transition-transform duration-300"
                             />
                           </div>
                           <div className="p-3">
@@ -215,7 +215,7 @@ export default function Home() {
             <div className="rounded-none sm:rounded-2xl border-x-0 sm:border border-gray-100 bg-white p-30 md:p-5 shadow-none sm:shadow-sm overflow-hidden text-clip mb-8">
               <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
                 <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                  <span className="text-red-500">🔥</span> {mounted ? t("product.hotSellers") : "Hot Sellers"}
+                  <span className="text-red-500"></span> {mounted ? t("product.hotSellers") : "Hot Sellers"}
                 </h2>
                 <Link href="/products" className="text-xs font-bold text-primary hover:underline">{mounted ? t("actions.viewAll") : "View All"}</Link>
               </div>
@@ -223,8 +223,8 @@ export default function Home() {
                 {hotProducts.map((product) => (
                   <Link key={product._id} href={`/product/${product._id}`} className="block text-inherit hover:no-underline">
                     <div className="group cursor-pointer bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-md transition-all">
-                      <div className="aspect-square relative overflow-hidden bg-gray-100">
-                        <img src={Array.isArray(product.image) ? product.image[0] : product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
+                      <div className="relative overflow-hidden bg-white">
+                        <img src={Array.isArray(product.image) ? product.image[0] : product.image} alt={product.name} className="block w-full h-auto group-hover:scale-105 transition-all" />
                       </div>
                       <div className="p-3">
                         <h3 className="text-xs font-bold text-gray-800 line-clamp-1">{product.name}</h3>
@@ -241,7 +241,7 @@ export default function Home() {
             <div className="rounded-none sm:rounded-2xl border-x-0 sm:border border-gray-100 bg-white p-4 md:p-6 shadow-none sm:shadow-sm overflow-hidden text-clip mb-8">
               <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
                 <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                  <span className="text-blue-500">✨</span> {mounted ? t("header.newArrivals") : "New Arrivals"}
+                  <span className="text-blue-500"></span> {mounted ? t("header.newArrivals") : "New Arrivals"}
                 </h2>
                 <Link href="/products" className="text-xs font-bold text-primary hover:underline">{mounted ? t("actions.viewAll") : "View All"}</Link>
               </div>
@@ -249,8 +249,8 @@ export default function Home() {
                 {newArrivals.map((product) => (
                   <Link key={product._id} href={`/product/${product._id}`} className="block text-inherit hover:no-underline">
                     <div className="group cursor-pointer bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-md transition-all">
-                      <div className="aspect-square relative overflow-hidden bg-gray-100">
-                        <img src={Array.isArray(product.image) ? product.image[0] : product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
+                      <div className="relative overflow-hidden bg-white">
+                        <img src={Array.isArray(product.image) ? product.image[0] : product.image} alt={product.name} className="block w-full h-auto group-hover:scale-105 transition-all" />
                       </div>
                       <div className="p-3">
                         <h3 className="text-xs font-bold text-gray-800 line-clamp-1">{product.name}</h3>

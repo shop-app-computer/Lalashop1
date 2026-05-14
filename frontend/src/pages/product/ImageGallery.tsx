@@ -81,7 +81,7 @@ export function ImageGallery({ image, images, name }: ImageGalleryProps) {
             borderRadius: 24,
             border: "1.5px solid #f1f5f9",
             boxShadow: "0 8px 40px rgba(0,0,0,0.08)",
-            background: "#0077b6",
+            background: "#f8fafc",
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
@@ -92,15 +92,14 @@ export function ImageGallery({ image, images, name }: ImageGalleryProps) {
               key={`${src}-${i}`}
               style={{
                 flex: "0 0 100%",
-                aspectRatio: "1/1",
                 scrollSnapAlign: "center",
-                background: "#0077b6",
+                background: "#f8fafc",
               }}
             >
               <img
                 src={src}
                 alt={`${name} ${i + 1}`}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                style={{ width: "100%", height: "auto", display: "block" }}
               />
             </div>
           ))}
