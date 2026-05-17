@@ -25,16 +25,14 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
+    // Create user — the userModel pre("save") hook hashes the password.
+    // The controller used to hash here too, which produced bcrypt(bcrypt(pw))
+    // and silently broke login for every account created via /register.
     const user = await User.create({
       name,
       email,
       phone,
-      password: hashedPassword,
+      password,
     });
 
     if (user) {
