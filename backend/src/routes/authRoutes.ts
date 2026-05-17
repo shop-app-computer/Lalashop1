@@ -108,13 +108,16 @@ router.post("/forgot-password", authRateLimiter, forgotPassword);
 router.post("/verify-reset-code", authRateLimiter, verifyResetCode);
 router.post("/reset-password", authRateLimiter, resetPassword);
 
-// Withdrawal PIN Route
-router.post("/withdraw-pin/set", protect as any, setWithdrawPin);
+// Withdrawal PIN Route — rate-limited because setting/changing the PIN is a
+// security-sensitive action that an XSS-stolen token could abuse.
+router.post("/withdraw-pin/set", authRateLimiter, protect as any, setWithdrawPin);
 
-// 2FA Routes
-router.post("/2fa/email/send", protect as any, sendEmailOTP);
-router.post("/2fa/email/verify", protect as any, verifyEmailOTP);
+// 2FA Routes — rate-limited so an attacker can't bomb the user with email
+// OTPs or brute-force the 6-digit code (10 tries / 15 min would take ~285
+// years to enumerate 10^6 codes).
+router.post("/2fa/email/send", authRateLimiter, protect as any, sendEmailOTP);
+router.post("/2fa/email/verify", authRateLimiter, protect as any, verifyEmailOTP);
 router.get("/2fa/setup", protect as any, setupTOTP);
-router.post("/2fa/verify", protect as any, verifyTOTP);
+router.post("/2fa/verify", authRateLimiter, protect as any, verifyTOTP);
 
 export default router;

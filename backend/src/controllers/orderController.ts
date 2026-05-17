@@ -47,7 +47,20 @@ const resolveAttribution = async (
   if (affCode) {
     const cp = await CreatorProduct.findOne({ affiliateCode: affCode }).lean();
     if (cp && cp.product.toString() === item.product.toString()) {
-      creatorId = cp.creator;
+      // Only attribute if there's an unexpired AffiliateClick for this
+      // creator+product pair. The cookie itself has maxAge so browsers stop
+      // sending it after the window, but body-supplied affiliateCode bypasses
+      // that — this guard makes the attribution window authoritative.
+      const validClick = await AffiliateClick.findOne({
+        creator: cp.creator,
+        product: cp.product,
+        expiresAt: { $gte: new Date() },
+      })
+        .select("_id")
+        .lean();
+      if (validClick) {
+        creatorId = cp.creator;
+      }
     }
   }
   if (!creatorId && item.creator) {

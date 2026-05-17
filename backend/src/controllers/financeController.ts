@@ -4,6 +4,8 @@ import Refund from "../models/refundModel";
 import Order from "../models/orderModel";
 import Withdraw from "../models/withdrawModel";
 import User from "../models/userModel";
+import CreatorEarning from "../models/creatorEarningModel";
+import CreatorProduct from "../models/creatorProductModel";
 import { IAuthRequest } from "../middlewares/authMiddleware";
 
 const requireUser = (req: IAuthRequest, res: Response): string | null => {
@@ -85,6 +87,33 @@ export const decideRefund = async (req: IAuthRequest, res: Response) => {
           message: "Insufficient seller balance to cover this refund",
         });
       }
+
+      // Reverse any creator commission paid out on this order. Settled
+      // earnings already hit the creator's withdrawable balance so we
+      // reclaim them here; pending ones just flip to canceled. The refund
+      // model has no item-level granularity (see #18), so we cancel the
+      // whole order's earnings — partial-refund accuracy needs a redesign.
+      // Best-effort: creator balance may go negative if they've already
+      // withdrawn the commission. That's a debt the platform tracks and
+      // recovers from future earnings.
+      const earnings = await CreatorEarning.find({
+        order: refund.order,
+        status: { $in: ["pending", "settled"] },
+      });
+      for (const earning of earnings) {
+        if (earning.status === "settled") {
+          await User.findByIdAndUpdate(earning.creator, {
+            $inc: { balance: -earning.amount },
+          });
+          await CreatorProduct.updateOne(
+            { creator: earning.creator, product: earning.product },
+            { $inc: { totalEarned: -earning.amount } },
+          );
+        }
+        earning.status = "canceled";
+        await earning.save();
+      }
+
       refund.status = "approved";
     } else if (action === "reject") {
       if (refund.status !== "requested") {

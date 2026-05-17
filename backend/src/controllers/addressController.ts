@@ -73,15 +73,35 @@ export const getAllAddresses = async (req: any, res: Response) => {
 // @access  Private
 export const updateAddress = async (req: any, res: Response) => {
   try {
-    const { isDefault } = req.body;
-    
-    if (isDefault) {
+    // Whitelist editable fields — passing req.body directly let a malicious
+    // client send `user: <otherUserId>` and reassign the address to someone
+    // else (mass-assignment).
+    const {
+      recipientName,
+      phoneNumber,
+      village,
+      district,
+      province,
+      shippingBranch,
+      isDefault,
+    } = req.body as Record<string, unknown>;
+
+    const update: Record<string, unknown> = {};
+    if (typeof recipientName === "string") update.recipientName = recipientName;
+    if (typeof phoneNumber === "string") update.phoneNumber = phoneNumber;
+    if (typeof village === "string") update.village = village;
+    if (typeof district === "string") update.district = district;
+    if (typeof province === "string") update.province = province;
+    if (typeof shippingBranch === "string") update.shippingBranch = shippingBranch;
+    if (typeof isDefault === "boolean") update.isDefault = isDefault;
+
+    if (isDefault === true) {
       await Address.updateMany({ user: req.user._id }, { isDefault: false });
     }
 
     const address = await Address.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
-      req.body,
+      update,
       { new: true }
     );
 

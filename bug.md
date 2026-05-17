@@ -3,9 +3,11 @@
 ผลการ audit แบบขนาน 3 มิติ (security/authz, money flows, frontend/contract)
 แก้ทีไหร่ → เปลี่ยน `[ ]` เป็น `[x]` แล้วเติม `**FIX DONE** YYYY-MM-DD` ที่ท้ายบรรทัด
 
-**สถานะรวม:** 10 / 29 fixed (Critical 10/10 · High 0/12 · Medium 0/7)
+**สถานะรวม:** 20 / 29 closed (18 fixed + 2 N/A · 9 pending)
 
-> 🎉 **Critical หมดแล้ว** (1 ใน 10 เป็น false positive ของ audit — #9)
+- Critical: 9 fixed + 1 N/A (#9 false positive)
+- High: 7 fixed + 1 N/A (#14 no apply flow yet) · 4 pending design (#18, #19, #21, #22)
+- Medium: 2 fixed (incidental จาก Critical) · 5 pending frontend/design (#25, #26, #27, #28, #29)
 
 ---
 
@@ -97,40 +99,43 @@
 
 ## 🟠 HIGH (12 bugs)
 
-- [ ] **#11 Affiliate cookie expired ยังจ่าย commission**
-  `attributeProduct` ไม่ตรวจ `affiliateClick.expiresAt`
-  📁 [affiliateController.ts:62-83](backend/src/controllers/affiliateController.ts)
-  💥 creator ได้ค่า commission จาก click ที่หมดอายุ 30+ วัน
+- [x] **#11 Affiliate cookie expired ยังจ่าย commission** **FIX DONE** 2026-05-17
+  `attributeProduct` + `resolveAttribution` ไม่ตรวจ `affiliateClick.expiresAt`
+  📁 [affiliateController.ts](backend/src/controllers/affiliateController.ts), [orderController.ts:26-80](backend/src/controllers/orderController.ts)
+  💥 creator ได้ค่า commission จาก click ที่หมดอายุ 30+ วัน (ผ่าน body affiliateCode bypass)
+  ✅ Applied: ทั้ง 2 ฟังก์ชัน query `AffiliateClick.findOne({creator, product, expiresAt: {$gte: now}})` — ไม่ attribute ถ้าไม่มี click ใน window
 
-- [ ] **#12 CreatorEarning ไม่ถูก cancel เมื่อ refund**
+- [x] **#12 CreatorEarning ไม่ถูก cancel เมื่อ refund** **FIX DONE** 2026-05-17
   ไม่มี code path connect refund → CreatorEarning
-  📁 [refundController.ts](backend/src/controllers/), [financeController.ts](backend/src/controllers/financeController.ts) (ไม่มี)
+  📁 [financeController.ts decideRefund](backend/src/controllers/financeController.ts)
   💥 refund แล้ว creator ยัง settled commission อยู่
+  ✅ Applied: ใน `approve` action, query all earnings ของ order, settled → deduct creator balance + decrement totalEarned, ทั้งหมด → status `canceled`
+  📝 Note: best-effort ไม่ใช่ transactional; creator balance ลง negative ได้ (debt — รอ design wallet recovery flow); refund per-item granularity ต้องรอ #18
 
-- [ ] **#13 Cart freeze ราคาเก่า**
+- [x] **#13 Cart freeze ราคาเก่า** **FIX DONE** 2026-05-17 (incidental จาก #4)
   ใช้ `cart.items[].unitPrice` (snapshot) ไม่ re-fetch product ตอน checkout
-  📁 [cartController.ts:143-153](backend/src/controllers/cartController.ts)
-  💥 ราคาขึ้น 100 → buyer ยังได้ราคาเดิม
+  ✅ #4 ของ createOrder re-fetch `product.price` server-side อยู่แล้ว — cart's stale price ถูก ignore ตอน order creation
+  📝 Note: cart UI ยังแสดงราคา snapshot — ถ้าจะ UX ดีกว่านี้ ให้ frontend re-fetch product ตอน load cart (แยก task)
 
-- [ ] **#14 Coupon `usedCount` ไม่ atomic**
-  ใช้ `coupon.usedCount += 1; coupon.save()` แทน `$inc`
-  📁 [marketingController.ts](backend/src/controllers/marketingController.ts)
-  💥 concurrent ใช้ coupon ได้เกิน `usageLimit`
+- [~] **#14 Coupon `usedCount` ไม่ atomic** **N/A — ยังไม่มี apply flow**
+  ตรวจแล้ว: marketingController มีแค่ CRUD coupon ไม่มี endpoint ที่ `$inc usedCount` หรือ apply coupon ในการ checkout เลย
+  📝 Note: เมื่อสร้าง apply flow ใหม่ ต้องใช้ atomic `findOneAndUpdate({_id, usedCount: {$lt: usageLimit}}, {$inc: {usedCount: 1}})`
 
-- [ ] **#15 Admin invite token re-use ได้**
-  `acceptInvite` ไม่ invalidate token หลัง accept
-  📁 [adminInviteController.ts:206](backend/src/controllers/adminInviteController.ts)
-  💥 token ถูก leak → ใครที่มี token เปลี่ยน account เป็น admin ได้
+- [x] **#15 Admin invite token race + re-use** **FIX DONE** 2026-05-17
+  status check block re-use แต่ 2 request concurrent ทั้งคู่ผ่าน check → ทั้งคู่ grant admin + เขียน password ทับ
+  📁 [adminInviteController.ts acceptInvite](backend/src/controllers/adminInviteController.ts)
+  💥 race condition → admin elevation + password overwrite
+  ✅ Applied: atomic claim `AdminInvite.findOneAndUpdate({token, status: "pending", expiresAt: {$gte: now}}, {status: "accepted"})` — ผู้ที่ claim ได้คนเดียวเท่านั้นที่ดำเนินการต่อ; diagnostic 2nd-query ช่วยให้ frontend แสดง error message ที่ถูกต้อง (expired/accepted/not-found)
 
-- [ ] **#16 Mass assignment บน updateAddress**
+- [x] **#16 Mass assignment บน updateAddress** **FIX DONE** 2026-05-17
   รับ `req.body` ตรงๆ ใน `findOneAndUpdate`
-  📁 [addressController.ts:84](backend/src/controllers/addressController.ts)
+  📁 [addressController.ts updateAddress](backend/src/controllers/addressController.ts)
   💥 ผู้ใช้ส่ง `user: <otherUserId>` → ที่อยู่ถูก reassign
+  ✅ Applied: explicit whitelist ของ 7 fields (recipientName, phoneNumber, village, district, province, shippingBranch, isDefault) + type validation; ฟิลด์อื่น (user, createdAt, _id) ถูก ignore
 
-- [ ] **#17 Mass assignment ตอน Order.create**
+- [x] **#17 Mass assignment ตอน Order.create** **FIX DONE** 2026-05-17 (incidental จาก #4)
   spread `req.body` → buyer ส่ง `status: "delivered"`, `isPaid: true` ได้
-  📁 [orderController.ts:116](backend/src/controllers/orderController.ts)
-  💥 order create แล้วเป็น paid/delivered ทันที โดยไม่จ่าย
+  ✅ #4 build `enriched` แบบ explicit ทุก field; Order constructor hardcode `status`, `isPaid`, `isDelivered` ตาม `isPos` server-side
 
 - [ ] **#18 Multi-seller refund ไม่ proportional**
   `refundModel.shop` มีอันเดียว แต่ order มี seller หลายคน
@@ -143,10 +148,11 @@
   📁 [orderController.ts:149-151](backend/src/controllers/orderController.ts), [paymentController.ts:268](backend/src/controllers/paymentController.ts), [financeController.ts](backend/src/controllers/financeController.ts)
   💥 withdraw จาก `balance` ดึง pos revenue ไม่ได้ / ดึงได้แล้วแต่ที่
 
-- [ ] **#20 ไม่มี rate limit บน 2FA/OTP send**
+- [x] **#20 ไม่มี rate limit บน 2FA/OTP send + withdraw-pin/set** **FIX DONE** 2026-05-17
   DEPLOY.md ระบุ rate limit เฉพาะ auth endpoints
-  📁 [authRoutes.ts:115-118](backend/src/routes/authRoutes.ts)
-  💥 brute-force OTP / spam OTP email
+  📁 [authRoutes.ts:112-118](backend/src/routes/authRoutes.ts)
+  💥 brute-force OTP / spam OTP email / steal withdraw PIN via XSS
+  ✅ Applied: `authRateLimiter` ใน `/withdraw-pin/set`, `/2fa/email/send`, `/2fa/email/verify`, `/2fa/verify` (10 tries / 15 min) — เก็บ `/2fa/setup` ไว้ (GET, idempotent)
 
 - [ ] **#21 Frontend: token ใน localStorage**
   ทั้ง 3 apps เก็บ JWT ใน localStorage → XSS ขโมยได้
@@ -162,13 +168,11 @@
 
 ## 🟡 MEDIUM (7 bugs)
 
-- [ ] **#23 Refund amount ไม่ validate ≤ order.totalPrice**
-  📁 [financeController.ts](backend/src/controllers/financeController.ts)
-  💥 seller approve refund เกินที่ buyer จ่ายได้
+- [x] **#23 Refund amount ไม่ validate ≤ order.totalPrice** **FIX DONE** 2026-05-17 (incidental จาก #1)
+  ✅ #1 fix เพิ่ม `Order.findById(refund.order).select("totalPrice")` + check `refund.amount > order.totalPrice` → 400
 
-- [ ] **#24 Withdraw cancel ตอน status ≠ pending → silent fail**
-  ไม่ refund balance, ไม่ throw error
-  📁 [withdrawController.ts:150-176](backend/src/controllers/withdrawController.ts)
+- [x] **#24 Withdraw cancel silent fail ตอน status ≠ pending** **FIX DONE** 2026-05-17 (incidental จาก #5)
+  ✅ #5 fix เปลี่ยน cancelWithdrawal เป็น atomic `findOneAndUpdate({_id, user, status: "pending"})` → 400 explicit ถ้าไม่ใช่ pending
 
 - [ ] **#25 Commission lock ตอน create order ไม่ใช่ตอน paid**
   ถ้า seller เปลี่ยน commission rule ระหว่าง buyer จ่าย → rate เก่าค้าง
@@ -222,5 +226,12 @@
 2026-05-17 · #5 · (uncommitted) · withdraw create + cancel use atomic findOneAndUpdate, no read-then-write
 2026-05-17 · #8 · (uncommitted) · add requireRole(allowed[]) middleware + apply to 5 super-only admin routes
 2026-05-17 · #9 · (skipped) · false positive — financeRoutes are seller-scoped, not admin
-2026-05-17 · #10 · (uncommitted) · userModel select:false on 5 secrets + opt-in .select("+xxx") at 9 caller sites
+2026-05-17 · #10 · 5e0aea2 · userModel select:false on 5 secrets + opt-in .select("+xxx") at 9 caller sites
+2026-05-17 · #6-#10 · 5e0aea2 · "fix(backend): close 9 critical security + money-flow holes"
+2026-05-17 · #11 · (uncommitted) · resolveAttribution + attributeProduct check AffiliateClick.expiresAt
+2026-05-17 · #12 · (uncommitted) · decideRefund approve → cancel CreatorEarnings + reverse creator balance/totalEarned
+2026-05-17 · #15 · (uncommitted) · acceptInvite atomic claim via findOneAndUpdate (status: "pending" guard)
+2026-05-17 · #16 · (uncommitted) · updateAddress whitelist 7 fields (kill mass-assignment)
+2026-05-17 · #20 · (uncommitted) · authRateLimiter applied to /withdraw-pin/set, /2fa/email/send, /2fa/email/verify, /2fa/verify
+2026-05-17 · #13, #17, #23, #24 · (closed by previous commits) · incidentally fixed by #4, #1, #5
 ```

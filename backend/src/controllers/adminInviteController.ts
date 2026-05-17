@@ -203,16 +203,31 @@ export const acceptInvite = async (req: Request, res: Response) => {
       });
     }
 
-    const invite = await AdminInvite.findOne({ token });
-    if (!invite) return res.status(404).json({ success: false, message: "Invite not found" });
-
-    if (invite.status !== "pending") {
-      return res.status(400).json({ success: false, message: `Invite is ${invite.status}` });
-    }
-    if (invite.expiresAt < new Date()) {
-      invite.status = "expired";
-      await invite.save();
-      return res.status(400).json({ success: false, message: "Invite has expired" });
+    // Atomic claim — only the first request wins the pending→accepted flip.
+    // Without this, two concurrent acceptInvite calls with the same token both
+    // pass the status check and both grant admin; the loser also overwrites
+    // the existing user's password with whatever it sent.
+    const invite = await AdminInvite.findOneAndUpdate(
+      { token, status: "pending", expiresAt: { $gte: new Date() } },
+      { $set: { status: "accepted", acceptedAt: new Date() } },
+      { new: true },
+    );
+    if (!invite) {
+      // Diagnose the failure mode so the frontend can show a helpful message.
+      const existing = await AdminInvite.findOne({ token });
+      if (!existing) {
+        return res.status(404).json({ success: false, message: "Invite not found" });
+      }
+      if (existing.expiresAt < new Date()) {
+        if (existing.status === "pending") {
+          existing.status = "expired";
+          await existing.save();
+        }
+        return res.status(400).json({ success: false, message: "Invite has expired" });
+      }
+      return res
+        .status(400)
+        .json({ success: false, message: `Invite is ${existing.status}` });
     }
 
     let user = await User.findOne({ email: invite.email });
@@ -232,8 +247,6 @@ export const acceptInvite = async (req: Request, res: Response) => {
     }
     await user.save();
 
-    invite.status = "accepted";
-    invite.acceptedAt = new Date();
     invite.acceptedBy = user._id as mongoose.Types.ObjectId;
     await invite.save();
 

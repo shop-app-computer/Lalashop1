@@ -72,6 +72,20 @@ export const attributeProduct = async (req: IAuthRequest, res: Response) => {
       return res.status(200).json({ success: true, data: null });
     }
 
+    // Require an unexpired AffiliateClick — the attribution window is
+    // enforced server-side here so a stale code (e.g. one the frontend held
+    // past cookieDays) doesn't slip into the order payload.
+    const validClick = await AffiliateClick.findOne({
+      creator: row.creator,
+      product: row.product,
+      expiresAt: { $gte: new Date() },
+    })
+      .select("_id")
+      .lean();
+    if (!validClick) {
+      return res.status(200).json({ success: true, data: null });
+    }
+
     res.status(200).json({
       success: true,
       data: {
