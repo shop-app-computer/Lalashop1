@@ -50,7 +50,7 @@ export const sendEmailOTP = async (req: IAuthRequest, res: Response) => {
 export const verifyEmailOTP = async (req: IAuthRequest, res: Response) => {
   try {
     const { otp } = req.body;
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("+otp +otpExpires");
 
     if (!user || !user.otp || !user.otpExpires) {
       return res.status(400).json({ success: false, message: "OTP not requested or user not found" });
@@ -109,7 +109,7 @@ export const setupTOTP = async (req: IAuthRequest, res: Response) => {
 export const verifyTOTP = async (req: IAuthRequest, res: Response) => {
   try {
     const { token } = req.body;
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("+twoFactorSecret");
 
     if (!user || !user.twoFactorSecret) {
       return res.status(400).json({ success: false, message: "2FA setup not initiated" });

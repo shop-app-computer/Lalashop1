@@ -1,5 +1,18 @@
 import dotenv from "dotenv";
 dotenv.config();
+
+// Refuse to boot without a real JWT_SECRET. A short or missing secret would let
+// anyone forge tokens for any user — every auth check in the system reduces to
+// "can the attacker guess this string." 32 chars is the floor; generate with:
+//   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  // eslint-disable-next-line no-console
+  console.error(
+    "FATAL: JWT_SECRET must be set and at least 32 characters. Refusing to start.",
+  );
+  process.exit(1);
+}
+
 import express, { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import mongoose from "mongoose";

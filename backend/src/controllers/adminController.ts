@@ -365,7 +365,12 @@ export const listUsers = async (req: Request, res: Response) => {
 
 export const getUserById = async (req: Request, res: Response) => {
   try {
-    const userDoc = await User.findById(req.params.id);
+    // +password +sellerPassword +withdrawPin — only used for the hasPassword
+    // / hasSellerPassword / hasPin booleans returned to the admin panel.
+    // The raw hashes are deleted from the response body below.
+    const userDoc = await User.findById(req.params.id).select(
+      "+password +sellerPassword +withdrawPin",
+    );
 
     if (!userDoc) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -675,7 +680,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const user = await User.findById(req.params.id);
+    // +password +withdrawPin so the hasPassword / hasPin booleans below
+    // reflect reality. Without these the select:false default would always
+    // make both look unset in the response.
+    const user = await User.findById(req.params.id).select("+password +withdrawPin");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }

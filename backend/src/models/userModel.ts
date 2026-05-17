@@ -38,7 +38,11 @@ const userSchema: Schema = new Schema(
     username: { type: String, unique: true, sparse: true },
     email: { type: String, required: true, unique: true },
     phone: { type: String, required: false },
-    password: { type: String, required: false },
+    // Secrets are select:false by default so an accidental User.find() in any
+    // controller can't leak the bcrypt hash, the 2FA seed, the reset OTP, or
+    // the withdraw PIN to the client. Code that legitimately needs them must
+    // opt in with .select("+password") (or the matching field name).
+    password: { type: String, required: false, select: false },
     sellerPassword: { type: String, required: false, select: false },
     isAdmin: { type: Boolean, default: false },
     isSeller: { type: Boolean, default: false },
@@ -52,12 +56,12 @@ const userSchema: Schema = new Schema(
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorType: { type: String, enum: ['email', 'authenticator', 'none'], default: 'none' },
-    twoFactorSecret: { type: String },
-    otp: { type: String },
-    otpExpires: { type: Date },
+    twoFactorSecret: { type: String, select: false },
+    otp: { type: String, select: false },
+    otpExpires: { type: Date, select: false },
     customId: { type: String, unique: true },
     lastUsernameChange: { type: Date },
-    withdrawPin: { type: String },
+    withdrawPin: { type: String, select: false },
     googleId: { type: String },
     facebookId: { type: String },
     lastKnownIp: { type: String },

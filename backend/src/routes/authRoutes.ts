@@ -70,7 +70,7 @@ router.get(
   requireOAuth("google"),
   passport.authenticate("google", { session: false }),
   (req: any, res) => {
-    const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET || "secret");
+    const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET as string);
     const base = process.env.FRONTEND_URL || "http://localhost:3000";
     res.redirect(`${base}/login?token=${token}`);
   },
@@ -90,7 +90,7 @@ router.get(
   (req: any, res) => {
     const token = jwt.sign(
       { id: req.user._id },
-      process.env.JWT_SECRET || "secret",
+      process.env.JWT_SECRET as string,
       { expiresIn: "7d" },
     );
     const base = process.env.FRONTEND_URL || "http://localhost:3000";

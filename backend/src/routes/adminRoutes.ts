@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect, admin } from "../middlewares/authMiddleware";
+import { protect, admin, requireRole } from "../middlewares/authMiddleware";
 import {
   getDashboardStats,
   getRecentActivity,
@@ -116,12 +116,15 @@ router.get("/users/:id", getUserById);
 router.patch("/users/:id", updateUser);
 
 // Admin account management — direct create/list/demote (no invite tokens).
+// Creating or revoking other admins is the most privileged action in the
+// system, so it's gated to super admins only. Anyone with super can elevate
+// themselves further; finance/support/content sub-roles cannot.
 router.get("/admins", listAdminAccounts);
-router.post("/admins", createAdminAccount);
-router.delete("/admins/:id", revokeAdminAccount);
-router.put("/users/:id/bank", updateUserBank);
+router.post("/admins", requireRole(["super"]), createAdminAccount);
+router.delete("/admins/:id", requireRole(["super"]), revokeAdminAccount);
+router.put("/users/:id/bank", requireRole(["super", "finance"]), updateUserBank);
 router.post("/users/:id/issue-seller-credentials", issueSellerCredentials);
-router.patch("/users/:id/suspend", suspendUser);
+router.patch("/users/:id/suspend", requireRole(["super", "support"]), suspendUser);
 
 // KYC
 router.get("/kyc", adminListKyc);
@@ -140,11 +143,16 @@ router.get("/products", adminListProducts);
 router.get("/products/:id", adminGetProduct);
 router.patch("/products/:id", adminUpdateProduct);
 
-// Withdrawals
+// Withdrawals — viewing is open to any admin (for support context), but
+// the actual approve/pay/reject decision is finance-only.
 router.get("/withdrawals/stats", adminWithdrawStats);
 router.get("/withdrawals", adminListWithdrawals);
 router.get("/withdrawals/:id", adminGetWithdrawal);
-router.patch("/withdrawals/:id/process", adminProcessWithdrawal);
+router.patch(
+  "/withdrawals/:id/process",
+  requireRole(["super", "finance"]),
+  adminProcessWithdrawal,
+);
 
 // Shops
 router.get("/shops/stats", adminShopStats);
@@ -160,15 +168,16 @@ router.post("/notifications/broadcast", adminBroadcastNotification);
 router.get("/audit/stats", adminAuditStats);
 router.get("/audit", adminListAuditLogs);
 
-// Admin invites
+// Admin invites — only super admins can mint or revoke invite tokens.
 router.get("/invites", adminListInvites);
-router.post("/invites", adminCreateInvite);
-router.patch("/invites/:id/revoke", adminRevokeInvite);
-router.patch("/invites/:id/resend", adminResendInvite);
+router.post("/invites", requireRole(["super"]), adminCreateInvite);
+router.patch("/invites/:id/revoke", requireRole(["super"]), adminRevokeInvite);
+router.patch("/invites/:id/resend", requireRole(["super"]), adminResendInvite);
 
-// System settings
+// System settings — global flags, gated to super to prevent a single
+// sub-role admin from disabling features platform-wide.
 router.get("/settings", adminListSettings);
-router.patch("/settings/:key", adminUpdateSetting);
+router.patch("/settings/:key", requireRole(["super"]), adminUpdateSetting);
 
 // Support tickets
 router.get("/support/stats", adminTicketStats);

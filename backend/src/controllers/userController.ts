@@ -36,7 +36,10 @@ export const getUserProfile = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: IAuthRequest, res: Response) => {
     try {
-        const user = await User.findById(req.user._id);
+        // +password — needed below for the currentPassword bcrypt.compare when
+        // the user wants to change their password. Other fields don't need
+        // explicit opt-in because we only assign to them.
+        const user = await User.findById(req.user._id).select("+password");
 
         if (user) {
             user.name = req.body.name || user.name;

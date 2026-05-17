@@ -86,7 +86,7 @@ export const createWithdrawal = async (req: IAuthRequest, res: Response) => {
       });
     }
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("+withdrawPin");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -120,15 +120,20 @@ export const createWithdrawal = async (req: IAuthRequest, res: Response) => {
       });
     }
 
-    if ((user.balance || 0) < numericAmount) {
-      return res.status(400).json({ success: false, message: "Insufficient balance" });
-    }
-
     const fee = computeFee(numericAmount);
     const netAmount = numericAmount - fee;
 
-    user.balance = (user.balance || 0) - numericAmount;
-    await user.save();
+    // Atomic deduction — the previous read-then-write let two concurrent
+    // withdraws (or a click-twice) both see the original balance and both
+    // succeed, drawing the seller's balance below zero. findOneAndUpdate
+    // with a $gte guard means only one request wins per concurrency window.
+    const deducted = await User.findOneAndUpdate(
+      { _id: req.user._id, balance: { $gte: numericAmount } },
+      { $inc: { balance: -numericAmount } },
+    );
+    if (!deducted) {
+      return res.status(400).json({ success: false, message: "Insufficient balance" });
+    }
 
     const created = await Withdraw.create({
       user: req.user._id,
@@ -153,19 +158,30 @@ export const cancelWithdrawal = async (req: IAuthRequest, res: Response) => {
     if (!req.user?._id) {
       return res.status(401).json({ success: false, message: "Not authenticated" });
     }
-    const tx = await Withdraw.findOne({ _id: req.params.id, user: req.user._id });
+    // Atomic claim — only the first cancel request wins. The previous
+    // find→check→save pattern let two concurrent cancels both refund balance
+    // (crediting double the original amount).
+    const tx = await Withdraw.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id, status: "pending" },
+      {
+        $set: {
+          status: "rejected",
+          adminNote: "Canceled by user",
+          processedAt: new Date(),
+        },
+      },
+      { new: true },
+    );
     if (!tx) {
-      return res.status(404).json({ success: false, message: "Withdrawal not found" });
+      const existing = await Withdraw.findOne({ _id: req.params.id, user: req.user._id });
+      if (!existing) {
+        return res.status(404).json({ success: false, message: "Withdrawal not found" });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `Only pending withdrawals can be canceled (current: "${existing.status}")`,
+      });
     }
-    if (tx.status !== "pending") {
-      return res
-        .status(400)
-        .json({ success: false, message: "Only pending withdrawals can be canceled" });
-    }
-    tx.status = "rejected";
-    tx.adminNote = "Canceled by user";
-    tx.processedAt = new Date();
-    await tx.save();
 
     await User.findByIdAndUpdate(req.user._id, { $inc: { balance: tx.amount } });
 

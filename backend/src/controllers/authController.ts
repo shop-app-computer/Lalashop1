@@ -63,7 +63,7 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
     if (user && (await bcrypt.compare(password, user.password as string))) {
       const ip = extractIp(req);
@@ -151,7 +151,10 @@ export const sellerLogin = async (req: Request, res: Response) => {
 
 export const getMe = async (req: any, res: Response) => {
   try {
-    const user = await User.findById(req.user._id);
+    // +password +withdrawPin so the hasPassword / hasWithdrawPin booleans
+    // below reflect the truth — without these the select:false default
+    // would always make both look unset.
+    const user = await User.findById(req.user._id).select("+password +withdrawPin");
     if (user) {
       let orderCount = 0;
       if (user.isSeller) {
@@ -326,7 +329,9 @@ export const verifyResetCode = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Email and OTP are required" });
     }
 
-    const user = await User.findOne({ email: identity.toLowerCase() });
+    const user = await User.findOne({ email: identity.toLowerCase() }).select(
+      "+otp +otpExpires",
+    );
 
     if (!user || user.otp !== otp || !user.otpExpires || new Date() > user.otpExpires) {
       return res.status(400).json({ message: "Invalid or expired verification code" });
@@ -349,7 +354,9 @@ export const resetPassword = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const user = await User.findOne({ email: identity.toLowerCase() });
+    const user = await User.findOne({ email: identity.toLowerCase() }).select(
+      "+otp +otpExpires",
+    );
 
     if (!user || user.otp !== otp || !user.otpExpires || new Date() > user.otpExpires) {
       return res.status(400).json({ message: "Invalid session or code expired" });
@@ -371,7 +378,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 };
 
 const generateToken = (id: string) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || "secret", {
+  return jwt.sign({ id }, process.env.JWT_SECRET as string, {
     expiresIn: "30d",
   });
 };

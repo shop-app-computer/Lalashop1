@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import mongoose from "mongoose";
 import Order from "../models/orderModel";
 import User from "../models/userModel";
@@ -72,7 +72,6 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
       orderItems,
       shippingAddress,
       paymentMethod,
-      totalPrice,
       sessionId = "guest-session",
       channel,
       posTerminal,
@@ -86,8 +85,6 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
     const cookies = (req as any).cookies as Record<string, string> | undefined;
     const isPos = channel === "pos";
 
-    // POS sales must be made by an authenticated seller and items must belong
-    // to that same seller (a seller selling at their own terminal).
     if (isPos) {
       if (!req.user?._id) {
         return res
@@ -99,7 +96,58 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
           .status(403)
           .json({ success: false, message: "Only sellers can create POS orders" });
       }
-      const allOwn = (orderItems as Array<{ seller?: string }>).every(
+    }
+
+    // Server is the source of truth for price/seller/name. The client's copies
+    // of these fields are intentionally discarded — trusting them would let a
+    // tampered payload pay 1 baht for a 1000-baht product.
+    const enrichedItems = await Promise.all(
+      orderItems.map(async (item: any) => {
+        const product = await Product.findById(item.product).select(
+          "name image price seller status",
+        );
+        if (!product) {
+          throw new Error(`Product not found: ${item.product}`);
+        }
+        if (product.status === "Archived") {
+          throw new Error(`Product "${product.name}" is no longer available`);
+        }
+
+        const qty = Math.max(1, Math.floor(Number(item.qty) || 1));
+        const serverPrice = Number(product.price) || 0;
+        const baseImage = Array.isArray(product.image) ? product.image[0] : product.image;
+
+        const enriched: any = {
+          product: product._id,
+          seller: product.seller,
+          name: product.name,
+          image: baseImage,
+          price: serverPrice,
+          qty,
+          description: typeof item.description === "string" ? item.description : "",
+        };
+
+        // Affiliate commission only applies to web sales. Re-run attribution with
+        // the server price so commission percent/fixed is also tamper-proof.
+        if (!isPos) {
+          const attribution = await resolveAttribution(
+            { ...item, price: serverPrice, qty },
+            cookies,
+          );
+          if (attribution) {
+            enriched.creator = attribution.creator;
+            enriched.commission = attribution.commission;
+            enriched.commissionType = attribution.commissionType;
+            enriched.commissionValue = attribution.commissionValue;
+          }
+        }
+        return enriched;
+      }),
+    );
+
+    // POS ownership check now uses the DB seller, not the client field.
+    if (isPos) {
+      const allOwn = enrichedItems.every(
         (item) => String(item.seller) === String(req.user._id),
       );
       if (!allOwn) {
@@ -110,19 +158,9 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
       }
     }
 
-    const enrichedItems = await Promise.all(
-      orderItems.map(async (item: any) => {
-        const attribution = await resolveAttribution(item, cookies);
-        const base = { ...item };
-        if (attribution && !isPos) {
-          // Affiliate commission only applies to web sales
-          base.creator = attribution.creator;
-          base.commission = attribution.commission;
-          base.commissionType = attribution.commissionType;
-          base.commissionValue = attribution.commissionValue;
-        }
-        return base;
-      })
+    const computedTotal = enrichedItems.reduce(
+      (sum, item) => sum + item.price * item.qty,
+      0,
     );
 
     const order = new Order({
@@ -130,7 +168,7 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
       orderItems: enrichedItems,
       shippingAddress,
       paymentMethod,
-      totalPrice,
+      totalPrice: computedTotal,
       sessionId: userId ? undefined : sessionId,
       channel: isPos ? "pos" : "web",
       posTerminal: isPos ? (typeof posTerminal === "string" ? posTerminal : "default") : undefined,
@@ -147,7 +185,7 @@ export const createOrder = async (req: IAuthRequest, res: Response) => {
     // POS revenue routes to the seller's posRevenue (non-withdrawable).
     if (isPos && req.user?._id) {
       await User.findByIdAndUpdate(req.user._id, {
-        $inc: { posRevenue: Number(totalPrice) || 0 },
+        $inc: { posRevenue: computedTotal },
       });
     }
 
@@ -212,14 +250,11 @@ export const getMyCreatorOrders = async (req: IAuthRequest, res: Response) => {
 
 export const getMyOrders = async (req: IAuthRequest, res: Response) => {
   try {
-    const identifier: any = {};
-    if (req.user && req.user._id) {
-      identifier.user = req.user._id;
-    } else {
-      identifier.sessionId = "guest-session";
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
     }
 
-    const orders = await Order.find(identifier)
+    const orders = await Order.find({ user: req.user._id })
       .populate("orderItems.product", "description")
       .populate("orderItems.seller", "name username profileImage customId")
       .sort({ createdAt: -1 })
@@ -249,14 +284,29 @@ export const getMyOrders = async (req: IAuthRequest, res: Response) => {
   }
 };
 
-export const getOrderById = async (req: Request, res: Response) => {
+export const getOrderById = async (req: IAuthRequest, res: Response) => {
   try {
-    const order = await Order.findById(req.params.id);
-    if (order) {
-      res.status(200).json({ success: true, order });
-    } else {
-      res.status(404).json({ success: false, message: "Order not found" });
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
     }
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Authorization: buyer, any seller in the order, or admin. Anyone else
+    // gets 403 — guessing an order id should not leak shipping address,
+    // payment method, or line items.
+    const userId = req.user._id.toString();
+    const isBuyer = order.user && order.user.toString() === userId;
+    const isSellerInOrder = order.orderItems.some(
+      (it: any) => it.seller && it.seller.toString() === userId,
+    );
+    if (!isBuyer && !isSellerInOrder && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
+    res.status(200).json({ success: true, order });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -264,6 +314,9 @@ export const getOrderById = async (req: Request, res: Response) => {
 
 export const payOrder = async (req: IAuthRequest, res: Response) => {
   try {
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
     const order = await Order.findById(req.params.id);
 
     if (!order) {
@@ -273,12 +326,13 @@ export const payOrder = async (req: IAuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: "Order already paid" });
     }
 
-    if (order.user) {
-      if (!req.user || order.user.toString() !== req.user._id.toString()) {
-        return res
-          .status(401)
-          .json({ success: false, message: "Not authorized to pay for this order" });
-      }
+    // Strict ownership — no guest pay flow. The previous "if order.user exists,
+    // check ownership; else allow" path let any unauthenticated caller mark a
+    // guest order paid (which credited the seller balance).
+    if (!order.user || order.user.toString() !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to pay for this order" });
     }
 
     order.isPaid = true;
@@ -469,6 +523,9 @@ export const updateMyOrderStatus = async (req: IAuthRequest, res: Response) => {
 
 export const deleteOrder = async (req: IAuthRequest, res: Response) => {
   try {
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
     const order = await Order.findById(req.params.id);
 
     if (!order) {
@@ -481,10 +538,8 @@ export const deleteOrder = async (req: IAuthRequest, res: Response) => {
         .json({ success: false, message: "Only pending orders can be deleted" });
     }
 
-    if (order.user) {
-      if (!req.user || order.user.toString() !== req.user._id.toString()) {
-        return res.status(401).json({ success: false, message: "Not authorized" });
-      }
+    if (!order.user || order.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
     }
 
     await Order.findByIdAndDelete(req.params.id);

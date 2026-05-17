@@ -39,34 +39,72 @@ export const decideRefund = async (req: IAuthRequest, res: Response) => {
     if (!shopId) return;
     const { id } = req.params;
     if (!isValidObjectId(id)) {
-      res.status(400).json({ success: false, message: "Invalid refund id" });
-      return;
+      return res.status(400).json({ success: false, message: "Invalid refund id" });
     }
     const action = String(req.body.action || "");
     const note = String(req.body.note || "");
     if (!["approve", "reject", "complete"].includes(action)) {
-      res.status(400).json({ success: false, message: "Invalid action" });
-      return;
+      return res.status(400).json({ success: false, message: "Invalid action" });
     }
 
     const refund = await Refund.findOne({ _id: id, shop: shopId });
     if (!refund) {
-      res.status(404).json({ success: false, message: "Refund not found" });
-      return;
+      return res.status(404).json({ success: false, message: "Refund not found" });
     }
 
-    // When approving/completing, deduct the refund amount from the seller's
-    // withdrawable balance so they can't withdraw money they're returning.
-    if (action === "approve" && refund.status === "requested") {
-      refund.status = "approved";
-      const user = await User.findById(shopId);
-      if (user && (user.balance || 0) >= refund.amount) {
-        user.balance = (user.balance || 0) - refund.amount;
-        await user.save();
+    // Refund amount must not exceed what the buyer actually paid for this
+    // order. Checked at decision time so a tampered refund row can't drain
+    // more than the order was ever worth.
+    const order = await Order.findById(refund.order).select("totalPrice");
+    if (order && refund.amount > Number(order.totalPrice)) {
+      return res.status(400).json({
+        success: false,
+        message: `Refund amount (${refund.amount}) exceeds order total (${order.totalPrice})`,
+      });
+    }
+
+    if (action === "approve") {
+      if (refund.status !== "requested") {
+        return res.status(409).json({
+          success: false,
+          message: `Cannot approve a refund in status "${refund.status}"`,
+        });
       }
+      // Atomic balance deduction — only succeeds if the seller actually has
+      // the funds right now. The previous read-then-write let two admins
+      // approving the same refund double-debit, and silently skipped the
+      // deduction when balance was insufficient (refund went to "approved"
+      // anyway, leaving the seller free to withdraw the disputed funds).
+      const deducted = await User.findOneAndUpdate(
+        { _id: shopId, balance: { $gte: refund.amount } },
+        { $inc: { balance: -refund.amount } },
+      );
+      if (!deducted) {
+        return res.status(400).json({
+          success: false,
+          message: "Insufficient seller balance to cover this refund",
+        });
+      }
+      refund.status = "approved";
     } else if (action === "reject") {
+      if (refund.status !== "requested") {
+        return res.status(409).json({
+          success: false,
+          message: `Cannot reject a refund in status "${refund.status}"`,
+        });
+      }
       refund.status = "rejected";
     } else if (action === "complete") {
+      // "Complete" is the manual confirmation that the bank transfer back to
+      // the buyer has happened. It MUST be preceded by approve so the seller
+      // balance was already deducted — otherwise complete would silently
+      // leave the seller holding money they owe the buyer.
+      if (refund.status !== "approved") {
+        return res.status(409).json({
+          success: false,
+          message: `Refund must be approved before marking complete (current: "${refund.status}")`,
+        });
+      }
       refund.status = "completed";
     }
 

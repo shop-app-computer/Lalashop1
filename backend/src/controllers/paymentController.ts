@@ -233,57 +233,39 @@ export const adminGetSlipStats = async (_req: Request, res: Response) => {
 // PUT /api/admin/payment-slips/:id
 // Body: { action: "verify" | "reject", reason?: string }
 // Verifying marks the order as paid AND credits seller balance.
+//
+// Concurrency model: both the slip status flip and the order isPaid flip use
+// atomic findOneAndUpdate with a guard on the prior state. If two admins click
+// "verify" at the same moment, only one wins each transition — so the seller
+// balance is credited exactly once, no matter how many requests race.
 export const adminReviewSlip = async (req: IAuthRequest, res: Response) => {
   try {
-    const slip = await PaymentSlip.findById(req.params.id);
-    if (!slip) return res.status(404).json({ success: false, message: "Slip not found" });
-
     const action = String(req.body.action || "");
     const reason = String(req.body.reason || "");
     if (!["verify", "reject"].includes(action)) {
       return res.status(400).json({ success: false, message: "Invalid action" });
     }
 
-    if (action === "verify") {
-      slip.status = "verified";
-      slip.rejectionReason = "";
-
-      const order = await Order.findById(slip.order);
-      if (order && !order.isPaid) {
-        order.isPaid = true;
-        order.paidAt = new Date();
-        if (order.status === "pending") order.status = "processing";
-        order.paymentMethod = order.paymentMethod || "manual_transfer";
-        await order.save();
-
-        // Credit seller balance from the verified slip — same logic as
-        // when an automatic payment hits paidAt for the first time.
-        for (const item of order.orderItems as unknown as Array<{
-          seller: Types.ObjectId;
-          price: number;
-          qty: number;
-        }>) {
-          const lineTotal = (item.price || 0) * (item.qty || 0);
-          if (lineTotal > 0) {
-            await User.updateOne({ _id: item.seller }, { $inc: { balance: lineTotal } });
-          }
-        }
+    if (action === "reject") {
+      const slip = await PaymentSlip.findOneAndUpdate(
+        { _id: req.params.id, status: "pending" },
+        {
+          $set: {
+            status: "rejected",
+            rejectionReason: reason || "Slip could not be verified",
+            reviewedAt: new Date(),
+            reviewedBy: req.user?._id as Types.ObjectId,
+          },
+        },
+        { new: true },
+      );
+      if (!slip) {
+        const existing = await PaymentSlip.findById(req.params.id);
+        if (!existing) return res.status(404).json({ success: false, message: "Slip not found" });
+        return res
+          .status(409)
+          .json({ success: false, message: `Slip already ${existing.status}` });
       }
-
-      // Notify the buyer
-      await Notification.create({
-        user: slip.user,
-        type: "order_update",
-        title: "Payment verified",
-        body: `We've confirmed your transfer of ฿${slip.transferAmount.toLocaleString()} for order #${String(
-          slip.order
-        ).slice(-8)
-          .toUpperCase()}. Your order is now being processed.`,
-        link: `/orders/orders`,
-      });
-    } else {
-      slip.status = "rejected";
-      slip.rejectionReason = reason || "Slip could not be verified";
 
       await Notification.create({
         user: slip.user,
@@ -294,11 +276,75 @@ export const adminReviewSlip = async (req: IAuthRequest, res: Response) => {
           .toUpperCase()} was rejected. Reason: ${slip.rejectionReason}. Please re-upload a clearer slip.`,
         link: `/orders/orders`,
       });
+
+      return res.json({ success: true, data: slip });
     }
 
-    slip.reviewedAt = new Date();
-    slip.reviewedBy = req.user?._id as Types.ObjectId;
-    await slip.save();
+    // action === "verify" — atomic claim so a re-click / concurrent admin
+    // can't reach the credit block twice for the same slip.
+    const slip = await PaymentSlip.findOneAndUpdate(
+      { _id: req.params.id, status: "pending" },
+      {
+        $set: {
+          status: "verified",
+          rejectionReason: "",
+          reviewedAt: new Date(),
+          reviewedBy: req.user?._id as Types.ObjectId,
+        },
+      },
+      { new: true },
+    );
+    if (!slip) {
+      const existing = await PaymentSlip.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, message: "Slip not found" });
+      return res
+        .status(409)
+        .json({ success: false, message: `Slip already ${existing.status}` });
+    }
+
+    // Atomic order flip — only one slip (across any race) can mark a given
+    // order paid, even if multiple slips exist. paidOrder is null if the
+    // order was already paid; in that case the slip stays verified (admin
+    // intent honored) but we do NOT double-credit the seller.
+    const paidOrder = await Order.findOneAndUpdate(
+      { _id: slip.order, isPaid: false },
+      {
+        $set: {
+          isPaid: true,
+          paidAt: new Date(),
+          status: "processing",
+        },
+      },
+      { new: true },
+    );
+
+    if (paidOrder) {
+      for (const item of paidOrder.orderItems as unknown as Array<{
+        seller: Types.ObjectId;
+        price: number;
+        qty: number;
+      }>) {
+        const lineTotal = (item.price || 0) * (item.qty || 0);
+        if (lineTotal > 0) {
+          await User.updateOne(
+            { _id: item.seller },
+            { $inc: { balance: lineTotal } },
+          );
+        }
+      }
+    }
+
+    await Notification.create({
+      user: slip.user,
+      type: "order_update",
+      title: "Payment verified",
+      body: `We've confirmed your transfer of ฿${slip.transferAmount.toLocaleString()} for order #${String(
+        slip.order,
+      )
+        .slice(-8)
+        .toUpperCase()}. Your order is now being processed.`,
+      link: `/orders/orders`,
+    });
 
     res.json({ success: true, data: slip });
   } catch (err) {
