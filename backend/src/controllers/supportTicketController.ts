@@ -138,18 +138,37 @@ export const adminReplyTicket = async (req: IAuthRequest, res: Response) => {
     if (!req.user?._id) {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
-    const ticket = await SupportTicket.findById(id);
+    // Atomic $push so two concurrent replies both end up in the array.
+    // The previous load → array.push → save pattern would lose one reply
+    // when both admins clicked "Send" within the same tick because each
+    // save() overwrites the doc snapshot loaded a moment earlier.
+    // Also flips open → in_progress on the same write so the loser of a
+    // status-flip race doesn't need to retry.
+    const ticket = await SupportTicket.findOneAndUpdate(
+      { _id: id },
+      {
+        $push: {
+          replies: {
+            author: req.user._id as mongoose.Types.ObjectId,
+            authorRole: "admin",
+            message: message.trim(),
+            createdAt: new Date(),
+          },
+        },
+      },
+      { new: true },
+    );
     if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
 
-    ticket.replies.push({
-      author: req.user._id as any,
-      authorRole: "admin",
-      message: message.trim(),
-      createdAt: new Date(),
-    } as any);
-
-    if (ticket.status === "open") ticket.status = "in_progress";
-    await ticket.save();
+    // Status promotion is best-effort and idempotent; uses an atomic guard
+    // so it only fires the first time a reply lands on an "open" ticket.
+    if (ticket.status === "open") {
+      await SupportTicket.updateOne(
+        { _id: ticket._id, status: "open" },
+        { $set: { status: "in_progress" } },
+      );
+      ticket.status = "in_progress";
+    }
 
     await recordAudit(req, {
       action: "support.reply",

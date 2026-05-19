@@ -78,12 +78,19 @@ export const getFeed = async (req: any, res: Response) => {
 // @access  Public
 export const getPostsByUser = async (req: any, res: Response) => {
   try {
+    // Public + unbounded was risky for influencer profiles — cap with
+    // optional ?limit / ?skip so the frontend can paginate.
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+    const skip = Math.max(0, Number(req.query.skip) || 0);
+
     const posts = await Post.find({
       user: req.params.userId,
       visibility: "public",
     })
       .populate("user", "name username profileImage")
-      .sort("-createdAt");
+      .sort("-createdAt")
+      .skip(skip)
+      .limit(limit);
     res.status(200).json({ success: true, data: posts });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

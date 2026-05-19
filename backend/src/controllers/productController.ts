@@ -244,6 +244,14 @@ export const getTrendingSearches = async (_req: Request, res: Response) => {
 // @access  Public
 export const getProducts = async (req: Request, res: Response) => {
   try {
+    // Public + unauthenticated, so this is the highest-risk DoS target on
+    // the storefront. Cap response size to bound memory/bandwidth even if
+    // the seller catalog grows huge or the frontend forgets to paginate.
+    // ?limit=N (default 200, max 1000) lets the frontend request what it
+    // needs — the hard ceiling protects the server.
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 1000);
+    const skip = Math.max(0, Number(req.query.skip) || 0);
+
     // Public storefront only sees products that are not POS-only and have
     // `showInStorefront` enabled.
     const products = await Product.find({
@@ -251,7 +259,11 @@ export const getProducts = async (req: Request, res: Response) => {
         { $or: [{ showInStorefront: { $ne: false } }, { showInStorefront: { $exists: false } }] },
         { $or: [{ salesChannel: { $ne: "pos" } }, { salesChannel: { $exists: false } }] },
       ],
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     res.status(200).json({ success: true, data: products });
   } catch (error: any) {
     res.status(500).json({
@@ -400,6 +412,11 @@ export const getMyProducts = async (req: IAuthRequest, res: Response) => {
 // @access  Public
 export const getProductsBySeller = async (req: Request, res: Response) => {
   try {
+    // Same bounded-response strategy as getProducts — public + uncapped =
+    // DoS risk on any shop with a large catalog.
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 1000);
+    const skip = Math.max(0, Number(req.query.skip) || 0);
+
     const products = await Product.find({
       seller: req.params.sellerId,
       status: { $ne: "Archived" },
@@ -410,7 +427,11 @@ export const getProductsBySeller = async (req: Request, res: Response) => {
         { $or: [{ showInStorefront: { $ne: false } }, { showInStorefront: { $exists: false } }] },
         { $or: [{ salesChannel: { $ne: "pos" } }, { salesChannel: { $exists: false } }] },
       ],
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     res.status(200).json({ success: true, data: products });
   } catch (error: any) {
     res.status(500).json({
