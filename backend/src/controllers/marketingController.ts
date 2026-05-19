@@ -242,15 +242,33 @@ export const sendBroadcast = async (req: IAuthRequest, res: Response) => {
   try {
     const shopId = requireUser(req, res);
     if (!shopId) return;
-    const broadcast = await Broadcast.findOne({ _id: req.params.id, shop: shopId });
+
+    // Atomic claim — flips the broadcast from a non-sent state to "sent"
+    // BEFORE we fan out notifications. Without this, double-clicking "send"
+    // would call insertMany twice and every recipient gets the same
+    // notification two (or more) times.
+    const broadcast = await Broadcast.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        shop: shopId,
+        status: { $in: ["draft", "scheduled", "failed"] },
+      },
+      { $set: { status: "sent", sentAt: new Date() } },
+      { new: true },
+    );
     if (!broadcast) {
-      res.status(404).json({ success: false, message: "Broadcast not found" });
+      const existing = await Broadcast.findOne({ _id: req.params.id, shop: shopId });
+      if (!existing) {
+        res.status(404).json({ success: false, message: "Broadcast not found" });
+        return;
+      }
+      res.status(400).json({
+        success: false,
+        message: `Cannot send a broadcast in status "${existing.status}"`,
+      });
       return;
     }
-    if (broadcast.status === "sent") {
-      res.status(400).json({ success: false, message: "Broadcast already sent" });
-      return;
-    }
+
     const recipients = await resolveAudience(shopId, broadcast.audience);
     if (broadcast.channel === "in_app") {
       const docs = recipients.map((uid) => ({
@@ -263,8 +281,6 @@ export const sendBroadcast = async (req: IAuthRequest, res: Response) => {
       }));
       if (docs.length > 0) await Notification.insertMany(docs);
     }
-    broadcast.status = "sent";
-    broadcast.sentAt = new Date();
     broadcast.audienceCount = recipients.length;
     broadcast.metrics.delivered = recipients.length;
     await broadcast.save();
