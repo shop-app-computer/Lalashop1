@@ -227,23 +227,32 @@ export const adminReviewKyc = async (req: IAuthRequest, res: Response) => {
         .json({ success: false, message: "decision must be 'approved' or 'rejected'" });
     }
 
-    const submission = await KycSubmission.findById(req.params.id);
+    // Atomic claim of pending→decision. Without this, two admins clicking
+    // "approve" at the same moment both pass the status check and both run
+    // the seller-password generation block below — the seller would get
+    // two notifications with different plaintext passwords (only one of
+    // which matches the actually-saved hash on the User).
+    const submission = await KycSubmission.findOneAndUpdate(
+      { _id: req.params.id, status: "pending" },
+      {
+        $set: {
+          status: decision,
+          reviewedAt: new Date(),
+          reviewNote: (note || "").trim(),
+          ...(req.user?._id ? { reviewedBy: req.user._id } : {}),
+        },
+      },
+      { new: true },
+    );
     if (!submission) {
-      return res.status(404).json({ success: false, message: "Submission not found" });
-    }
-    if (submission.status !== "pending") {
+      const existing = await KycSubmission.findById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: "Submission not found" });
+      }
       return res
         .status(409)
-        .json({ success: false, message: `Already ${submission.status}` });
+        .json({ success: false, message: `Already ${existing.status}` });
     }
-
-    submission.status = decision;
-    submission.reviewedAt = new Date();
-    submission.reviewNote = (note || "").trim();
-    if (req.user?._id) {
-      submission.reviewedBy = req.user._id;
-    }
-    await submission.save();
 
     const isApproved = decision === "approved";
     const sellerDashboardUrl =
