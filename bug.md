@@ -3,15 +3,25 @@
 ผลการ audit แบบขนาน 3 มิติ (security/authz, money flows, frontend/contract)
 แก้ทีไหร่ → เปลี่ยน `[ ]` เป็น `[x]` แล้วเติม `**FIX DONE** YYYY-MM-DD` ที่ท้ายบรรทัด
 
-**สถานะรวม:** 27 / 29 closed (23 fixed + 4 N/A/deferred · 2 pending design)
+**สถานะรวม:** 29 / 29 dispositioned (23 fixed + 4 N/A + 2 deferred)
 
-- Critical: 9 fixed + 1 N/A (#9 false positive)
-- High: 9 fixed + 1 N/A (#14 no apply flow) + 1 N/A (#19 false positive) · 1 pending design (#18, #21)
-- Medium: 6 fixed · 1 deferred (#28 refactor)
+| Severity | Total | Fixed | N/A | Deferred |
+|---|---|---|---|---|
+| Critical | 10 | 9 | 1 (#9 false positive) | 0 |
+| High | 12 | 8 | 3 (#14 no flow, #18 no flow, #19 false positive) | 1 (#21 cross-cutting) |
+| Medium | 7 | 6 | 0 | 1 (#28 refactor) |
 
-**Bonus bugs caught during testing/audit:**
-- Pre-existing double-hash in `/register` → fixed in commit acbf07c
-- `adminReviewSlip` ไม่สร้าง CreatorEarning เลย → fixed alongside #25
+**Bonus bugs caught during work (not in original audit):**
+- Pre-existing double-hash in `/register` → fixed in commit `acbf07c`
+- `adminReviewSlip` ไม่สร้าง CreatorEarning เลย (slip flow ของลูกค้าทำให้ creator ไม่ได้ commission) → fixed in `950cfb5` alongside #25
+
+**Commits this session:**
+- `5e0aea2` Critical batch — JWT, IDOR, races, secrets (9 bugs + 1 false positive closed)
+- `da96364` High batch — affiliate, refund chain, invite race, mass-assignment, OTP rate limit (5 + 4 incidental + 1 N/A)
+- `f828705` Frontend small — money display, URL validation, Lao i18n (3 + 1 deferred)
+- `38eb6fb` CustomerAuthGuard for #22
+- `acbf07c` Bonus fix: stop double-hashing /register password
+- `950cfb5` #25 commission timing + creator-earning gap in slip flow (+ #19 false positive)
 
 ---
 
@@ -141,11 +151,11 @@
   spread `req.body` → buyer ส่ง `status: "delivered"`, `isPaid: true` ได้
   ✅ #4 build `enriched` แบบ explicit ทุก field; Order constructor hardcode `status`, `isPaid`, `isDelivered` ตาม `isPos` server-side
 
-- [ ] **#18 Multi-seller refund ไม่ proportional**
-  `refundModel.shop` มีอันเดียว แต่ order มี seller หลายคน
-  📁 [refundModel.ts](backend/src/models/refundModel.ts)
-  💥 refund หัก balance ของ seller คนเดียว ไม่ครอบคลุม
-  🔧 Fix: refund per-item หรือมี `refundItems[]`
+- [~] **#18 Multi-seller refund ไม่ proportional** **N/A — flow ไม่มี** 2026-05-17
+  ตรวจแล้ว: ทั้งโปรเจกต์ (backend + Admin + frontend + seller) **ไม่มีจุดไหนสร้าง Refund record เลย** — grep `new Refund|Refund.create|refund.create` = 0 matches
+  📁 [refundModel.ts](backend/src/models/refundModel.ts), [adminOrdersController.ts:41](backend/src/controllers/adminOrdersController.ts) comment ระบุชัด: *"refunded and disputed don't exist in the schema yet"*
+  📝 Refund collection มีแค่ model + list/get/decide endpoints (operate on existing rows ที่ไม่มีอยู่จริง); Admin "refunds" page filter order ด้วย `status: 'refunded'` ไม่ใช่ Refund collection
+  📝 ถ้า/เมื่อ implement refund creation flow ต้องออกแบบ schema ใหม่ — refund per-item หรือ refundItems[] เพื่อรองรับ multi-seller order
 
 - [~] **#19 POS revenue ปนกับ balance** **FALSE POSITIVE** 2026-05-17
   ตรวจแล้ว: posRevenue write เกิดที่ orderController.ts:201 (POS create) **ที่เดียว**, balance write ทั้ง 10 ที่ไม่มี cross-contamination
@@ -160,10 +170,13 @@
   💥 brute-force OTP / spam OTP email / steal withdraw PIN via XSS
   ✅ Applied: `authRateLimiter` ใน `/withdraw-pin/set`, `/2fa/email/send`, `/2fa/email/verify`, `/2fa/verify` (10 tries / 15 min) — เก็บ `/2fa/setup` ไว้ (GET, idempotent)
 
-- [ ] **#21 Frontend: token ใน localStorage**
+- [~] **#21 Frontend: token ใน localStorage** **DEFERRED** 2026-05-17
   ทั้ง 3 apps เก็บ JWT ใน localStorage → XSS ขโมยได้
   📁 [frontend/login/index.tsx:28,63](frontend/src/pages/login/index.tsx), [Admin/login.tsx:33](Admin/src/pages/login.tsx), [seller/login.tsx:32](seller/src/pages/login.tsx)
-  🔧 Fix: ย้ายไป httpOnly cookie (server-set)
+  📝 Scope ใหญ่กว่าที่คาด: grep `localStorage.*token` = **32 callsites ใน 3 apps** (apiClient ×3, login/signup/2fa ×5, logout ×5, AuthGuards ×3, manual-fetch pages ×16)
+  📝 Phase-1 backend infrastructure อย่างเดียวให้ security benefit = 0 (token ยังอยู่ใน localStorage); Phase-2 frontend migration ต้องแก้ 32 จุดพร้อมกัน + manual browser test ต่อ app ก่อน deploy (ไม่มีใน session นี้)
+  📝 CORS gotcha: ปัจจุบัน CORS allow `(null, true)` ถ้า ALLOWED_ORIGINS ว่าง = "wildcard with credentials" — ใน prod ต้องตั้ง `ALLOWED_ORIGINS` ครบทุก app URL ก่อน
+  🔧 To-do (separate session): coordinated rollout — backend cookie support → migrate 1 app (Admin smallest) → browser test → migrate frontend → migrate seller
 
 - [x] **#22 Auth guard ก่อน fetch** **FIX DONE** 2026-05-17 (partial false positive)
   📁 [frontend/components/CustomerAuthGuard.tsx](frontend/src/components/CustomerAuthGuard.tsx), [frontend/pages/_app.tsx](frontend/src/pages/_app.tsx)
@@ -252,5 +265,7 @@
 2026-05-17 · #26, #27, #29 · f828705 · payment.tsx + transfer.tsx + i18n keys (30 strings × 5 langs)
 2026-05-17 · #22 · 38eb6fb · CustomerAuthGuard + _app.tsx PROTECTED_PREFIXES (Admin + seller already covered)
 2026-05-17 · double-hash · acbf07c · /register stopped double-hashing password (bonus catch)
-2026-05-17 · #25 + creator-earning gap · (uncommitted) · settleItemCreatorEarning helper, used by payOrder + adminReviewSlip; #19 closed as false positive
+2026-05-17 · #25 + creator-earning gap · 950cfb5 · settleItemCreatorEarning helper, used by payOrder + adminReviewSlip; #19 closed as false positive
+2026-05-17 · #18 · (closed N/A) · no Refund.create call anywhere in repo — flow not implemented yet
+2026-05-17 · #21 · DEFERRED · 32 callsites across 3 apps + needs browser test infrastructure
 ```
