@@ -7,6 +7,7 @@ import User from "../models/userModel";
 import Notification from "../models/notificationModel";
 import { generatePromptPayQrDataUrl } from "../utils/promptpay";
 import { IAuthRequest } from "../middlewares/authMiddleware";
+import { settleItemCreatorEarning } from "./orderController";
 
 // ─── Public — what customers see at checkout ─────────────────────────
 
@@ -320,7 +321,10 @@ export const adminReviewSlip = async (req: IAuthRequest, res: Response) => {
 
     if (paidOrder) {
       for (const item of paidOrder.orderItems as unknown as Array<{
+        _id?: Types.ObjectId;
         seller: Types.ObjectId;
+        product: Types.ObjectId;
+        creator?: Types.ObjectId;
         price: number;
         qty: number;
       }>) {
@@ -331,6 +335,11 @@ export const adminReviewSlip = async (req: IAuthRequest, res: Response) => {
             { $inc: { balance: lineTotal } },
           );
         }
+        // Settle creator earning at slip-verify time. Previously this only
+        // happened in orderController.payOrder, which the customer slip flow
+        // never calls — so creators were silently missing every commission
+        // for orders paid via slip upload.
+        await settleItemCreatorEarning(item, paidOrder._id as Types.ObjectId);
       }
     }
 

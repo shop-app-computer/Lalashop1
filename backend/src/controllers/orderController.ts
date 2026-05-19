@@ -21,6 +21,72 @@ const computeCommission = (
   return Math.max(0, (lineTotal * value) / 100);
 };
 
+// Create a pending CreatorEarning for one order item, using the CURRENT
+// product commission rate (not the snapshot stored on the order item at
+// create time) — that's #25. Also flips the matching affiliate click to
+// "converted" and bumps the CreatorProduct conversions counter. Idempotent:
+// the (order, orderItemId) unique index on CreatorEarning means a duplicate
+// pay call is a no-op (the try/catch swallows the duplicate-key error).
+//
+// Exported so the slip-verify path in paymentController can settle the
+// same way — previously only payOrder did this, so customers who paid via
+// the slip flow never produced creator earnings.
+export const settleItemCreatorEarning = async (
+  item: {
+    _id?: mongoose.Types.ObjectId;
+    creator?: mongoose.Types.ObjectId;
+    seller: mongoose.Types.ObjectId;
+    product: mongoose.Types.ObjectId;
+    price: number;
+    qty: number;
+  },
+  orderId: mongoose.Types.ObjectId,
+): Promise<void> => {
+  if (!item.creator) return;
+
+  const product = await Product.findById(item.product).select(
+    "commissionType commissionValue allowCreators",
+  );
+  if (!product || !product.allowCreators) return;
+
+  const type = (product.commissionType as "percent" | "fixed") || "percent";
+  const value = product.commissionValue || 0;
+  const commission = computeCommission(
+    Number(item.price) || 0,
+    Number(item.qty) || 0,
+    type,
+    value,
+  );
+  if (commission <= 0) return;
+
+  try {
+    await CreatorEarning.create({
+      creator: item.creator,
+      order: orderId,
+      orderItemId: item._id,
+      product: item.product,
+      seller: item.seller,
+      amount: commission,
+      status: "pending",
+    });
+    await CreatorProduct.updateOne(
+      { creator: item.creator, product: item.product },
+      { $inc: { conversions: 1 } },
+    );
+    await AffiliateClick.findOneAndUpdate(
+      {
+        creator: item.creator,
+        product: item.product,
+        converted: false,
+      },
+      { $set: { converted: true, order: orderId } },
+      { sort: { createdAt: -1 } },
+    );
+  } catch {
+    // duplicate (order, orderItemId) — earning already recorded
+  }
+};
+
 // Resolve creator attribution for one order item.
 // Priority: explicit body.affiliateCode > body.creator > affiliate cookie.
 const resolveAttribution = async (
@@ -354,43 +420,19 @@ export const payOrder = async (req: IAuthRequest, res: Response) => {
 
     const updatedOrder = await order.save();
 
-    // Credit seller balance.
+    // Credit seller balance + record pending creator earning at the CURRENT
+    // commission rate (the snapshot on the order item is now informational —
+    // see settleItemCreatorEarning).
     for (const item of order.orderItems) {
       if (item.seller) {
         await User.findByIdAndUpdate(item.seller, {
           $inc: { balance: item.price * item.qty },
         });
       }
-
-      // Record creator earning as pending. Bumps creator clicks/conversions counters.
-      if (item.creator && item.commission && item.commission > 0) {
-        try {
-          await CreatorEarning.create({
-            creator: item.creator,
-            order: order._id,
-            orderItemId: (item as any)._id,
-            product: item.product,
-            seller: item.seller,
-            amount: item.commission,
-            status: "pending",
-          });
-          await CreatorProduct.updateOne(
-            { creator: item.creator, product: item.product },
-            { $inc: { conversions: 1 } }
-          );
-          await AffiliateClick.findOneAndUpdate(
-            {
-              creator: item.creator,
-              product: item.product,
-              converted: false,
-            },
-            { $set: { converted: true, order: order._id } },
-            { sort: { createdAt: -1 } }
-          );
-        } catch {
-          // earning already recorded — ignore duplicate
-        }
-      }
+      await settleItemCreatorEarning(
+        item as unknown as Parameters<typeof settleItemCreatorEarning>[0],
+        order._id as mongoose.Types.ObjectId,
+      );
     }
 
     res.status(200).json({ success: true, order: updatedOrder });

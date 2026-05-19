@@ -3,11 +3,15 @@
 ผลการ audit แบบขนาน 3 มิติ (security/authz, money flows, frontend/contract)
 แก้ทีไหร่ → เปลี่ยน `[ ]` เป็น `[x]` แล้วเติม `**FIX DONE** YYYY-MM-DD` ที่ท้ายบรรทัด
 
-**สถานะรวม:** 25 / 29 closed (22 fixed + 3 N/A/deferred · 4 pending)
+**สถานะรวม:** 27 / 29 closed (23 fixed + 4 N/A/deferred · 2 pending design)
 
 - Critical: 9 fixed + 1 N/A (#9 false positive)
-- High: 8 fixed + 1 N/A (#14 no apply flow yet) · 3 pending design (#18, #19, #21)
-- Medium: 5 fixed (2 incidental + 3 frontend small) · 1 deferred (#28 refactor) · 1 pending (#25 design)
+- High: 9 fixed + 1 N/A (#14 no apply flow) + 1 N/A (#19 false positive) · 1 pending design (#18, #21)
+- Medium: 6 fixed · 1 deferred (#28 refactor)
+
+**Bonus bugs caught during testing/audit:**
+- Pre-existing double-hash in `/register` → fixed in commit acbf07c
+- `adminReviewSlip` ไม่สร้าง CreatorEarning เลย → fixed alongside #25
 
 ---
 
@@ -143,10 +147,12 @@
   💥 refund หัก balance ของ seller คนเดียว ไม่ครอบคลุม
   🔧 Fix: refund per-item หรือมี `refundItems[]`
 
-- [ ] **#19 POS revenue ปนกับ balance**
-  บางจุดใส่ `posRevenue` บางจุดใส่ `balance` → บัญชีไม่ตรง
-  📁 [orderController.ts:149-151](backend/src/controllers/orderController.ts), [paymentController.ts:268](backend/src/controllers/paymentController.ts), [financeController.ts](backend/src/controllers/financeController.ts)
-  💥 withdraw จาก `balance` ดึง pos revenue ไม่ได้ / ดึงได้แล้วแต่ที่
+- [~] **#19 POS revenue ปนกับ balance** **FALSE POSITIVE** 2026-05-17
+  ตรวจแล้ว: posRevenue write เกิดที่ orderController.ts:201 (POS create) **ที่เดียว**, balance write ทั้ง 10 ที่ไม่มี cross-contamination
+  - POS order: status=delivered + isPaid=true ตอน create + posRevenue += total → ไม่มี payOrder, slip review, deliverOrder ตามมา (terminal at create)
+  - Web order: payOrder/adminReviewSlip credit balance, deliverOrder settle CreatorEarning → credit creator balance, withdraw deduct balance, refund deduct balance
+  - posRevenue ถูกออกแบบให้ non-withdrawable เป็น by design (cash-in-hand) — ไม่ใช่ inconsistent
+  📝 Note: feature gap คือไม่มี admin endpoint โอน posRevenue → balance (ถ้า seller ฝากเงินสดเข้าระบบ) — แต่ไม่ใช่ bug
 
 - [x] **#20 ไม่มี rate limit บน 2FA/OTP send + withdraw-pin/set** **FIX DONE** 2026-05-17
   DEPLOY.md ระบุ rate limit เฉพาะ auth endpoints
@@ -176,9 +182,11 @@
 - [x] **#24 Withdraw cancel silent fail ตอน status ≠ pending** **FIX DONE** 2026-05-17 (incidental จาก #5)
   ✅ #5 fix เปลี่ยน cancelWithdrawal เป็น atomic `findOneAndUpdate({_id, user, status: "pending"})` → 400 explicit ถ้าไม่ใช่ pending
 
-- [ ] **#25 Commission lock ตอน create order ไม่ใช่ตอน paid**
-  ถ้า seller เปลี่ยน commission rule ระหว่าง buyer จ่าย → rate เก่าค้าง
-  📁 [orderController.ts:113-126](backend/src/controllers/orderController.ts)
+- [x] **#25 Commission lock timing + slip flow ไม่จ่าย creator** **FIX DONE** 2026-05-17
+  ถ้า seller เปลี่ยน commission rule ระหว่าง buyer จ่าย → rate เก่าค้าง; เพิ่ม: เจอ **bug หนักกว่า** ระหว่างตรวจ — adminReviewSlip (flow ลูกค้าจริง) ไม่สร้าง CreatorEarning เลย → creator ไม่ได้ commission ผ่าน slip flow ทั้งหมด
+  📁 [orderController.ts settleItemCreatorEarning helper](backend/src/controllers/orderController.ts), [paymentController.ts adminReviewSlip](backend/src/controllers/paymentController.ts)
+  ✅ Applied: เพิ่ม exported helper `settleItemCreatorEarning(item, orderId)` ที่ re-fetch `product.commissionType/Value` ตอน pay-time (lock rate ใหม่) + create CreatorEarning + flip AffiliateClick.converted + bump CreatorProduct.conversions; idempotent ผ่าน unique index (order, orderItemId); ใช้ทั้งใน payOrder (#25 timing fix) และ adminReviewSlip (ปิด creator-earning gap — bug ใหม่ที่เจอ)
+  📝 Note: order item ยังเก็บ snapshot commission ตอน create (informational), แต่ amount ที่จ่ายจริงใช้ rate ปัจจุบัน
 
 - [x] **#26 Floating-point price arithmetic** **FIX DONE** 2026-05-17
   `parseFloat × parseInt` → 0.1 × 3 = 0.30000…4
@@ -242,5 +250,7 @@
 2026-05-17 · #13, #17, #23, #24 · (closed by previous commits) · incidentally fixed by #4, #1, #5
 2026-05-17 · #6-#12, #15-#16, #20 · da96364 · "fix(backend): close 5 high-severity bugs"
 2026-05-17 · #26, #27, #29 · f828705 · payment.tsx + transfer.tsx + i18n keys (30 strings × 5 langs)
-2026-05-17 · #22 · (uncommitted) · CustomerAuthGuard + _app.tsx PROTECTED_PREFIXES (Admin + seller already covered)
+2026-05-17 · #22 · 38eb6fb · CustomerAuthGuard + _app.tsx PROTECTED_PREFIXES (Admin + seller already covered)
+2026-05-17 · double-hash · acbf07c · /register stopped double-hashing password (bonus catch)
+2026-05-17 · #25 + creator-earning gap · (uncommitted) · settleItemCreatorEarning helper, used by payOrder + adminReviewSlip; #19 closed as false positive
 ```
