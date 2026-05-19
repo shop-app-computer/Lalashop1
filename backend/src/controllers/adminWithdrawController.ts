@@ -171,39 +171,61 @@ export const adminProcessWithdrawal = async (req: Request, res: Response) => {
       adminNote?: string;
     };
 
-    const item = await Withdraw.findById(id);
-    if (!item) return res.status(404).json({ success: false, message: "Not found" });
+    // Each decision can only run from a specific prior state, and the flip
+    // must be atomic so two admins clicking "reject" at the same moment
+    // can't both refund the held amount (double-credit user.balance).
+    const adminId = (req as any).user?._id;
+    const baseSet: Record<string, unknown> = {};
+    if (adminNote) baseSet.adminNote = adminNote;
+    if (adminId) baseSet.processedBy = adminId;
 
+    let prerequisiteStatus: string[];
+    let newStatus: string;
+    let refundsBalance = false;
     switch (decision) {
       case "approve":
-        item.status = "approved";
+        prerequisiteStatus = ["pending"];
+        newStatus = "approved";
         break;
       case "reject":
-        item.status = "rejected";
-        // Refund the held amount back to the user's balance
-        await User.findByIdAndUpdate(item.user, { $inc: { balance: item.amount } });
+        prerequisiteStatus = ["pending", "approved"];
+        newStatus = "rejected";
+        refundsBalance = true;
         break;
       case "complete":
-        item.status = "completed";
-        item.processedAt = new Date();
-        if (reference) item.reference = reference;
+        prerequisiteStatus = ["approved"];
+        newStatus = "completed";
+        baseSet.processedAt = new Date();
+        if (reference) baseSet.reference = reference;
         break;
       case "fail":
-        item.status = "failed";
-        await User.findByIdAndUpdate(item.user, { $inc: { balance: item.amount } });
+        prerequisiteStatus = ["pending", "approved"];
+        newStatus = "failed";
+        refundsBalance = true;
         break;
       default:
         return res.status(400).json({ success: false, message: "Invalid decision" });
     }
 
-    if (adminNote) item.adminNote = adminNote;
+    const item = await Withdraw.findOneAndUpdate(
+      { _id: id, status: { $in: prerequisiteStatus } },
+      { $set: { ...baseSet, status: newStatus } },
+      { new: true },
+    );
+    if (!item) {
+      const existing = await Withdraw.findById(id);
+      if (!existing) return res.status(404).json({ success: false, message: "Not found" });
+      return res.status(409).json({
+        success: false,
+        message: `Cannot ${decision} a withdrawal in status "${existing.status}"`,
+      });
+    }
 
-    // Audit trail: stamp the admin who took this action so the Withdrawals
-    // table can show "Processed by" for finance review.
-    const adminId = (req as any).user?._id;
-    if (adminId) item.processedBy = adminId;
-
-    await item.save();
+    // Refund the held amount only on the request that actually won the
+    // atomic transition — the loser returned 409 above.
+    if (refundsBalance) {
+      await User.findByIdAndUpdate(item.user, { $inc: { balance: item.amount } });
+    }
 
     res.status(200).json({
       success: true,

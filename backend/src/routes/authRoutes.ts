@@ -70,7 +70,14 @@ router.get(
   requireOAuth("google"),
   passport.authenticate("google", { session: false }),
   (req: any, res) => {
-    const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET as string);
+    // Match Facebook's 7-day expiry. Without expiresIn the token would
+    // be issued without `exp` and treated as never-expiring by every
+    // call to jwt.verify — a Google login would grant a forever token.
+    const token = jwt.sign(
+      { id: req.user._id },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" },
+    );
     const base = process.env.FRONTEND_URL || "http://localhost:3000";
     res.redirect(`${base}/login?token=${token}`);
   },
