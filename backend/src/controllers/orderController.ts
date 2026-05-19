@@ -31,6 +31,29 @@ const computeCommission = (
 // Exported so the slip-verify path in paymentController can settle the
 // same way — previously only payOrder did this, so customers who paid via
 // the slip flow never produced creator earnings.
+// Flip ONE CreatorEarning row pending→settled and credit the creator. Used
+// when an order is delivered. The atomic findOneAndUpdate with status:"pending"
+// guard means concurrent deliverOrder / updateMyOrderStatus calls can't both
+// settle the same earning row and double-credit the creator.
+export const payOutPendingEarning = async (
+  earningId: mongoose.Types.ObjectId,
+): Promise<void> => {
+  const settled = await CreatorEarning.findOneAndUpdate(
+    { _id: earningId, status: "pending" },
+    { $set: { status: "settled", settledAt: new Date() } },
+    { new: true },
+  );
+  if (!settled) return; // already settled (or canceled) by a concurrent call
+
+  await User.findByIdAndUpdate(settled.creator, {
+    $inc: { balance: settled.amount },
+  });
+  await CreatorProduct.updateOne(
+    { creator: settled.creator, product: settled.product },
+    { $inc: { totalEarned: settled.amount } },
+  );
+};
+
 export const settleItemCreatorEarning = async (
   item: {
     _id?: mongoose.Types.ObjectId;
@@ -396,34 +419,34 @@ export const payOrder = async (req: IAuthRequest, res: Response) => {
     if (!req.user?._id) {
       return res.status(401).json({ success: false, message: "Not authenticated" });
     }
-    const order = await Order.findById(req.params.id);
 
-    if (!order) {
+    // Ownership check needs the order anyway, so load it first and verify
+    // before claiming. (Atomic flip alone can't authorize.)
+    const existing = await Order.findById(req.params.id);
+    if (!existing) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
-    if (order.isPaid) {
-      return res.status(400).json({ success: false, message: "Order already paid" });
-    }
-
-    // Strict ownership — no guest pay flow. The previous "if order.user exists,
-    // check ownership; else allow" path let any unauthenticated caller mark a
-    // guest order paid (which credited the seller balance).
-    if (!order.user || order.user.toString() !== req.user._id.toString()) {
+    if (!existing.user || existing.user.toString() !== req.user._id.toString()) {
       return res
         .status(403)
         .json({ success: false, message: "Not authorized to pay for this order" });
     }
 
-    order.isPaid = true;
-    order.paidAt = new Date();
-    order.status = "processing";
-
-    const updatedOrder = await order.save();
+    // Atomic claim — only the first request flips isPaid:false → true. Two
+    // concurrent pays from the same buyer can't both reach the credit block
+    // and double the seller's balance.
+    const paidOrder = await Order.findOneAndUpdate(
+      { _id: existing._id, isPaid: false },
+      { $set: { isPaid: true, paidAt: new Date(), status: "processing" } },
+      { new: true },
+    );
+    if (!paidOrder) {
+      return res.status(400).json({ success: false, message: "Order already paid" });
+    }
 
     // Credit seller balance + record pending creator earning at the CURRENT
-    // commission rate (the snapshot on the order item is now informational —
-    // see settleItemCreatorEarning).
-    for (const item of order.orderItems) {
+    // commission rate (the snapshot on the order item is informational only).
+    for (const item of paidOrder.orderItems) {
       if (item.seller) {
         await User.findByIdAndUpdate(item.seller, {
           $inc: { balance: item.price * item.qty },
@@ -431,11 +454,11 @@ export const payOrder = async (req: IAuthRequest, res: Response) => {
       }
       await settleItemCreatorEarning(
         item as unknown as Parameters<typeof settleItemCreatorEarning>[0],
-        order._id as mongoose.Types.ObjectId,
+        paidOrder._id as mongoose.Types.ObjectId,
       );
     }
 
-    res.status(200).json({ success: true, order: updatedOrder });
+    res.status(200).json({ success: true, order: paidOrder });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -444,45 +467,45 @@ export const payOrder = async (req: IAuthRequest, res: Response) => {
 // PUT /api/orders/:id/deliver  — settles creator earnings and credits creator balance.
 export const deliverOrder = async (req: IAuthRequest, res: Response) => {
   try {
-    const order = await Order.findById(req.params.id);
-    if (!order) {
+    // Load for authorization + isPaid precondition. Atomic flip below
+    // protects against concurrent deliveries double-crediting creators.
+    const existing = await Order.findById(req.params.id);
+    if (!existing) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
-    if (!order.isPaid) {
+    if (!existing.isPaid) {
       return res.status(400).json({ success: false, message: "Order not paid yet" });
-    }
-    if (order.isDelivered) {
-      return res.status(400).json({ success: false, message: "Order already delivered" });
     }
 
     // Authorization: seller of any item OR admin.
-    const isSellerInOrder = order.orderItems.some(
+    const isSellerInOrder = existing.orderItems.some(
       (it: any) => it.seller && req.user && it.seller.toString() === req.user._id.toString()
     );
     if (!req.user?.isAdmin && !isSellerInOrder) {
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 
-    order.isDelivered = true;
-    order.deliveredAt = new Date();
-    order.status = "delivered";
-    await order.save();
-
-    const pending = await CreatorEarning.find({ order: order._id, status: "pending" });
-    for (const earning of pending) {
-      earning.status = "settled";
-      earning.settledAt = new Date();
-      await earning.save();
-      await User.findByIdAndUpdate(earning.creator, {
-        $inc: { balance: earning.amount },
-      });
-      await CreatorProduct.updateOne(
-        { creator: earning.creator, product: earning.product },
-        { $inc: { totalEarned: earning.amount } }
-      );
+    // Atomic claim. Loser returns 400; only the winner runs the settlement
+    // loop. The per-earning settle helper is itself atomic, so even if two
+    // somehow reach the loop the creator still gets credited exactly once.
+    const delivered = await Order.findOneAndUpdate(
+      { _id: existing._id, isDelivered: false },
+      { $set: { isDelivered: true, deliveredAt: new Date(), status: "delivered" } },
+      { new: true },
+    );
+    if (!delivered) {
+      return res.status(400).json({ success: false, message: "Order already delivered" });
     }
 
-    res.status(200).json({ success: true, order });
+    const pending = await CreatorEarning.find({
+      order: delivered._id,
+      status: "pending",
+    }).select("_id");
+    for (const earning of pending) {
+      await payOutPendingEarning(earning._id as mongoose.Types.ObjectId);
+    }
+
+    res.status(200).json({ success: true, order: delivered });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -541,25 +564,45 @@ export const updateMyOrderStatus = async (req: IAuthRequest, res: Response) => {
       });
     }
 
-    order.status = status as typeof order.status;
     if (status === "delivered") {
-      order.isDelivered = true;
-      order.deliveredAt = new Date();
-
-      // Settle creator earnings on delivery — same logic as deliverOrder.
-      const pending = await CreatorEarning.find({ order: order._id, status: "pending" });
-      for (const earning of pending) {
-        earning.status = "settled";
-        earning.settledAt = new Date();
-        await earning.save();
-        await User.findByIdAndUpdate(earning.creator, { $inc: { balance: earning.amount } });
-        await CreatorProduct.updateOne(
-          { creator: earning.creator, product: earning.product },
-          { $inc: { totalEarned: earning.amount } }
-        );
+      // Atomic flip so concurrent "deliver" requests (this endpoint OR
+      // deliverOrder) can't both reach the earning-settlement loop and
+      // double-credit creators.
+      const delivered = await Order.findOneAndUpdate(
+        { _id: order._id, isDelivered: false },
+        {
+          $set: {
+            status: "delivered",
+            isDelivered: true,
+            deliveredAt: new Date(),
+          },
+        },
+        { new: true },
+      );
+      if (!delivered) {
+        return res.status(400).json({
+          success: false,
+          message: "Order is already delivered — cannot change status",
+        });
       }
+
+      const pending = await CreatorEarning.find({
+        order: delivered._id,
+        status: "pending",
+      }).select("_id");
+      for (const earning of pending) {
+        await payOutPendingEarning(earning._id as mongoose.Types.ObjectId);
+      }
+
+      // Refresh local reference so the response below reflects the atomic
+      // update (the original `order` doc is stale after findOneAndUpdate).
+      order.status = delivered.status;
+      order.isDelivered = delivered.isDelivered;
+      order.deliveredAt = delivered.deliveredAt;
+    } else {
+      order.status = status as typeof order.status;
+      await order.save();
     }
-    await order.save();
 
     res.status(200).json({
       success: true,

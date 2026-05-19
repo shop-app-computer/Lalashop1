@@ -14,6 +14,7 @@
 **Bonus bugs caught during work (not in original audit):**
 - Pre-existing double-hash in `/register` → fixed in commit `acbf07c`
 - `adminReviewSlip` ไม่สร้าง CreatorEarning เลย (slip flow ของลูกค้าทำให้ creator ไม่ได้ commission) → fixed in `950cfb5` alongside #25
+- `payOrder`, `deliverOrder`, `updateMyOrderStatus` มี race pattern เดียวกับ #2 — 2 click concurrent → seller balance / creator earnings credit ซ้ำ → atomic findOneAndUpdate + `payOutPendingEarning` helper
 
 **Commits this session:**
 - `5e0aea2` Critical batch — JWT, IDOR, races, secrets (9 bugs + 1 false positive closed)
@@ -41,7 +42,7 @@
   📁 [paymentController.ts:236-340](backend/src/controllers/paymentController.ts)
   💥 admin กดซ้ำ หรือ concurrent request → balance ของ seller โดน credit ซ้ำ
   ✅ Applied: เปลี่ยน adminReviewSlip เป็น atomic 2 ระดับ — (1) `PaymentSlip.findOneAndUpdate({_id, status: "pending"}, ...)` claim slip, return 409 ถ้าใช่แล้ว, (2) `Order.findOneAndUpdate({_id, isPaid: false}, ...)` flip order — credit seller เฉพาะ winner เท่านั้น; reject path ก็ atomic เหมือนกัน
-  📝 Related (ยังไม่แก้): [orderController.ts:265-333 payOrder](backend/src/controllers/orderController.ts#L265) มี race pattern เดียวกัน — buyer flow, blast radius เล็กกว่า แต่ควรแก้แบบเดียวกัน
+  📝 Related fixed in follow-up: [orderController.ts payOrder + deliverOrder + updateMyOrderStatus](backend/src/controllers/orderController.ts) มี race pattern เดียวกัน — แก้ด้วย atomic findOneAndUpdate + payOutPendingEarning helper (per-earning atomic flip กัน double-credit ตอน deliver)
 
 - [x] **#3 Refund approved แต่ balance ไม่พอ ก็เงียบ** **FIX DONE** 2026-05-17
   `if (user && (user.balance || 0) >= refund.amount)` — ถ้า balance ไม่พอ ไม่ throw error แต่ mark approved ต่อ
